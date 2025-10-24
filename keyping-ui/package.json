@@ -1,0 +1,74 @@
+{
+  "name": "keyping-ui",
+  "version": "0.0.1",
+  "private": true,
+  "description": "KeyPing — desktop app that detects reused or similar passwords locally (Angular + Electron, offline).",
+  "author": "Unax Zulaika Fuente (Zulaa9)",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "electron:build": "tsc -p electron/tsconfig.json",
+    "electron:watch": "tsc -p electron/tsconfig.json -w",
+    "dev": "concurrently -n ANG,TS,ELC \"ng serve --port 4300\" \"npm:electron:watch\" \"wait-on http://localhost:4300 && cross-env VITE_DEV_SERVER_URL=http://localhost:4300 electron .\"",
+    "build:angular": "ng build --configuration production",
+    "build": "npm run build:angular && npm run electron:build && electron-builder",
+    "test": "ng test",
+    "watch": "ng build --watch --configuration development",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.keyping.app",
+    "productName": "KeyPing",
+    "files": [
+      "dist/keyping-ui/**/*",
+      "dist-electron/**/*"
+    ],
+    "directories": {
+      "output": "dist/build"
+    },
+    "asar": true,
+    "win": { "target": ["nsis"], "artifactName": "KeyPing-Setup-${version}.exe" },
+    "linux": { "target": ["AppImage"], "category": "Utility" },
+    "mac": { "target": ["dmg"], "hardenedRuntime": true }
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      { "files": "*.html", "options": { "parser": "angular" } }
+    ]
+  },
+  "dependencies": {
+    "@angular/animations": "^20.3.0",
+    "@angular/common": "^20.3.0",
+    "@angular/compiler": "^20.3.0",
+    "@angular/core": "^20.3.0",
+    "@angular/forms": "^20.3.0",
+    "@angular/platform-browser": "^20.3.0",
+    "@angular/router": "^20.3.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^20.3.7",
+    "@angular/cli": "^20.3.7",
+    "@angular/compiler-cli": "^20.3.0",
+    "@types/electron": "^31.0.0",
+    "@types/jasmine": "~5.1.0",
+    "@types/node": "^22.5.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^31.7.7",
+    "electron-builder": "^26.0.12",
+    "jasmine-core": "~5.9.0",
+    "karma": "~6.4.0",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-coverage": "~2.2.0",
+    "karma-jasmine": "~5.1.0",
+    "karma-jasmine-html-reporter": "~2.1.0",
+    "typescript": "~5.9.2",
+    "wait-on": "^9.0.1"
+  }
+}
