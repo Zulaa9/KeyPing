@@ -2,6 +2,7 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
+import { RAW_COMMON_WORDS } from './common-words';
 
 let win: BrowserWindow | null = null;
 
@@ -60,28 +61,6 @@ app.on('window-all-closed', () => {
 
 type Level = 'ok' | 'warn' | 'danger';
 
-// Diccionario comun multi-idioma
-const COMMON_WORDS = new Set<string>([
-  // English
-  'password','pass','admin','administrator','root','user','login','letmein','welcome',
-  'iloveyou','love','secret','default','guest','superuser','owner','test','testing',
-  'qwerty','abc123','monkey','dragon','football','baseball','starwars','pokemon',
-  'summer','winter','spring','autumn','sunshine','shadow','flower','computer',
-  // Spanish
-  'contrasena','seguridad','usuario','administrador','hola','bienvenido','teamo','amor',
-  'secreto','prueba','clave','acceso','probar',
-  // Portuguese
-  'senha','seguranca','bemvindo','amor','teste','secreto','usuario','adm',
-  // French
-  'motdepasse','bonjour','bienvenue','amour','secret','utilisateur',
-  // German
-  'passwort','hallo','willkommen','geheim','benutzer',
-  // Italian
-  'passworde','ciao','benvenuto','amore','segreto','utente',
-  // Short variants and roots
-  'adm','usr','pwd','asdf','zxcv','azerty','qsdf','qwer','abc','123'
-]);
-
 const KEYBOARD_RUNS = [
   'qwerty','asdf','zxcv','qwert','wasd',
   'azerty','qsdf','wxcv','azer'
@@ -107,6 +86,21 @@ function normalizeBasic(s: string): string {
   return x;
 }
 
+// (2) Construye el diccionario normalizado UNA vez al arrancar:
+const COMMON_WORDS: Set<string> = (() => {
+  const set = new Set<string>();
+  for (const w of RAW_COMMON_WORDS) {
+    const n = normalizeBasic(w);
+    // skip very short tokens (avoid "o", "i", etc.)
+    if (n && n.length >= 3) {
+      set.add(n);
+    }
+  }
+  console.log('[main] loaded common words:', set.size);
+  return set;
+})();
+
+
 function classMask(s: string): number {
   let m = 0;
   if (/[a-z]/.test(s)) m |= 1;
@@ -117,11 +111,15 @@ function classMask(s: string): number {
 }
 
 function hasCommonWord(nrm: string): string | null {
+  // exact match -> siempre cuenta
+  if (COMMON_WORDS.has(nrm)) return nrm;
+
   for (const w of COMMON_WORDS) {
     if (!w) continue;
-    if (nrm === w) return w;
-    if (nrm.startsWith(w)) return w;
-    if (nrm.includes(w)) return w;
+    // solo buscamos dentro si la palabra comun tiene cierto tamano
+    if (w.length >= 4 && nrm.includes(w)) {
+      return w;
+    }
   }
   return null;
 }
