@@ -4,6 +4,8 @@ import * as path from 'path';
 import * as url from 'url';
 import { RAW_COMMON_WORDS } from './common-words';
 import { addPasswordToVault, getVaultEntries } from './vault';
+import { findMostSimilarInVault } from './vault/similarity';
+
 
 
 let win: BrowserWindow | null = null;
@@ -137,7 +139,7 @@ function looksIncremental(orig: string): boolean {
   return /(.)+([!.?_\-])?\d{1,4}$/.test(orig) || YEAR_SUFFIX.test(orig) || /[\W_]$/.test(orig);
 }
 
-function checkPasswordBetter(pwd: string) {
+async function checkPasswordBetter(pwd: string) {
   const reasons: string[] = [];
   let level: Level = 'ok';
   const nrm = normalizeBasic(pwd);
@@ -147,6 +149,7 @@ function checkPasswordBetter(pwd: string) {
 
   if (!orig) return { level, reasons };
 
+  // 1) reglas clasicas (diccionario, longitud, etc.)
   const hit = hasCommonWord(nrm);
   if (hit) { level = 'danger'; reasons.push(`common word: "${hit}"`); }
 
@@ -162,12 +165,41 @@ function checkPasswordBetter(pwd: string) {
   const cm = classMask(orig);
   const classCount = ((cm & 1)?1:0)+((cm & 2)?1:0)+((cm & 4)?1:0)+((cm & 8)?1:0);
 
-  if (len < 10) { level = level === 'danger' ? 'danger' : 'warn'; reasons.push('short length (<10)'); }
-  if (classCount < 3) { level = level === 'danger' ? 'danger' : 'warn'; reasons.push('low character variety'); }
+  if (len < 10) {
+    level = level === 'danger' ? 'danger' : 'warn';
+    reasons.push('short length (<10)');
+  }
+  if (classCount < 3) {
+    level = level === 'danger' ? 'danger' : 'warn';
+    reasons.push('low character variety');
+  }
 
   if (/^(password|pass|contrasena|senha|passwort|motdepasse|admin)[^a-z]*\d{0,4}$/i.test(orig)) {
     level = 'danger';
     reasons.push('trivial base with small variation');
+  }
+
+  // 2) similitud con historico (modo B equilibrado)
+  try {
+    const best = await findMostSimilarInVault(orig);
+    if (best) {
+      const score = Math.round(best.score);
+      const noteSnippet = best.entry.note
+        ? ` (${best.entry.note})`
+        : '';
+
+      if (score >= 80) {
+        // muy similar -> danger
+        level = 'danger';
+        reasons.push(`similar to previous password${noteSnippet} (~${score}% match)`);
+      } else if (score >= 60) {
+        // similar, pero no tan extrema -> warn
+        if (level === 'ok') level = 'warn';
+        reasons.push(`somewhat similar to previous password${noteSnippet} (~${score}% match)`);
+      }
+    }
+  } catch (err) {
+    console.error('[main] similarity check error:', err);
   }
 
   return { level, reasons };
@@ -184,7 +216,7 @@ ipcMain.handle('keyping:ping', async () => {
 // analisis de contraseña
 ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
   console.log('[main] keyping:check called with:', JSON.stringify(args?.pwd));
-  return checkPasswordBetter(args?.pwd ?? '');
+  return await checkPasswordBetter(args?.pwd ?? '');
 });
 
 // guardar en vault cifrado (keyping-vault.kp)

@@ -1,11 +1,12 @@
-// Sin tildes ni enies para evitar problemas de encoding
+// Tipos para el vault de KeyPing (sin tildes ni enies)
 
 export type VaultEntry = {
   id: string;
   createdAt: number;
   length: number;
   classMask: number;
-  hash: string;     // hash sha256 no reversible
+  hash: string;       // hash sha256 de la password
+  normalized?: string; // patron normalizado (para similitud)
   note?: string;
 };
 
