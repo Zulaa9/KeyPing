@@ -32,6 +32,9 @@ export class PasswordsComponent implements OnInit {
   loading = true;
   entries: PasswordMeta[] = [];
 
+  // Termino de busqueda
+  searchTerm = '';
+
   // copiar
   copyingId: string | null = null;
   copySecondsLeft = 0;
@@ -71,6 +74,24 @@ export class PasswordsComponent implements OnInit {
     }
   }
 
+  // Lista filtrada en base al searchTerm
+  get filteredEntries(): PasswordMeta[] {
+    const term = this.searchTerm.trim().toLowerCase();
+    if (!term) return this.entries;
+
+    return this.entries.filter(e => {
+      const fields: (string | undefined)[] = [
+        e.label,
+        (e as any).username,
+        (e as any).email,
+        e.loginUrl,
+        e.passwordChangeUrl
+      ];
+
+      return fields.some(f => f && f.toLowerCase().includes(term));
+    });
+  }
+
   maskToChips(mask: number): string[] {
     const chips: string[] = [];
     if (mask & 1) chips.push('a-z');
@@ -87,6 +108,16 @@ export class PasswordsComponent implements OnInit {
   // mascara proporcional a la longitud
   maskPassword(len: number): string {
     return '•'.repeat(len || 8);
+  }
+
+  getSecondaryLine(entry: PasswordMeta): string | null {
+    if (entry.username && entry.username.trim()) {
+      return entry.username;
+    }
+    if (entry.email && entry.email.trim()) {
+      return entry.email;
+    }
+    return null;
   }
 
   // ---- COPIAR ----

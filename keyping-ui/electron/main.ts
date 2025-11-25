@@ -18,8 +18,6 @@ import { clipboard } from 'electron';
 
 let win: BrowserWindow | null = null;
 
-const sessionPasswords = new Map<string, string>();
-
 function createWindow() {
   win = new BrowserWindow({
     width: 1100,
@@ -232,7 +230,6 @@ ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
 // guardar nueva entrada
 ipcMain.handle('keyping:save', async (_evt, args: { pwd: string; label?: string; loginUrl?: string; passwordChangeUrl?: string, username?: string, email?: string }) => {
   const entry = await addPasswordToVault(args.pwd, args.label, args.loginUrl, args.passwordChangeUrl, args.username, args.email);
-  sessionPasswords.set(entry.id, args.pwd);
   const { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email } = entry;
   return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
 });
@@ -247,26 +244,6 @@ ipcMain.handle('keyping:list', async () => {
       const label = e.label;
       return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
     });
-});
-
-ipcMain.handle('keyping:get', async (_evt, args: { id: string }) => {
-  const entries = await getVaultEntries();
-  const entry = entries.find(e => e.id === args.id && e.active !== false);
-  if (!entry) throw new Error('Entry not found');
-
-  const {
-    id,
-    createdAt,
-    length,
-    classMask,
-    label,
-    loginUrl,
-    passwordChangeUrl,
-    username,
-    email
-  } = entry;
-
-  return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
 });
 
 ipcMain.handle('keyping:open-external', async (_evt, rawUrl: string) => {
@@ -287,9 +264,10 @@ ipcMain.handle('keyping:open-external', async (_evt, rawUrl: string) => {
 
 // Copiar password al portapapeles durante 20s
 ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
-  const secret = sessionPasswords.get(args.id);
+  const secret = await getPasswordPlain(args.id);
+
   if (!secret) {
-    console.warn('[main] no password in session for id', args.id);
+    console.warn('[main] no password in vault for id', args.id);
     return false;
   }
 
@@ -309,11 +287,6 @@ ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
   return true;
 });
 
-ipcMain.handle('keyping:get-password', async (_evt, args: { id: string }) => {
-  const secret = sessionPasswords.get(args.id);
-  // Si no existe, devolvemos null (por ejemplo tras reiniciar la app)
-  return secret ?? null;
-});
 
 
 // Soft delete
@@ -326,10 +299,6 @@ ipcMain.handle('keyping:delete', async (_evt, args: { id: string }) => {
 ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string }) => {
   const updated = await replacePasswordForEntry(args.id, args.pwd);
   if (!updated) throw new Error('Entry not found');
-
-  // limpiamos la antigua y guardamos la nueva en sesión
-  sessionPasswords.delete(args.id);
-  sessionPasswords.set(updated.id, args.pwd);
 
   const { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl } = updated;
   return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl };
@@ -359,7 +328,26 @@ ipcMain.handle('keyping:getPassword', async (_evt, args: { id: string }) => {
   return await getPasswordPlain(args.id); // devuelve string | null
 });
 
-ipcMain.handle('keyping:openExternal', async (_evt, url: string) => {
-  await shell.openExternal(url);
-  return true;
+ipcMain.handle('keyping:openExternal', async (_evt, rawUrl: string) => {
+  try {
+    let urlToOpen = (rawUrl || '').trim();
+
+    // Si no tiene protocolo, le añadimos https:// al principio
+    if (!/^https?:\/\//i.test(urlToOpen)) {
+      urlToOpen = 'https://' + urlToOpen;
+    }
+
+    const u = new URL(urlToOpen);
+
+    // Solo permitimos http/https por seguridad
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      await shell.openExternal(u.toString());
+      return true;
+    }
+  } catch (err) {
+    console.error('[main] invalid external url', rawUrl, err);
+  }
+
+  return false;
 });
+
