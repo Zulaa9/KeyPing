@@ -1,28 +1,60 @@
 import { Component, OnInit } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import {
+  NgFor,
+  NgIf,
+  NgClass,
+  UpperCasePipe,
+  NgSwitch,
+  NgSwitchCase,
+  NgSwitchDefault
+} from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ElectronService, PasswordMeta } from '../../core/electron.service';
 
 @Component({
   selector: 'app-passwords',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [
+    NgFor,
+    NgIf,
+    NgClass,
+    UpperCasePipe,
+    NgSwitch,
+    NgSwitchCase,
+    NgSwitchDefault,
+    FormsModule
+  ],
   templateUrl: './passwords.html',
   styleUrls: ['./passwords.scss']
 })
 export class PasswordsComponent implements OnInit {
-
   loading = true;
   entries: PasswordMeta[] = [];
 
-  // estado copia
+  // copiar
   copyingId: string | null = null;
   copySecondsLeft = 0;
   private copyTimer: any;
 
-  // estado edicion simple
+  // editar
   editingId: string | null = null;
   newPwd = '';
+
+  // detalle seleccionado
+  selected: PasswordMeta | null = null;
+
+  // mapa: id -> contraseña revelada (texto claro SOLO en memoria del renderer)
+  revealed: Record<string, string | undefined> = {};
+
+  editingDetail = false;
+  editLabel = '';
+  editPwd = '';
+  editLoginUrl = '';
+  editPasswordChangeUrl = '';
+  editEmail = '';
+  editUsername = '';
+
 
   constructor(private es: ElectronService) {}
 
@@ -52,8 +84,12 @@ export class PasswordsComponent implements OnInit {
     return new Date(ts).toLocaleString();
   }
 
-  // --- COPIAR ---
+  // mascara proporcional a la longitud
+  maskPassword(len: number): string {
+    return '•'.repeat(len || 8);
+  }
 
+  // ---- COPIAR ----
   async onCopy(entry: PasswordMeta): Promise<void> {
     try {
       await this.es.copyPassword(entry.id);
@@ -72,17 +108,24 @@ export class PasswordsComponent implements OnInit {
     }
   }
 
-  // --- ELIMINAR ---
-
+  // ---- ELIMINAR ----
   async onDelete(entry: PasswordMeta): Promise<void> {
-    const ok = confirm('Delete this password from the active list? (Historical pattern is kept)');
+    const ok = confirm(
+      'Delete this password from the active list? Historical pattern stays for similarity checks.'
+    );
     if (!ok) return;
+
     await this.es.deletePassword(entry.id);
     await this.loadEntries();
+
+    if (this.selected?.id === entry.id) {
+      this.selected = null;
+    }
+
+    delete this.revealed[entry.id];
   }
 
-  // --- EDITAR ---
-
+  // ---- EDITAR ----
   startEdit(entry: PasswordMeta): void {
     this.editingId = entry.id;
     this.newPwd = '';
@@ -95,9 +138,151 @@ export class PasswordsComponent implements OnInit {
 
   async confirmEdit(entry: PasswordMeta): Promise<void> {
     if (!this.newPwd) return;
-    await this.es.updatePassword(entry.id, this.newPwd);
+
+    const wasRevealed = !!this.revealed[entry.id];
+    const wasSelected = this.selected?.id === entry.id;
+
+    // 1) Actualizar password en el main (puede devolver mismo id o uno nuevo)
+    const updated = await this.es.updatePassword(entry.id, this.newPwd);
+
+    // 2) Limpiar estado de edicion inline
     this.editingId = null;
     this.newPwd = '';
+
+    // 3) Limpiar el estado de "revelado" asociado al id antiguo
+    delete this.revealed[entry.id];
+
+    // 4) Recargar lista
     await this.loadEntries();
+
+    // 5) Si el panel de detalle estaba abierto para esta entrada,
+    //    volvemos a seleccionar la entrada actualizada
+    if (wasSelected) {
+      const newId = (updated as any)?.id ?? entry.id;
+      const refreshed = this.entries.find(e => e.id === newId) || null;
+      this.selected = refreshed;
+
+      // 6) Si ANTES estaba mostrada, volvemos a mostrar la nueva contraseña
+      if (wasRevealed && this.selected) {
+        try {
+          const plain = await this.es.getPassword(this.selected.id);
+          if (plain) {
+            this.revealed[this.selected.id] = plain;
+          }
+        } catch (err) {
+          console.error('[renderer] reload revealed password failed', err);
+        }
+      }
+    }
+  }
+
+  // ---- DETALLE ----
+  onSelect(entry: PasswordMeta): void {
+    this.selected = entry;
+    this.editingDetail = false;
+  }
+
+  startDetailEdit(): void {
+    if (!this.selected) return;
+    this.editingDetail = true;
+
+    this.editLabel = this.selected.label || '';
+    this.editPwd = '';
+    this.editLoginUrl = this.selected.loginUrl || '';
+    this.editPasswordChangeUrl = this.selected.passwordChangeUrl || '';
+    this.editUsername = this.selected.username || '';
+    this.editEmail = this.selected.email || '';
+
+    // Si ya estaba revelada, usamos ese valor como base
+    // (asi al entrar en editar, la ves directamente si ya la habias mostrado)
+    this.editPwd = this.revealed[this.selected.id] || '';
+  }
+  
+  async saveDetailEdit(): Promise<void> {
+    if (!this.selected) return;
+
+    const oldId = this.selected.id;
+    let currentId = oldId;
+
+    // 1) Si se ha escrito una nueva contraseña → updatePassword
+    if (this.editPwd) {
+      const updated = await this.es.updatePassword(oldId, this.editPwd);
+      const newId = updated.id;
+
+      // si la contraseña estaba revelada, movemos el estado al nuevo id
+      if (this.revealed[oldId]) {
+        this.revealed[newId] = this.editPwd;
+        delete this.revealed[oldId];
+      }
+
+      currentId = newId;
+    }
+
+    // 2) Actualizar metadata (nombre / URLs) sobre el id actual (nuevo si ha cambiado)
+    await this.es.updateMeta(
+      currentId,
+      this.editLabel || '',
+      this.editLoginUrl || '',
+      this.editPasswordChangeUrl || '',
+      this.editUsername || '',
+      this.editEmail || ''
+    );
+
+    // 3) Cerrar modo edicion pero mantener el panel abierto en la entrada actualizada
+    this.editingDetail = false;
+    this.editPwd = '';
+
+    await this.loadEntries();
+    this.selected = this.entries.find(e => e.id === currentId) || null;
+  }
+
+  cancelDetailEdit(): void {
+    this.editingDetail = false;
+    this.editPwd = '';
+  }
+
+  closeDetail(): void {
+    this.selected = null;
+  }
+
+  // ---- MOSTRAR / OCULTAR CONTRASEÑA ----
+  async toggleShow(entry: PasswordMeta): Promise<void> {
+    const id = entry.id;
+
+    // si ya está visible, la ocultamos
+    if (this.revealed[id]) {
+      this.revealed[id] = undefined;
+      return;
+    }
+
+    try {
+      // IMPORTANTE: esto tiene que pedir la contraseña desencriptada al main
+      const pwd = await this.es.getPassword(id);
+      if (pwd) {
+        this.revealed[id] = pwd;
+
+        // Si estamos editando este mismo registro y el input esta vacio,
+        // rellenamos el campo de edicion con la contraseña real
+        if (this.editingDetail && this.selected?.id === id && !this.editPwd) {
+          this.editPwd = pwd;
+        }
+      } else {
+        console.warn('[renderer] plaintext not available for id', id);
+      }
+    } catch (err) {
+      console.error('[renderer] getPassword error', err);
+    }
+  }
+
+  // ---- ABRIR URL EN NAVEGADOR ----
+  async openUrl(url: string, ev?: MouseEvent): Promise<void> {
+    if (ev) ev.stopPropagation();
+    if (!url) return;
+
+    try {
+      await this.es.openExternal(url);
+    } catch (err) {
+      console.error('[renderer] open url failed', err);
+    }
   }
 }

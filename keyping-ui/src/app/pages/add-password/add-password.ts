@@ -12,7 +12,11 @@ import { ElectronService, CheckResult } from '../../core/electron.service';
 })
 export class AddPasswordComponent {
   pwd = '';
-  label = ''; // antes note
+  label = ''; // nombre del servicio/app
+  loginUrl = '';
+  passwordChangeUrl = '';
+  email = '';
+  username = '';
   alert?: { level: CheckResult['level']; title: string; message: string };
   private timer?: any;
 
@@ -41,11 +45,24 @@ export class AddPasswordComponent {
   }
 
   async onSave(): Promise<void> {
-    if (!this.pwd) return;
-    await this.es.savePassword(this.pwd, this.label || undefined);
-    console.log('[renderer] saved password meta');
-    this.pwd = '';
-    this.label = '';
-    this.alert = undefined;
-  }
+      if (!this.pwd) return;
+
+      await this.es.savePassword(
+        this.pwd,
+        this.label || undefined,
+        this.loginUrl || undefined,
+        this.passwordChangeUrl || undefined,
+        this.username || undefined,
+        this.email || undefined
+      );
+
+      console.log('[renderer] saved password meta');
+      this.pwd = '';
+      this.label = '';
+      this.loginUrl = '';
+      this.passwordChangeUrl = '';
+      this.username = '';
+      this.email = '';
+      this.alert = undefined;
+    }
 }

@@ -13,7 +13,14 @@ function classMask(s: string): number {
   return m;
 }
 
-export async function addPasswordToVault(pwd: string, label?: string): Promise<VaultEntry> {
+export async function addPasswordToVault(
+  pwd: string,
+  label?: string,
+  loginUrl?: string,
+  passwordChangeUrl?: string,
+  username?: string,
+  email?: string
+): Promise<VaultEntry> {
   const hash = createHash('sha256').update(pwd).digest('hex');
   const normalized = normalizePattern(pwd);
 
@@ -23,10 +30,15 @@ export async function addPasswordToVault(pwd: string, label?: string): Promise<V
     length: pwd.length,
     classMask: classMask(pwd),
     hash,
+    secret: pwd,
     normalized,
     label,
     password: pwd,
-    active: true
+    active: true,
+    loginUrl,
+    passwordChangeUrl,
+    username,
+    email
   };
 
   const vault = await loadVault();
@@ -40,7 +52,6 @@ export async function getVaultEntries(): Promise<VaultEntry[]> {
   return (await loadVault()).entries;
 }
 
-// Marca una entrada como inactiva (no se muestra), pero sigue en el vault
 export async function softDeleteEntry(id: string): Promise<void> {
   const vault = await loadVault();
   const idx = vault.entries.findIndex(e => e.id === id);
@@ -49,8 +60,10 @@ export async function softDeleteEntry(id: string): Promise<void> {
   await saveVault(vault);
 }
 
-// Reemplaza la password de una entrada (manteniendo historico)
-export async function replacePasswordForEntry(id: string, newPwd: string): Promise<VaultEntry | null> {
+export async function replacePasswordForEntry(
+  id: string,
+  newPwd: string
+): Promise<VaultEntry | null> {
   const vault = await loadVault();
   const old = vault.entries.find(e => e.id === id);
   if (!old) return null;
@@ -68,6 +81,7 @@ export async function replacePasswordForEntry(id: string, newPwd: string): Promi
     classMask: classMask(newPwd),
     hash,
     normalized,
+    secret: newPwd,
     password: newPwd,
     active: true,
     previousId: old.id
@@ -78,3 +92,33 @@ export async function replacePasswordForEntry(id: string, newPwd: string): Promi
 
   return newEntry;
 }
+
+export async function getPasswordPlain(id: string): Promise<string | null> {
+  const vault = await loadVault();
+  const entry = vault.entries.find(e => e.id === id && e.active !== false);
+  return entry?.secret ?? null;
+}
+
+export async function updateEntryMeta(
+  id: string,
+  label?: string,
+  loginUrl?: string,
+  passwordChangeUrl?: string,
+  username?: string,
+  email?: string
+): Promise<VaultEntry> {
+  const vault = await loadVault();
+  const entry = vault.entries.find(e => e.id === id);
+  if (!entry) throw new Error('Entry not found');
+
+  if (typeof label !== 'undefined') entry.label = label;
+  if (typeof loginUrl !== 'undefined') entry.loginUrl = loginUrl;
+  if (typeof passwordChangeUrl !== 'undefined') entry.passwordChangeUrl = passwordChangeUrl;
+  if (typeof username !== 'undefined') entry.username = username;
+  if (typeof email !== 'undefined') entry.email = email;
+
+  await saveVault(vault);
+  return entry;
+}
+
+

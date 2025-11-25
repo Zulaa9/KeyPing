@@ -7,14 +7,18 @@ import {
   addPasswordToVault,
   getVaultEntries,
   softDeleteEntry,
-  replacePasswordForEntry
+  replacePasswordForEntry,
+  getPasswordPlain,
+  updateEntryMeta,
 } from './vault';
-import { findMostSimilarInVault } from './vault/similarity';
-import { clipboard } from 'electron'; // arriba del todo si no lo tenias
 
+import { findMostSimilarInVault } from './vault/similarity';
+import { clipboard } from 'electron';
 
 
 let win: BrowserWindow | null = null;
+
+const sessionPasswords = new Map<string, string>();
 
 function createWindow() {
   win = new BrowserWindow({
@@ -226,10 +230,11 @@ ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
 });
 
 // guardar nueva entrada
-ipcMain.handle('keyping:save', async (_evt, args: { pwd: string; label?: string }) => {
-  const entry = await addPasswordToVault(args.pwd, args.label);
-  const { id, createdAt, length, classMask, label } = entry;
-  return { id, createdAt, length, classMask, label };
+ipcMain.handle('keyping:save', async (_evt, args: { pwd: string; label?: string; loginUrl?: string; passwordChangeUrl?: string, username?: string, email?: string }) => {
+  const entry = await addPasswordToVault(args.pwd, args.label, args.loginUrl, args.passwordChangeUrl, args.username, args.email);
+  sessionPasswords.set(entry.id, args.pwd);
+  const { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email } = entry;
+  return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
 });
 
 // listar solo activas
@@ -238,33 +243,78 @@ ipcMain.handle('keyping:list', async () => {
   return entries
     .filter(e => e.active !== false)
     .map(e => {
-      const { id, createdAt, length, classMask } = e;
+      const { id, createdAt, length, classMask, loginUrl, passwordChangeUrl, username, email } = e;
       const label = e.label;
-      return { id, createdAt, length, classMask, label };
+      return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
     });
+});
+
+ipcMain.handle('keyping:get', async (_evt, args: { id: string }) => {
+  const entries = await getVaultEntries();
+  const entry = entries.find(e => e.id === args.id && e.active !== false);
+  if (!entry) throw new Error('Entry not found');
+
+  const {
+    id,
+    createdAt,
+    length,
+    classMask,
+    label,
+    loginUrl,
+    passwordChangeUrl,
+    username,
+    email
+  } = entry;
+
+  return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
+});
+
+ipcMain.handle('keyping:open-external', async (_evt, rawUrl: string) => {
+  try {
+    const u = new URL(rawUrl);
+
+    // Solo permitimos http/https por seguridad
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      await shell.openExternal(u.toString());
+      return true;
+    }
+  } catch (err) {
+    console.error('[main] invalid external url', rawUrl, err);
+  }
+
+  return false;
 });
 
 // Copiar password al portapapeles durante 20s
 ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
-  const entries = await getVaultEntries();
-  const entry = entries.find(e => e.id === args.id && e.active !== false);
-
-  if (!entry || !entry.password) {
-    throw new Error('Password not found or has no stored secret');
+  const secret = sessionPasswords.get(args.id);
+  if (!secret) {
+    console.warn('[main] no password in session for id', args.id);
+    return false;
   }
-  
-  clipboard.writeText(entry.password);
+
+  clipboard.writeText(secret);
+
+  const ttlMs = 20_000;
   setTimeout(() => {
     try {
-      // Dejamos el clipboard vacio despues de 20s
-      clipboard.writeText('');
+      if (clipboard.readText() === secret) {
+        clipboard.clear();
+      }
     } catch (err) {
-      console.error('[main] clipboard clear error:', err);
+      console.error('[main] clipboard clear failed', err);
     }
-  }, 20_000);
-  
+  }, ttlMs);
+
   return true;
 });
+
+ipcMain.handle('keyping:get-password', async (_evt, args: { id: string }) => {
+  const secret = sessionPasswords.get(args.id);
+  // Si no existe, devolvemos null (por ejemplo tras reiniciar la app)
+  return secret ?? null;
+});
+
 
 // Soft delete
 ipcMain.handle('keyping:delete', async (_evt, args: { id: string }) => {
@@ -276,6 +326,40 @@ ipcMain.handle('keyping:delete', async (_evt, args: { id: string }) => {
 ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string }) => {
   const updated = await replacePasswordForEntry(args.id, args.pwd);
   if (!updated) throw new Error('Entry not found');
-  const { id, createdAt, length, classMask, label } = updated;
-  return { id, createdAt, length, classMask, label };
+
+  // limpiamos la antigua y guardamos la nueva en sesión
+  sessionPasswords.delete(args.id);
+  sessionPasswords.set(updated.id, args.pwd);
+
+  const { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl } = updated;
+  return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl };
+});
+
+
+ipcMain.handle('keyping:updateMeta', async (_evt, args: {
+  id: string;
+  label?: string;
+  loginUrl?: string;
+  passwordChangeUrl?: string;
+  username?: string;
+  email?: string;
+}) => {
+  const entry = await updateEntryMeta(
+    args.id,
+    args.label,
+    args.loginUrl,
+    args.passwordChangeUrl,
+    args.username,
+    args.email
+  );
+  return entry;
+});
+
+ipcMain.handle('keyping:getPassword', async (_evt, args: { id: string }) => {
+  return await getPasswordPlain(args.id); // devuelve string | null
+});
+
+ipcMain.handle('keyping:openExternal', async (_evt, url: string) => {
+  await shell.openExternal(url);
+  return true;
 });

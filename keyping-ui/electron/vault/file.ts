@@ -17,11 +17,10 @@ function migrate(data: any): VaultData {
       e.label = (e as any).note;
       delete (e as any).note;
     }
-
-    // Si no tiene active, lo consideramos true
     if (typeof e.active === 'undefined') {
       e.active = true;
     }
+    // loginUrl / passwordChangeUrl pueden venir ya o no, no tocamos nada más
   }
 
   return { entries };
