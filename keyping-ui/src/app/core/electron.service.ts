@@ -10,6 +10,7 @@ export type CheckResult = {
 export type PasswordMeta = {
   id: string;
   createdAt: number;
+  updatedAt?: number;
   length: number;
   classMask: number;
   label?: string;

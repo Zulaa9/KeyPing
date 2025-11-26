@@ -27,6 +27,7 @@ export async function addPasswordToVault(
   const entry: VaultEntry = {
     id: randomUUID(),
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     length: pwd.length,
     classMask: classMask(pwd),
     hash,
@@ -76,7 +77,8 @@ export async function replacePasswordForEntry(
   const newEntry: VaultEntry = {
     ...old,
     id: randomUUID(),
-    createdAt: Date.now(),
+    createdAt: old.createdAt,
+    updatedAt: Date.now(),
     length: newPwd.length,
     classMask: classMask(newPwd),
     hash,
@@ -116,6 +118,7 @@ export async function updateEntryMeta(
   if (typeof passwordChangeUrl !== 'undefined') entry.passwordChangeUrl = passwordChangeUrl;
   if (typeof username !== 'undefined') entry.username = username;
   if (typeof email !== 'undefined') entry.email = email;
+  entry.updatedAt = Date.now();
 
   await saveVault(vault);
   return entry;

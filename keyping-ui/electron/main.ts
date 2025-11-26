@@ -230,8 +230,8 @@ ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
 // guardar nueva entrada
 ipcMain.handle('keyping:save', async (_evt, args: { pwd: string; label?: string; loginUrl?: string; passwordChangeUrl?: string, username?: string, email?: string }) => {
   const entry = await addPasswordToVault(args.pwd, args.label, args.loginUrl, args.passwordChangeUrl, args.username, args.email);
-  const { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email } = entry;
-  return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
+  const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email } = entry;
+  return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
 });
 
 // listar solo activas
@@ -240,9 +240,9 @@ ipcMain.handle('keyping:list', async () => {
   return entries
     .filter(e => e.active !== false)
     .map(e => {
-      const { id, createdAt, length, classMask, loginUrl, passwordChangeUrl, username, email } = e;
+      const { id, createdAt, updatedAt, length, classMask, loginUrl, passwordChangeUrl, username, email } = e;
       const label = e.label;
-      return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
+      return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
     });
 });
 
@@ -300,8 +300,8 @@ ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string })
   const updated = await replacePasswordForEntry(args.id, args.pwd);
   if (!updated) throw new Error('Entry not found');
 
-  const { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl } = updated;
-  return { id, createdAt, length, classMask, label, loginUrl, passwordChangeUrl };
+  const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email } = updated;
+  return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
 });
 
 
@@ -321,7 +321,8 @@ ipcMain.handle('keyping:updateMeta', async (_evt, args: {
     args.username,
     args.email
   );
-  return entry;
+  const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email } = entry;
+  return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email };
 });
 
 ipcMain.handle('keyping:getPassword', async (_evt, args: { id: string }) => {

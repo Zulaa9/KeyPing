@@ -112,6 +112,13 @@ export class PasswordsComponent implements OnInit {
     return new Date(ts).toLocaleString();
   }
 
+  getDateLabel(entry: PasswordMeta): string {
+    const hasUpdate = entry.updatedAt && entry.updatedAt !== entry.createdAt;
+    const ts = hasUpdate ? entry.updatedAt! : entry.createdAt;
+    const prefix = hasUpdate ? 'Modificado' : 'Creado';
+    return `${prefix}: ${this.fmtDate(ts)}`;
+  }
+
   // mascara proporcional a la longitud
   maskPassword(len: number): string {
     return '•'.repeat(len || 8);
