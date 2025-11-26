@@ -40,10 +40,10 @@ export class AddPasswordComponent {
     if (!this.pwd) { this.alert = undefined; return; }
     const res = await this.es.checkCandidate(this.pwd);
     const title =
-      res.level === 'danger' ? 'Highly insecure' :
-      res.level === 'warn'   ? 'Weak password'   :
-                               'Looks good';
-    const message = res.reasons.length ? res.reasons.join(', ') : 'No issues detected.';
+      res.level === 'danger' ? 'Contraseña muy insegura' :
+      res.level === 'warn'   ? 'Contraseña débil' :
+                               'Contraseña sólida';
+    const message = res.reasons.length ? res.reasons.join(', ') : 'Sin problemas detectados.';
     this.alert = { level: res.level, title, message };
   }
 

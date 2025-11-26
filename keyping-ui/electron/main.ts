@@ -144,7 +144,21 @@ function hasSequence(nrm: string): string | null {
 }
 
 function looksIncremental(orig: string): boolean {
-  return /(.)+([!.?_\-])?\d{1,4}$/.test(orig) || YEAR_SUFFIX.test(orig) || /[\W_]$/.test(orig);
+  // Detecta sufijos incrementales típicos (123, 2024, !1) sin penalizar contraseñas largas aleatorias.
+  if (YEAR_SUFFIX.test(orig)) return true;
+
+  const m = orig.match(/^(.*?)([!.?_\-])?(\d{1,4})$/);
+  if (!m) return false;
+
+  const prefix = m[1] || '';
+  const suffixDigits = m[3] || '';
+
+  // Solo marcamos como incremental si el prefijo es relativamente corto (p.ej. "password", "token", "abc")
+  // para evitar falsos positivos en contraseñas largas y aleatorias que simplemente acaban en un número.
+  if (prefix.length <= 12) return true;
+
+  // Prefijo largo => asumimos aleatorio, no penalizamos
+  return false;
 }
 
 async function checkPasswordBetter(pwd: string) {
