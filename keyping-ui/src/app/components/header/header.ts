@@ -29,11 +29,15 @@ export class HeaderComponent {
   genPosX = 260;
   genPosY = 90;
   @ViewChild('generatorWrapper') generatorWrapper?: ElementRef<HTMLDivElement>;
+  @ViewChild('generatorPanel') generatorPanel?: ElementRef<HTMLDivElement>;
   copyFeedback = false;
   private copyTimer?: any;
   private dragging = false;
   private dragStart = { x: 0, y: 0 };
   private dragOrigin = { x: 0, y: 0 };
+  private hoveringButton = false;
+  private hoveringPanel = false;
+  private hideTimer?: any;
 
   private navSub?: Subscription;
   private countSub?: Subscription;
@@ -67,31 +71,30 @@ export class HeaderComponent {
     this.countSub?.unsubscribe();
   }
 
-  onGeneratorEnter(): void {
+  onGeneratorButtonEnter(): void {
+    this.hoveringButton = true;
     if (!this.generatorPinned && !this.dragging) {
       this.resetToAnchor();
     }
     this.showGenerator = true;
   }
 
-  onGeneratorLeave(): void {
+  onGeneratorButtonLeave(): void {
+    this.hoveringButton = false;
     if (this.dragging) return;
-    if (!this.generatorPinned) {
-      this.showGenerator = false;
-      this.resetToAnchor();
-    }
+    this.scheduleHide();
   }
 
   onPanelEnter(): void {
+    this.hoveringPanel = true;
     this.showGenerator = true;
+    clearTimeout(this.hideTimer);
   }
 
   onPanelLeave(): void {
+    this.hoveringPanel = false;
     if (this.dragging) return;
-    if (!this.generatorPinned) {
-      this.showGenerator = false;
-      this.resetToAnchor();
-    }
+    this.scheduleHide();
   }
 
   togglePin(ev: MouseEvent): void {
@@ -157,12 +160,24 @@ export class HeaderComponent {
     this.dragging = false;
   }
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    if (this.generatorPinned) return;
+    const target = ev.target as HTMLElement | null;
+    const insideWrapper = this.generatorWrapper?.nativeElement.contains(target as any);
+    const insidePanel = this.generatorPanel?.nativeElement.contains(target as any);
+    if (insideWrapper || insidePanel) return;
+    this.showGenerator = false;
+    this.generatorPinned = false;
+    this.resetToAnchor();
+  }
+
   private resetToAnchor(): void {
     const host = this.generatorWrapper?.nativeElement;
     if (!host) return;
     const rect = host.getBoundingClientRect();
-    this.genPosX = rect.right + 8;
-    this.genPosY = rect.top - 8;
+    this.genPosX = rect.right + 4;
+    this.genPosY = rect.top - 4;
   }
 
   private setCopyFeedback(): void {
@@ -171,6 +186,16 @@ export class HeaderComponent {
     this.copyTimer = setTimeout(() => {
       this.copyFeedback = false;
     }, 1000);
+  }
+
+  private scheduleHide(): void {
+    clearTimeout(this.hideTimer);
+    if (this.generatorPinned) return;
+    this.hideTimer = setTimeout(() => {
+      if (this.hoveringButton || this.hoveringPanel) return;
+      this.showGenerator = false;
+      this.resetToAnchor();
+    }, 180);
   }
 
   private makePassword(): string {

@@ -31,10 +31,14 @@
       <div
         #generatorWrapper
         class="generator-wrapper"
-        (mouseenter)="onGeneratorEnter()"
-        (mouseleave)="onGeneratorLeave()"
       >
-        <a class="nav-item" href="#" (click)="$event.preventDefault()">
+        <a
+          class="nav-item"
+          href="#"
+          (click)="$event.preventDefault()"
+          (mouseenter)="onGeneratorButtonEnter()"
+          (mouseleave)="onGeneratorButtonLeave()"
+        >
           <span class="nav-icon">✨</span>
           <span>Generator</span>
         </a>
@@ -45,6 +49,7 @@
           [ngStyle]="{ left: genPosX + 'px', top: genPosY + 'px' }"
           (mouseenter)="onPanelEnter()"
           (mouseleave)="onPanelLeave()"
+          #generatorPanel
         >
           <div class="drag-handle" (mousedown)="onDragStart($event)" title="Mover panel">
             ⋮⋮

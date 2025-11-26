@@ -59,16 +59,6 @@
 .generator-wrapper {
   position: relative;
   display: inline-block;
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 100%;
-    top: -10px;
-    width: 16px;
-    height: 320px;
-    background: transparent;
-  }
 }
 
 .nav-item {
@@ -141,7 +131,7 @@
   border-radius: 12px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
   padding: 14px 14px 12px;
-  z-index: 20;
+  z-index: 1000;
 }
 
 .gen-title {
