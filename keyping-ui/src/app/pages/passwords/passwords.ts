@@ -12,7 +12,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ElectronService, PasswordMeta } from '../../core/electron.service';
 import { PasswordCountService } from '../../core/password-count.service';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-passwords',
@@ -65,11 +65,20 @@ export class PasswordsComponent implements OnInit {
   constructor(
     private es: ElectronService,
     private passwordCountSvc: PasswordCountService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   async ngOnInit(): Promise<void> {
     await this.loadEntries();
+
+    const preselect = this.route.snapshot.queryParamMap.get('select');
+    if (preselect) {
+      const match = this.entries.find(e => e.id === preselect);
+      if (match) {
+        this.selected = match;
+      }
+    }
   }
 
   async loadEntries(): Promise<void> {
