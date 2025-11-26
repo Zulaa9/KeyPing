@@ -67,6 +67,32 @@
   transition: 0.15s;
 }
 
+.nav-item.has-badge {
+  justify-content: space-between;
+}
+
+.nav-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* opcional: en activo un poco mas marcado */
+.nav-item.active .nav-badge {
+  background: rgba(37, 99, 235, 0.35);
+  color: #e5f0ff;
+}
+
+.nav-badge {
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-align: center;
+  background: rgba(37, 99, 235, 0.16); // azul suave
+  color: #bfdbfe; // azul claro del texto
+}
+
 .nav-item:hover:not(.disabled) {
   background: #111827;
   color: #fff;

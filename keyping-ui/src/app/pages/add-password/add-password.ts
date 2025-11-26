@@ -2,6 +2,8 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIf, NgClass } from '@angular/common';
 import { ElectronService, CheckResult } from '../../core/electron.service';
+import { PasswordCountService } from '../../core/password-count.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-add-password',
@@ -20,7 +22,11 @@ export class AddPasswordComponent {
   alert?: { level: CheckResult['level']; title: string; message: string };
   private timer?: any;
 
-  constructor(private es: ElectronService) {}
+  constructor(
+    private es: ElectronService,
+    private passwordCountSvc: PasswordCountService,
+    private router: Router
+  ) {}
 
   color(level: CheckResult['level']): string {
     if (level === 'danger') return '#ff6b6b';
@@ -56,6 +62,8 @@ export class AddPasswordComponent {
         this.email || undefined
       );
 
+      await this.passwordCountSvc.refreshFromDisk();
+
       console.log('[renderer] saved password meta');
       this.pwd = '';
       this.label = '';
@@ -64,5 +72,11 @@ export class AddPasswordComponent {
       this.username = '';
       this.email = '';
       this.alert = undefined;
+
+      await this.router.navigate(['/passwords']);
+    }
+
+    onCancel(): void {
+      this.router.navigate(['/passwords']);
     }
 }

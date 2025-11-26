@@ -11,6 +11,8 @@ import {
 
 import { FormsModule } from '@angular/forms';
 import { ElectronService, PasswordMeta } from '../../core/electron.service';
+import { PasswordCountService } from '../../core/password-count.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-passwords',
@@ -23,7 +25,7 @@ import { ElectronService, PasswordMeta } from '../../core/electron.service';
     NgSwitch,
     NgSwitchCase,
     NgSwitchDefault,
-    FormsModule
+    FormsModule,
   ],
   templateUrl: './passwords.html',
   styleUrls: ['./passwords.scss']
@@ -59,7 +61,11 @@ export class PasswordsComponent implements OnInit {
   editUsername = '';
 
 
-  constructor(private es: ElectronService) {}
+  constructor(
+    private es: ElectronService,
+    private passwordCountSvc: PasswordCountService,
+    private router: Router
+  ) {}
 
   async ngOnInit(): Promise<void> {
     await this.loadEntries();
@@ -69,6 +75,7 @@ export class PasswordsComponent implements OnInit {
     this.loading = true;
     try {
       this.entries = await this.es.listPasswords();
+      this.passwordCountSvc.setLocalCount(this.entries.length);
     } finally {
       this.loading = false;
     }
@@ -148,6 +155,9 @@ export class PasswordsComponent implements OnInit {
 
     await this.es.deletePassword(entry.id);
     await this.loadEntries();
+    
+    // EN CASO DE QUE NO SE ACTUALIZE CORRECTAMENTE EL CONTADOR AL ELIMINAR:
+    //this.passwordCountSvc.setLocalCount(this.entries.length);
 
     if (this.selected?.id === entry.id) {
       this.selected = null;
@@ -316,4 +326,9 @@ export class PasswordsComponent implements OnInit {
       console.error('[renderer] open url failed', err);
     }
   }
+  
+  goToAddPassword(): void {
+    this.router.navigate(['/add']);
+  }
 }
+

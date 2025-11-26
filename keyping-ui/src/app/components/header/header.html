@@ -7,14 +7,21 @@
     </div>
 
     <nav class="sidebar-nav">
-      <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+      <!-- <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-item"> -->
+      <a class="nav-item disabled">
         <span class="nav-icon">🏠</span>
         <span>Dashboard</span>
       </a>
 
       <a routerLink="/passwords" routerLinkActive="active" class="nav-item">
-        <span class="nav-icon">🔐</span>
-        <span>Passwords</span>
+        <div class="nav-main">
+          <span class="nav-icon">🔐</span>
+          <span>Passwords</span>
+        </div>
+
+        <span class="nav-badge" *ngIf="passwordCount !== null">
+          {{ passwordCount }}
+        </span>
       </a>
 
       <a class="nav-item disabled">
