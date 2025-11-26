@@ -10,3 +10,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
 .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--btn);color:var(--text);text-decoration:none;cursor:pointer}
 .btn.primary{border-color:var(--accent)} .link{color:var(--accent);text-decoration:none}
 .muted{color:var(--muted)}
+
+/* Estilos globales adicionales de la app (scrollbars, etc.) */
+@import 'app/app';
