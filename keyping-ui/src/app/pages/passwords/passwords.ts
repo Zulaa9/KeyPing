@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import {
   NgFor,
   NgIf,
@@ -6,7 +6,8 @@ import {
   UpperCasePipe,
   NgSwitch,
   NgSwitchCase,
-  NgSwitchDefault
+  NgSwitchDefault,
+  NgStyle
 } from '@angular/common';
 
 import { FormsModule } from '@angular/forms';
@@ -26,6 +27,7 @@ import { Router, ActivatedRoute } from '@angular/router';
     NgSwitchCase,
     NgSwitchDefault,
     FormsModule,
+    NgStyle
   ],
   templateUrl: './passwords.html',
   styleUrls: ['./passwords.scss']
@@ -45,6 +47,15 @@ export class PasswordsComponent implements OnInit {
 
   // Termino de busqueda
   searchTerm = '';
+  folderMenu: { visible: boolean; x: number; y: number; folder: string } = {
+    visible: false,
+    x: 0,
+    y: 0,
+    folder: ''
+  };
+  folderActionInProgress = false;
+  renamingFolder: string | null = null;
+  renameValue = '';
 
   // copiar
   copyingId: string | null = null;
@@ -387,6 +398,7 @@ export class PasswordsComponent implements OnInit {
 
     const oldId = this.selected.id;
     let currentId = oldId;
+    const oldFolder = this.normalizeFolder(this.selected.folder);
 
     // 1) Si se ha escrito una nueva contraseña → updatePassword
     if (this.editPwd) {
@@ -403,7 +415,7 @@ export class PasswordsComponent implements OnInit {
     }
 
     // 2) Actualizar metadata (nombre / URLs) sobre el id actual (nuevo si ha cambiado)
-    await this.es.updateMeta(
+    const updatedMeta = await this.es.updateMeta(
       currentId,
       this.editLabel || '',
       this.editLoginUrl || '',
@@ -418,8 +430,41 @@ export class PasswordsComponent implements OnInit {
     this.editingDetail = false;
     this.editPwd = '';
 
-    await this.loadEntries();
-    this.selected = this.entries.find(e => e.id === currentId) || null;
+    const newFolder = this.normalizeFolder(updatedMeta.folder);
+
+    // Actualizar orden de items/folders en memoria
+    const sourceList = (this.itemOrder[oldFolder] || this.getOrderedIdsForFolder(oldFolder)).filter(id => id !== oldId && id !== currentId);
+    if (sourceList.length) {
+      this.itemOrder[oldFolder] = sourceList;
+    } else {
+      delete this.itemOrder[oldFolder];
+    }
+
+    const destBase = (this.itemOrder[newFolder] || this.getOrderedIdsForFolder(newFolder)).filter(id => id !== oldId && id !== currentId);
+    destBase.push(currentId);
+    this.itemOrder[newFolder] = destBase;
+
+    if (!this.folderOrder.includes(newFolder)) {
+      this.folderOrder.push(newFolder);
+    }
+
+    if (oldFolder !== newFolder) {
+      const remainingOld = this.entries.filter(e => this.normalizeFolder(e.folder) === oldFolder && e.id !== oldId).length;
+      if (remainingOld === 0) {
+        this.folderOrder = this.folderOrder.filter(f => f !== oldFolder);
+      }
+    }
+
+    this.persistOrdering();
+
+    // Actualizar lista en memoria
+    const nextEntries = this.entries.filter(e => e.id !== oldId && e.id !== updatedMeta.id);
+    nextEntries.push({
+      ...this.selected,
+      ...updatedMeta
+    });
+    this.entries = nextEntries;
+    this.selected = nextEntries.find(e => e.id === currentId) || updatedMeta;
   }
 
   cancelDetailEdit(): void {
@@ -478,6 +523,27 @@ export class PasswordsComponent implements OnInit {
 
   toggleListCollapse(): void {
     this.listCollapsed = !this.listCollapsed;
+  }
+
+  onFolderContextMenu(ev: MouseEvent, folder: string): void {
+    ev.preventDefault();
+    const normalized = this.normalizeFolder(folder);
+    this.folderMenu = {
+      visible: true,
+      x: ev.clientX,
+      y: ev.clientY,
+      folder: normalized
+    };
+    this.renamingFolder = null;
+    this.renameValue = '';
+  }
+
+  closeFolderMenu(): void {
+    if (this.folderMenu.visible) {
+      this.folderMenu = { visible: false, x: 0, y: 0, folder: '' };
+      this.renamingFolder = null;
+      this.renameValue = '';
+    }
   }
 
   // --- ORDEN PERSONALIZADO ---
@@ -758,6 +824,127 @@ export class PasswordsComponent implements OnInit {
     this.entryDropTarget = null;
   }
 
+  async deleteFolder(folderLabel: string): Promise<void> {
+    if (this.folderActionInProgress) return;
+    const folderKey = this.normalizeFolder(folderLabel);
+    const groupEntries = this.entries.filter(e => this.normalizeFolder(e.folder) === folderKey);
+    if (!groupEntries.length) {
+      this.closeFolderMenu();
+      return;
+    }
+
+    const ok = confirm(`Eliminar la carpeta "${folderKey}" y mover sus contraseñas a "Sin carpeta"?`);
+    if (!ok) {
+      this.closeFolderMenu();
+      return;
+    }
+
+    this.folderActionInProgress = true;
+    try {
+      for (const e of groupEntries) {
+        await this.es.updateMeta(e.id, undefined, undefined, undefined, undefined, undefined, '');
+      }
+
+      this.folderOrder = this.folderOrder.filter(f => f !== folderKey);
+      delete this.itemOrder[folderKey];
+      this.persistOrdering();
+
+      await this.loadEntries();
+    } finally {
+      this.folderActionInProgress = false;
+      this.closeFolderMenu();
+    }
+  }
+
+  startRename(folderLabel: string): void {
+    const key = this.normalizeFolder(folderLabel);
+    this.renamingFolder = key;
+    this.renameValue = key;
+  }
+
+  cancelRename(): void {
+    this.renamingFolder = null;
+    this.renameValue = '';
+  }
+
+  async confirmRename(): Promise<void> {
+    if (!this.renamingFolder) return;
+    await this.renameFolderWithName(this.renamingFolder, this.renameValue);
+  }
+
+  private async renameFolderWithName(folderLabel: string, newName: string): Promise<void> {
+    if (this.folderActionInProgress) return;
+    const folderKey = this.normalizeFolder(folderLabel);
+    const groupEntries = this.entries.filter(e => this.normalizeFolder(e.folder) === folderKey);
+    if (!groupEntries.length) {
+      this.closeFolderMenu();
+      return;
+    }
+
+    const trimmed = (newName || '').trim();
+    if (!trimmed) {
+      alert('El nombre no puede estar vacio.');
+      return;
+    }
+
+    const newKey = this.normalizeFolder(trimmed);
+    if (newKey === folderKey) {
+      this.closeFolderMenu();
+      return;
+    }
+
+    this.folderActionInProgress = true;
+    try {
+      // Serial para evitar escrituras concurrentes en el vault
+      for (const e of groupEntries) {
+        await this.es.updateMeta(e.id, undefined, undefined, undefined, undefined, undefined, trimmed);
+      }
+
+      const existingOrder = this.folderOrder.filter(f => f !== folderKey);
+      const targetIdx = this.folderOrder.indexOf(folderKey);
+      const withoutDupes = existingOrder.filter(f => f !== newKey);
+      if (targetIdx >= 0) {
+        withoutDupes.splice(Math.min(targetIdx, withoutDupes.length), 0, newKey);
+      } else if (!withoutDupes.includes(newKey)) {
+        withoutDupes.push(newKey);
+      }
+      this.folderOrder = withoutDupes;
+
+      const movedItems = this.itemOrder[folderKey] || groupEntries.map(e => e.id);
+      const existingNewList = this.itemOrder[newKey] || [];
+      const merged = [...existingNewList, ...movedItems.filter(id => !existingNewList.includes(id))];
+      if (merged.length) {
+        this.itemOrder[newKey] = merged;
+      }
+      delete this.itemOrder[folderKey];
+
+      this.persistOrdering();
+
+      // actualizar estado local sin recargar desde disco
+      const updatedEntries = this.entries.map(e =>
+        this.normalizeFolder(e.folder) === folderKey ? { ...e, folder: trimmed } : e
+      );
+      this.entries = updatedEntries;
+      if (this.selected?.id) {
+        this.selected = updatedEntries.find(e => e.id === this.selected!.id) || null;
+      }
+    } finally {
+      this.folderActionInProgress = false;
+      this.closeFolderMenu();
+    }
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeFolderMenu();
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEsc(ev: KeyboardEvent | Event): void {
+    (ev as KeyboardEvent).stopPropagation?.();
+    this.closeFolderMenu();
+  }
+
   private createGhost(text: string): HTMLElement {
     if (this.dragGhostEl) {
       this.dragGhostEl.remove();
@@ -785,4 +972,3 @@ export class PasswordsComponent implements OnInit {
     }
   }
 }
-
