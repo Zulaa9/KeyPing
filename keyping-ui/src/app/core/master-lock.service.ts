@@ -109,6 +109,20 @@ export class MasterLockService {
     }
   }
 
+  /** Verifica la contraseña maestra sin cambiar el estado actual ni disparar cooldown. */
+  async verifyMaster(password: string): Promise<boolean> {
+    const stored = this.loadStoredMaster();
+    if (!stored) return false;
+    try {
+      const salt = this.fromB64(stored.salt);
+      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || 150_000);
+      const plain = await this.decryptText(key, stored.check);
+      return plain === this.verificationText;
+    } catch {
+      return false;
+    }
+  }
+
   async persistVault(data: unknown): Promise<void> {
     if (!this.masterKey) return;
     try {

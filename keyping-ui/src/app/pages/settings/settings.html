@@ -2,7 +2,7 @@
   <div class="page-header">
     <div>
       <p class="eyebrow">Settings</p>
-      <h1>Configuraci&oacute;n</h1>
+      <h1>Configuracion</h1>
       <p class="muted">Ajusta seguridad, preferencias y copias de seguridad del vault.</p>
     </div>
     <div class="pill pill-muted">
@@ -16,8 +16,8 @@
       <div class="section-head">
         <div>
           <p class="eyebrow small">Seguridad</p>
-          <h2>Protecci&oacute;n del vault</h2>
-          <p class="muted small">Cambia la contrase&ntilde;a maestra, ajusta auto-bloqueo y limita intentos fallidos.</p>
+          <h2>Proteccion del vault</h2>
+          <p class="muted small">Cambia la contrasena maestra, ajusta auto-bloqueo y limita intentos fallidos.</p>
         </div>
         <div class="chip chip-strong">AES-GCM local</div>
       </div>
@@ -25,7 +25,7 @@
       <div class="setting-block">
         <div class="block-head">
           <div>
-            <div class="block-title">Cambiar contrase&ntilde;a maestra</div>
+            <div class="block-title">Cambiar contrasena maestra</div>
             <p class="muted tiny">La llave no sale de tu equipo. Reencripta el vault existente.</p>
           </div>
           <button type="button" class="btn ghost tiny" (click)="resetMasterForm()">Limpiar</button>
@@ -40,7 +40,7 @@
             <input
               type="password"
               [(ngModel)]="masterForm.next"
-              placeholder="M&iacute;nimo 8 caracteres"
+              placeholder="Minimo 8 caracteres"
               (input)="masterMessage = undefined"
             />
           </label>
@@ -55,7 +55,7 @@
           </label>
         </div>
         <div class="block-actions">
-          <span class="muted tiny">Requerir&aacute; desbloquear de nuevo tras el cambio.</span>
+          <span class="muted tiny">Requerira desbloquear de nuevo tras el cambio.</span>
           <button type="button" class="btn primary" (click)="onUpdateMaster()">Actualizar clave</button>
         </div>
         <div class="inline-alert" *ngIf="masterMessage" [ngClass]="masterMessage.type">
@@ -69,7 +69,7 @@
         <div class="block-head">
           <div>
             <div class="block-title">Tiempo de auto-bloqueo</div>
-            <p class="muted tiny">Define cu&aacute;ntos minutos de inactividad cierran el vault.</p>
+            <p class="muted tiny">Define cuantos minutos de inactividad cierran el vault.</p>
           </div>
           <div class="pill pill-muted">{{ autoLockMinutes }} min</div>
         </div>
@@ -89,7 +89,7 @@
           </div>
         </div>
         <div class="block-actions">
-          <span class="muted tiny">Despu&eacute;s de {{ autoLockMinutes }} minutos, se bloquea autom&aacute;ticamente.</span>
+          <span class="muted tiny">Despues de {{ autoLockMinutes }} minutos, se bloquea automaticamente.</span>
           <button type="button" class="btn ghost" (click)="onSaveAutoLock()">Guardar tiempo</button>
         </div>
         <div class="inline-alert success" *ngIf="autoLockMessage">
@@ -145,7 +145,7 @@
         </div>
         <div class="block-actions">
           <span class="muted tiny">El delay crece exponencialmente tras agotar los intentos libres.</span>
-          <button type="button" class="btn ghost" (click)="onSaveAttempts()">Aplicar pol&iacute;tica</button>
+          <button type="button" class="btn ghost" (click)="onSaveAttempts()">Aplicar politica</button>
         </div>
         <div class="inline-alert success" *ngIf="attemptMessage">
           {{ attemptMessage }}
@@ -165,29 +165,29 @@
 
       <div class="setting-block">
         <div class="block-head">
-          <div class="block-title">Selecci&oacute;n de idioma</div>
-          <p class="muted tiny">Aplica solo a la UI. No env&iacute;a datos fuera.</p>
+          <div class="block-title">Seleccion de idioma</div>
+          <p class="muted tiny">Aplica solo a la UI. No envia datos fuera.</p>
         </div>
         <div class="language-options">
           <label class="language-card" [class.active]="language === 'es'">
             <input type="radio" name="lang" value="es" [(ngModel)]="language" (change)="onLanguageChange()" />
             <div>
-              <div class="lang-title">Espa&ntilde;ol</div>
-              <p class="muted tiny">Terminolog&iacute;a de seguridad en castellano.</p>
+              <div class="lang-title">Espanol</div>
+              <p class="muted tiny">Terminologia de seguridad en castellano.</p>
             </div>
           </label>
           <label class="language-card" [class.active]="language === 'en'">
             <input type="radio" name="lang" value="en" [(ngModel)]="language" (change)="onLanguageChange()" />
             <div>
               <div class="lang-title">English</div>
-              <p class="muted tiny">Ideal si mezclas apps en ingl&eacute;s.</p>
+              <p class="muted tiny">Ideal si mezclas apps en ingles.</p>
             </div>
           </label>
           <label class="language-card" [class.active]="language === 'fr'">
             <input type="radio" name="lang" value="fr" [(ngModel)]="language" (change)="onLanguageChange()" />
             <div>
-              <div class="lang-title">Fran&ccedil;ais</div>
-              <p class="muted tiny">Option pour tests multiling&uuml;es.</p>
+              <div class="lang-title">Frances</div>
+              <p class="muted tiny">Option pour tests multilingues.</p>
             </div>
           </label>
         </div>
@@ -202,19 +202,19 @@
         <div>
           <p class="eyebrow small">Copias de seguridad</p>
           <h2>Vault Export / Import</h2>
-          <p class="muted small">Exporta cifrado o importa con sobrescritura o fusi&oacute;n asistida.</p>
+          <p class="muted small">Exporta cifrado o importa con sobrescritura o fusion asistida.</p>
         </div>
         <div class="pill pill-muted">Offline</div>
       </div>
 
-      <div class="setting-block">
+            <div class="setting-block">
         <div class="block-head">
           <div class="block-title">Exportar vault cifrado</div>
           <p class="muted tiny">Genera un archivo cifrado con tu clave maestra.</p>
         </div>
         <div class="block-actions">
           <span class="muted tiny">Ideal para backups seguros o migrar de equipo.</span>
-          <button type="button" class="btn primary" (click)="onExportVault()" [disabled]="exporting">Exportar vault</button>
+          <button type="button" class="btn primary" (click)="openExportModal()" [disabled]="exporting">Exportar vault</button>
         </div>
         <div class="inline-alert success" *ngIf="exportMessage">
           {{ exportMessage }}
@@ -226,7 +226,7 @@
       <div class="setting-block">
         <div class="block-head">
           <div class="block-title">Importar vault</div>
-          <p class="muted tiny">Dos modos: sobrescribir todo o fusionar eligiendo qu&eacute; guardar.</p>
+          <p class="muted tiny">Dos modos: sobrescribir todo o fusionar eligiendo que guardar.</p>
         </div>
 
         <div class="import-modes">
@@ -240,15 +240,15 @@
           <label class="mode" [class.active]="importMode === 'merge'">
             <input type="radio" name="importMode" value="merge" [(ngModel)]="importMode" (change)="onModeChange()" />
             <div>
-              <div class="mode-title">Fusi&oacute;n asistida</div>
-              <p class="muted tiny">Elige contrase&ntilde;as nuevas a guardar o descartar.</p>
+              <div class="mode-title">Fusion asistida</div>
+              <p class="muted tiny">Elige contrasenas nuevas a guardar o descartar.</p>
             </div>
           </label>
         </div>
 
         <div class="file-row">
           <label class="btn ghost file-btn">
-            <input type="file" accept=".json,.keyping" (change)="onImportFile($event)" />
+            <input type="file" accept=".kpenc,.json,.keyping" (change)="onImportFile($event)" />
             <span>Seleccionar archivo</span>
           </label>
           <div class="muted tiny" *ngIf="importFilename; else noFile">
@@ -259,20 +259,44 @@
           </ng-template>
         </div>
 
-        <div class="merge-preview" *ngIf="importMode === 'merge'">
+        <div class="field" *ngIf="importSource === 'master'">
+          <span class="label">Contrasena del backup cifrado</span>
+          <input
+            type="password"
+            [(ngModel)]="importPassword"
+            placeholder="Clave usada al exportar"
+            (input)="importPasswordError = undefined"
+          />
+          <div class="field-error field-error-inline" *ngIf="importPasswordError">{{ importPasswordError }}</div>
+          <button type="button" class="btn ghost tiny" (click)="onUnlockImport()">Desbloquear backup</button>
+        </div>
+
+                <div class="merge-preview" *ngIf="importMode === 'merge'">
           <div class="merge-header">
             <div class="muted tiny">Entradas nuevas detectadas</div>
             <div class="merge-actions">
               <button type="button" class="btn ghost tiny" (click)="selectAllMerge(true)" [disabled]="!mergePreview.length">
                 Guardar todas
               </button>
+              <button type="button" class="btn ghost tiny" (click)="discardExisting()" [disabled]="!mergePreview.length">
+                Descartar existentes
+              </button>
               <button type="button" class="btn ghost tiny" (click)="selectAllMerge(false)" [disabled]="!mergePreview.length">
                 Descartar todas
               </button>
             </div>
           </div>
-          <div class="merge-list" *ngIf="mergePreview.length; else emptyMerge">
-            <div class="merge-item" *ngFor="let item of mergePreview">
+          <div class="merge-search">
+            <input type="text" [(ngModel)]="mergeFilter" placeholder="Buscar por nombre, usuario o correo" />
+          </div>
+          <div class="merge-list" *ngIf="filteredMergePreview.length; else emptyMerge">
+            <div
+              class="merge-item"
+              *ngFor="let item of filteredMergePreview"
+              (mouseenter)="onTipEnter($event, item)"
+              (mousemove)="onTipMove($event)"
+              (mouseleave)="onTipLeave()"
+            >
               <label class="checkbox">
                 <input type="checkbox" [(ngModel)]="item.selected" />
                 <div class="merge-text">
@@ -289,12 +313,11 @@
             </div>
           </div>
           <ng-template #emptyMerge>
-            <p class="muted tiny">Carga un archivo para revisar y elegir qu&eacute; fusionar.</p>
+            <div class="empty-merge muted tiny">No hay resultados en la busqueda.</div>
           </ng-template>
         </div>
-
-        <div class="block-actions">
-          <span class="muted tiny">La importaci&oacute;n se aplicar&aacute; al confirmar.</span>
+<div class="block-actions">
+          <span class="muted tiny">La importacion se aplicara al confirmar.</span>
           <button
             type="button"
             class="btn primary"
@@ -309,5 +332,63 @@
         </div>
       </div>
     </section>
+  </div>
+</div>
+
+<div
+  class="live-tip"
+  *ngIf="tooltip.visible"
+  [ngStyle]="{ top: tooltip.y + 'px', left: tooltip.x + 'px' }"
+>
+  <div class="tip-row" *ngFor="let row of tooltip.rows">
+    <span class="tip-label">{{ row.label }}:</span>
+    <span class="tip-values" [ngClass]="row.tone">
+      <span class="from">{{ row.from }}</span>
+      <span class="arrow">-></span>
+      <span class="to">{{ row.to }}</span>
+    </span>
+  </div>
+</div>
+
+<div class="confirm-backdrop" *ngIf="exportModal.visible">
+  <div class="confirm-modal">
+    <h3>Exportar vault</h3>
+    <p class="muted small">Confirma con tu contrasena maestra para generar el backup cifrado.</p>
+    <div class="field">
+      <span class="label">Contrasena maestra</span>
+      <input
+        type="password"
+        [(ngModel)]="exportModal.password"
+        placeholder="Se te pedira esta contrasena al importar"
+        (input)="exportModal.error = ''"
+      />
+      <div class="field-error" *ngIf="exportModal.error">{{ exportModal.error }}</div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" (click)="closeExportModal()">Cancelar</button>
+      <button type="button" class="btn primary" (click)="confirmExport()" [disabled]="exporting">Confirmar y exportar</button>
+    </div>
+  </div>
+</div>
+
+<div class="confirm-backdrop" *ngIf="confirmModal.visible">
+  <div class="confirm-modal">
+    <h3>{{ confirmModal.mode === 'overwrite' ? 'Sobrescribir vault' : 'Confirmar fusion' }}</h3>
+    <p class="muted small">
+      {{ confirmModal.mode === 'overwrite'
+        ? 'Se borraran los datos actuales y se reemplazaran por el backup. Esta accion no se puede deshacer.'
+        : 'Aplicaremos la fusion con las entradas seleccionadas.' }}
+    </p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" (click)="closeConfirmModal()">Cancelar</button>
+      <button
+        type="button"
+        class="btn primary"
+        [disabled]="confirmModal.countdown > 0"
+        (click)="confirmImport()"
+      >
+        {{ confirmModal.countdown > 0 ? 'Confirmar (' + confirmModal.countdown + 's)' : 'Confirmar' }}
+      </button>
+    </div>
   </div>
 </div>

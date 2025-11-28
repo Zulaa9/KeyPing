@@ -34,12 +34,12 @@ contextBridge.exposeInMainWorld('keyping', {
   openExternal: (url: string) =>
     ipcRenderer.invoke('keyping:openExternal', url),
 
-  exportVault: () =>
-    ipcRenderer.invoke('keyping:exportVault'),
+  exportVault: (mode?: 'native' | 'master', password?: string) =>
+    ipcRenderer.invoke('keyping:exportVault', { mode, password }),
 
-  parseImport: (raw: string) =>
-    ipcRenderer.invoke('keyping:parseImport', raw),
+  parseImport: (raw: string, password?: string) =>
+    ipcRenderer.invoke('keyping:parseImport', raw, password),
 
-  importVault: (mode: 'overwrite' | 'merge', entries: any[], encrypted?: string) =>
-    ipcRenderer.invoke('keyping:importVault', { mode, entries, encrypted }),
+  importVault: (mode: 'overwrite' | 'merge', entries: any[], encrypted?: string, enc?: 'native' | 'master' | 'plain', password?: string, masterPayload?: any) =>
+    ipcRenderer.invoke('keyping:importVault', { mode, entries, encrypted, enc, password, masterPayload }),
 });

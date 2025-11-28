@@ -24,7 +24,9 @@ export type VaultImportEntry = {
 
 export type VaultImportPreview = {
   entries: VaultImportEntry[];
-  source: 'encrypted' | 'plain';
+  source: 'encrypted' | 'plain' | 'master';
+  requiresPassword?: boolean;
+  masterPayload?: any;
 };
 
 export type PasswordMeta = {
@@ -62,9 +64,9 @@ type KeypingApi = {
   copySecure?(text: string, ttlMs?: number): Promise<boolean>;
   getPassword(id: string): Promise<string | null>;
   openExternal(url: string): Promise<boolean>;
-  exportVault(): Promise<{ base64: string; filename: string }>;
-  parseImport(raw: string): Promise<VaultImportPreview>;
-  importVault(mode: 'overwrite' | 'merge', entries: VaultImportEntry[], encrypted?: string): Promise<{ imported: number; overwritten: boolean }>;
+  exportVault(mode?: 'native' | 'master', password?: string): Promise<{ base64?: string; payload?: any; filename: string; format: string; enc: string }>;
+  parseImport(raw: string, password?: string): Promise<VaultImportPreview>;
+  importVault(mode: 'overwrite' | 'merge', entries: VaultImportEntry[], encrypted?: string, enc?: 'native' | 'master' | 'plain', password?: string, masterPayload?: any): Promise<{ imported: number; overwritten: boolean }>;
   ping?(): Promise<string>;
 };
 
@@ -140,18 +142,18 @@ export class ElectronService {
     return this.api.getPassword(id);
   }
 
-  async exportVault(): Promise<{ base64: string; filename: string }> {
+  async exportVault(mode: 'native' | 'master', password?: string): Promise<{ base64?: string; payload?: any; filename: string; format: string; enc: string }> {
     if (!this.api || !this.api.exportVault) throw new Error('No preload API available');
-    return this.api.exportVault();
+    return this.api.exportVault(mode, password);
   }
 
-  async parseImport(raw: string): Promise<VaultImportPreview> {
+  async parseImport(raw: string, password?: string): Promise<VaultImportPreview> {
     if (!this.api || !this.api.parseImport) throw new Error('No preload API available');
-    return this.api.parseImport(raw);
+    return this.api.parseImport(raw, password);
   }
 
-  async importVault(mode: 'overwrite' | 'merge', entries: VaultImportEntry[], encrypted?: string): Promise<{ imported: number; overwritten: boolean }> {
+  async importVault(mode: 'overwrite' | 'merge', entries: VaultImportEntry[], encrypted?: string, enc?: 'native' | 'master' | 'plain', password?: string, masterPayload?: any): Promise<{ imported: number; overwritten: boolean }> {
     if (!this.api || !this.api.importVault) throw new Error('No preload API available');
-    return this.api.importVault(mode, entries, encrypted);
+    return this.api.importVault(mode, entries, encrypted, enc, password, masterPayload);
   }
 }

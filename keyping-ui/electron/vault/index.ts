@@ -1,5 +1,5 @@
 // electron/vault/index.ts
-import { randomUUID, createHash } from 'crypto';
+import { randomUUID, createHash, pbkdf2Sync, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { loadVault, saveVault } from './file';
 import type { VaultEntry, VaultData } from './types';
 import { normalizePattern } from './similarity';
@@ -142,8 +142,25 @@ export async function exportEncryptedVault(): Promise<Buffer> {
   return encryptVault(json);
 }
 
-export async function parseImportPayload(raw: string): Promise<{ entries: ImportEntry[]; source: 'encrypted' | 'plain' }> {
+export async function exportVaultWithPassword(password: string): Promise<{ format: string; enc: 'master'; iterations: number; salt: string; data: string }> {
+  const vault = await loadVault();
+  const json = JSON.stringify(vault);
+  const { salt, iterations, data } = encryptWithPassword(json, password);
+  return { format: 'keyping-export-v2', enc: 'master', iterations, salt, data };
+}
+
+export async function parseImportPayload(raw: string, password?: string): Promise<{ entries: ImportEntry[]; source: 'encrypted' | 'plain' | 'master'; requiresPassword?: boolean; masterPayload?: any }> {
   const parsed = JSON.parse(raw);
+
+  if (parsed?.format === 'keyping-export-v2' && parsed?.enc === 'master') {
+    if (!password) {
+      return { entries: [], source: 'master', requiresPassword: true, masterPayload: parsed };
+    }
+    const decrypted = decryptWithPassword(parsed, password);
+    const data = JSON.parse(decrypted) as VaultData;
+    if (!Array.isArray(data?.entries)) throw new Error('Archivo invalido');
+    return { entries: data.entries as ImportEntry[], source: 'master' };
+  }
 
   if (parsed?.format === 'keyping-export-v1' && typeof parsed?.vault === 'string') {
     const buf = Buffer.from(parsed.vault, 'base64');
@@ -175,6 +192,14 @@ export async function overwriteVaultWithEntries(entries: ImportEntry[]): Promise
 export async function importVaultFromEncrypted(base64: string): Promise<number> {
   const buf = Buffer.from(base64, 'base64');
   const json = await decryptVault(buf);
+  const data = JSON.parse(json) as VaultData;
+  if (!Array.isArray(data?.entries)) throw new Error('Archivo de export invalido');
+  await saveVault({ entries: data.entries as VaultEntry[] });
+  return data.entries.length;
+}
+
+export async function importVaultFromMasterEncrypted(payload: { format: string; enc: 'master'; iterations: number; salt: string; data: string }, password: string): Promise<number> {
+  const json = decryptWithPassword(payload, password);
   const data = JSON.parse(json) as VaultData;
   if (!Array.isArray(data?.entries)) throw new Error('Archivo de export invalido');
   await saveVault({ entries: data.entries as VaultEntry[] });
@@ -221,6 +246,31 @@ function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
     email: raw.email,
     folder: raw.folder
   };
+}
+
+function encryptWithPassword(plain: string, password: string): { salt: string; iterations: number; data: string } {
+  const iterations = 150_000;
+  const salt = randomBytes(16);
+  const key = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const enc = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  const combined = Buffer.concat([iv, tag, enc]).toString('base64');
+  return { salt: salt.toString('base64'), iterations, data: combined };
+}
+
+function decryptWithPassword(payload: { salt: string; iterations: number; data: string }, password: string): string {
+  const salt = Buffer.from(payload.salt, 'base64');
+  const key = pbkdf2Sync(password, salt, payload.iterations || 150_000, 32, 'sha256');
+  const combined = Buffer.from(payload.data, 'base64');
+  const iv = combined.subarray(0, 12);
+  const tag = combined.subarray(12, 28);
+  const cipher = combined.subarray(28);
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  const dec = Buffer.concat([decipher.update(cipher), decipher.final()]).toString('utf8');
+  return dec;
 }
 
 

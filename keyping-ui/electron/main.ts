@@ -11,10 +11,12 @@ import {
   getPasswordPlain,
   updateEntryMeta,
   exportEncryptedVault,
+  exportVaultWithPassword,
   parseImportPayload,
   overwriteVaultWithEntries,
   mergeVaultEntries,
   importVaultFromEncrypted,
+  importVaultFromMasterEncrypted,
 } from './vault';
 
 import { findMostSimilarInVault } from './vault/similarity';
@@ -384,25 +386,46 @@ ipcMain.handle('keyping:openExternal', async (_evt, rawUrl: string) => {
   return false;
 });
 
-ipcMain.handle('keyping:exportVault', async () => {
-  const buf = await exportEncryptedVault();
-  const filename = `keyping-vault-${new Date().toISOString().replace(/[:.]/g, '-')}.keyping`;
-  return { base64: buf.toString('base64'), filename };
+ipcMain.handle('keyping:exportVault', async (_evt, args?: { mode?: 'native' | 'master'; password?: string }) => {
+  const mode = args?.mode || 'master';
+
+  if (mode === 'native') {
+    const buf = await exportEncryptedVault();
+    const filename = `keyping-vault-${new Date().toISOString().replace(/[:.]/g, '-')}.keyping`;
+    return { base64: buf.toString('base64'), filename, format: 'keyping-export-v1', enc: 'native' };
+  }
+
+  if (!args?.password) {
+    throw new Error('Password required for export');
+  }
+
+  const payload = await exportVaultWithPassword(args.password);
+  const filename = `keyping-vault-${new Date().toISOString().replace(/[:.]/g, '-')}.kpenc`;
+  return { payload, filename, format: payload.format, enc: payload.enc };
 });
 
-ipcMain.handle('keyping:parseImport', async (_evt, raw: string) => {
-  return await parseImportPayload(raw);
+ipcMain.handle('keyping:parseImport', async (_evt, raw: string, password?: string) => {
+  return await parseImportPayload(raw, password);
 });
 
 ipcMain.handle('keyping:importVault', async (_evt, args: {
   mode: 'overwrite' | 'merge';
   entries: any[];
   encrypted?: string;
+  enc?: 'native' | 'master' | 'plain';
+  password?: string;
+  masterPayload?: any;
 }) => {
   if (args.mode === 'overwrite') {
-    const imported = args.encrypted
-      ? await importVaultFromEncrypted(args.encrypted)
-      : await overwriteVaultWithEntries(args.entries || []);
+    const enc = args.enc || (args.encrypted ? 'native' : 'plain');
+    let imported = 0;
+    if (enc === 'master' && args.masterPayload && args.password) {
+      imported = await importVaultFromMasterEncrypted(args.masterPayload, args.password);
+    } else if (args.encrypted) {
+      imported = await importVaultFromEncrypted(args.encrypted);
+    } else {
+      imported = await overwriteVaultWithEntries(args.entries || []);
+    }
     return { imported, overwritten: true };
   }
 
