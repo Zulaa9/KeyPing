@@ -1,8 +1,9 @@
 // electron/vault/index.ts
 import { randomUUID, createHash } from 'crypto';
 import { loadVault, saveVault } from './file';
-import type { VaultEntry } from './types';
+import type { VaultEntry, VaultData } from './types';
 import { normalizePattern } from './similarity';
+import { encryptVault, decryptVault } from './crypto';
 
 function classMask(s: string): number {
   let m = 0;
@@ -131,6 +132,95 @@ export async function updateEntryMeta(
 
   await saveVault(vault);
   return entry;
+}
+
+export type ImportEntry = Partial<VaultEntry> & { password?: string; secret?: string };
+
+export async function exportEncryptedVault(): Promise<Buffer> {
+  const vault = await loadVault();
+  const json = JSON.stringify(vault);
+  return encryptVault(json);
+}
+
+export async function parseImportPayload(raw: string): Promise<{ entries: ImportEntry[]; source: 'encrypted' | 'plain' }> {
+  const parsed = JSON.parse(raw);
+
+  if (parsed?.format === 'keyping-export-v1' && typeof parsed?.vault === 'string') {
+    const buf = Buffer.from(parsed.vault, 'base64');
+    const json = await decryptVault(buf);
+    const data = JSON.parse(json) as VaultData;
+    if (!Array.isArray(data?.entries)) throw new Error('Invalid export payload');
+    return { entries: data.entries as ImportEntry[], source: 'encrypted' };
+  }
+
+  if (Array.isArray(parsed?.entries)) {
+    return { entries: parsed.entries as ImportEntry[], source: 'plain' };
+  }
+
+  if (Array.isArray(parsed)) {
+    return { entries: parsed as ImportEntry[], source: 'plain' };
+  }
+
+  throw new Error('Archivo de import no reconocido');
+}
+
+export async function overwriteVaultWithEntries(entries: ImportEntry[]): Promise<number> {
+  const mapped = entries
+    .map(e => mapImportedEntry(e))
+    .filter((e): e is VaultEntry => !!e);
+  await saveVault({ entries: mapped });
+  return mapped.length;
+}
+
+export async function importVaultFromEncrypted(base64: string): Promise<number> {
+  const buf = Buffer.from(base64, 'base64');
+  const json = await decryptVault(buf);
+  const data = JSON.parse(json) as VaultData;
+  if (!Array.isArray(data?.entries)) throw new Error('Archivo de export invalido');
+  await saveVault({ entries: data.entries as VaultEntry[] });
+  return data.entries.length;
+}
+
+export async function mergeVaultEntries(entries: ImportEntry[]): Promise<number> {
+  const vault = await loadVault();
+  let count = 0;
+  for (const raw of entries) {
+    const mapped = mapImportedEntry(raw);
+    if (!mapped) continue;
+    vault.entries.push(mapped);
+    count++;
+  }
+  await saveVault(vault);
+  return count;
+}
+
+function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
+  const pwd = (raw.password || raw.secret || (raw as any).pwd || '') as string;
+  if (!pwd || typeof pwd !== 'string') return null;
+
+  const createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
+  const updatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : createdAt;
+
+  return {
+    id: randomUUID(),
+    createdAt,
+    updatedAt,
+    twoFactorEnabled: !!raw.twoFactorEnabled,
+    length: pwd.length,
+    classMask: classMask(pwd),
+    hash: createHash('sha256').update(pwd).digest('hex'),
+    secret: pwd,
+    normalized: normalizePattern(pwd),
+    label: raw.label,
+    password: pwd,
+    active: raw.active !== false,
+    previousId: raw.previousId,
+    loginUrl: raw.loginUrl,
+    passwordChangeUrl: raw.passwordChangeUrl,
+    username: raw.username,
+    email: raw.email,
+    folder: raw.folder
+  };
 }
 
 

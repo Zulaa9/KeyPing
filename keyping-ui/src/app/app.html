@@ -35,9 +35,14 @@
       </label>
 
       <div class="lock-actions">
-        <span class="field-error lock-error" *ngIf="masterError">
-          {{ masterError }}
-        </span>
+        <div class="lock-feedback" *ngIf="masterError">
+          <div class="chip danger">
+            <span *ngIf="masterCooldownLabel; else plainError">
+              {{ masterError }} · {{ masterCooldownLabel }}
+            </span>
+            <ng-template #plainError>{{ masterError }}</ng-template>
+          </div>
+        </div>
         <button type="submit" class="btn primary">
           {{ lockState === 'unset' ? 'Crear y desbloquear' : 'Desbloquear' }}
         </button>

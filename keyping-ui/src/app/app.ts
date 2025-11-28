@@ -14,6 +14,8 @@ import { MasterLockService, MasterState } from './core/master-lock.service';
 export class AppComponent implements OnInit {
   lockState: MasterState = 'locked';
   masterError: string | null = null;
+  masterCooldownLabel: string | null = null;
+  private cooldownTimer?: any;
   masterPassword = '';
   masterPasswordConfirm = '';
 
@@ -26,12 +28,23 @@ export class AppComponent implements OnInit {
 
   async onUnlock(): Promise<void> {
     this.masterError = null;
+    this.masterCooldownLabel = null;
+    clearInterval(this.cooldownTimer);
+
     const ok = await this.master.unlock(this.masterPassword);
     if (!ok) {
-      this.masterError = 'Contraseña incorrecta';
+      const wait = this.master.getCooldownSeconds();
+      if (wait > 0) {
+        this.startCooldownCountdown();
+        this.masterError = 'Demasiados intentos';
+      } else {
+        this.masterError = 'Contrase\u00f1a incorrecta';
+      }
       return;
     }
     this.masterPassword = '';
+    this.masterCooldownLabel = null;
+    clearInterval(this.cooldownTimer);
   }
 
   async onCreateMaster(): Promise<void> {
@@ -54,5 +67,21 @@ export class AppComponent implements OnInit {
   @HostListener('document:click')
   onUserActivity(): void {
     this.master.touch();
+  }
+
+  private startCooldownCountdown(): void {
+    const update = () => {
+      const seconds = this.master.getCooldownSeconds();
+      if (seconds <= 0) {
+        this.masterCooldownLabel = null;
+        this.masterError = null;
+        clearInterval(this.cooldownTimer);
+        return;
+      }
+      this.masterCooldownLabel = `${seconds}s para reintentar`;
+    };
+    update();
+    clearInterval(this.cooldownTimer);
+    this.cooldownTimer = setInterval(update, 1000);
   }
 }

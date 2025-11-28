@@ -146,6 +146,12 @@
   cursor: not-allowed;
 }
 
+.nav-icon svg {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+}
+
 .nav-item.nav-disabled {
   opacity: 0.45;
   pointer-events: none;

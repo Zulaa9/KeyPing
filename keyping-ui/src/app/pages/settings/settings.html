@@ -1,0 +1,313 @@
+<div class="page settings-page">
+  <div class="page-header">
+    <div>
+      <p class="eyebrow">Settings</p>
+      <h1>Configuraci&oacute;n</h1>
+      <p class="muted">Ajusta seguridad, preferencias y copias de seguridad del vault.</p>
+    </div>
+    <div class="pill pill-muted">
+      <span class="status-dot"></span>
+      Local &amp; cifrado
+    </div>
+  </div>
+
+  <div class="settings-grid">
+    <section class="card settings-card security-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow small">Seguridad</p>
+          <h2>Protecci&oacute;n del vault</h2>
+          <p class="muted small">Cambia la contrase&ntilde;a maestra, ajusta auto-bloqueo y limita intentos fallidos.</p>
+        </div>
+        <div class="chip chip-strong">AES-GCM local</div>
+      </div>
+
+      <div class="setting-block">
+        <div class="block-head">
+          <div>
+            <div class="block-title">Cambiar contrase&ntilde;a maestra</div>
+            <p class="muted tiny">La llave no sale de tu equipo. Reencripta el vault existente.</p>
+          </div>
+          <button type="button" class="btn ghost tiny" (click)="resetMasterForm()">Limpiar</button>
+        </div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="label">Actual</span>
+            <input type="password" [(ngModel)]="masterForm.current" placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;" />
+          </label>
+          <label class="field">
+            <span class="label">Nueva</span>
+            <input
+              type="password"
+              [(ngModel)]="masterForm.next"
+              placeholder="M&iacute;nimo 8 caracteres"
+              (input)="masterMessage = undefined"
+            />
+          </label>
+          <label class="field">
+            <span class="label">Confirmar</span>
+            <input
+              type="password"
+              [(ngModel)]="masterForm.confirm"
+              placeholder="Repite la nueva"
+              (input)="masterMessage = undefined"
+            />
+          </label>
+        </div>
+        <div class="block-actions">
+          <span class="muted tiny">Requerir&aacute; desbloquear de nuevo tras el cambio.</span>
+          <button type="button" class="btn primary" (click)="onUpdateMaster()">Actualizar clave</button>
+        </div>
+        <div class="inline-alert" *ngIf="masterMessage" [ngClass]="masterMessage.type">
+          {{ masterMessage.text }}
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="setting-block">
+        <div class="block-head">
+          <div>
+            <div class="block-title">Tiempo de auto-bloqueo</div>
+            <p class="muted tiny">Define cu&aacute;ntos minutos de inactividad cierran el vault.</p>
+          </div>
+          <div class="pill pill-muted">{{ autoLockMinutes }} min</div>
+        </div>
+        <div class="autolock-row">
+          <input
+            type="range"
+            min="1"
+            max="30"
+            [(ngModel)]="autoLockMinutes"
+            (input)="autoLockMessage = undefined"
+          />
+          <div class="autolock-legend">
+            <span>1m</span>
+            <span>10m</span>
+            <span>20m</span>
+            <span>30m</span>
+          </div>
+        </div>
+        <div class="block-actions">
+          <span class="muted tiny">Despu&eacute;s de {{ autoLockMinutes }} minutos, se bloquea autom&aacute;ticamente.</span>
+          <button type="button" class="btn ghost" (click)="onSaveAutoLock()">Guardar tiempo</button>
+        </div>
+        <div class="inline-alert success" *ngIf="autoLockMessage">
+          {{ autoLockMessage }}
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="setting-block">
+        <div class="block-head">
+          <div>
+            <div class="block-title">Intentos fallidos y delay</div>
+            <p class="muted tiny">3 intentos libres, luego delay exponencial creciente.</p>
+          </div>
+        </div>
+        <div class="attempts-grid">
+          <label class="field">
+            <span class="label">Intentos sin delay</span>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              [(ngModel)]="freeAttempts"
+              (input)="attemptMessage = undefined"
+            />
+          </label>
+          <label class="field">
+            <span class="label">Delay inicial (s)</span>
+            <input
+              type="number"
+              min="1"
+              max="300"
+              [(ngModel)]="baseDelaySeconds"
+              (input)="attemptMessage = undefined"
+            />
+          </label>
+          <label class="field">
+            <span class="label">Factor exponencial (x)</span>
+            <input
+              type="number"
+              min="1"
+              step="0.1"
+              [(ngModel)]="growthFactor"
+              (input)="attemptMessage = undefined"
+            />
+          </label>
+        </div>
+        <div class="delay-preview">
+          <span class="chip" *ngFor="let d of delayPreview; let i = index">
+            Intento {{ i + 1 }}: {{ d }}s
+          </span>
+        </div>
+        <div class="block-actions">
+          <span class="muted tiny">El delay crece exponencialmente tras agotar los intentos libres.</span>
+          <button type="button" class="btn ghost" (click)="onSaveAttempts()">Aplicar pol&iacute;tica</button>
+        </div>
+        <div class="inline-alert success" *ngIf="attemptMessage">
+          {{ attemptMessage }}
+        </div>
+      </div>
+    </section>
+
+    <section class="card settings-card preferences-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow small">Preferencias</p>
+          <h2>Idioma y experiencia</h2>
+          <p class="muted small">Ajustes que afectan a la interfaz local.</p>
+        </div>
+        <div class="pill pill-muted">Local</div>
+      </div>
+
+      <div class="setting-block">
+        <div class="block-head">
+          <div class="block-title">Selecci&oacute;n de idioma</div>
+          <p class="muted tiny">Aplica solo a la UI. No env&iacute;a datos fuera.</p>
+        </div>
+        <div class="language-options">
+          <label class="language-card" [class.active]="language === 'es'">
+            <input type="radio" name="lang" value="es" [(ngModel)]="language" (change)="onLanguageChange()" />
+            <div>
+              <div class="lang-title">Espa&ntilde;ol</div>
+              <p class="muted tiny">Terminolog&iacute;a de seguridad en castellano.</p>
+            </div>
+          </label>
+          <label class="language-card" [class.active]="language === 'en'">
+            <input type="radio" name="lang" value="en" [(ngModel)]="language" (change)="onLanguageChange()" />
+            <div>
+              <div class="lang-title">English</div>
+              <p class="muted tiny">Ideal si mezclas apps en ingl&eacute;s.</p>
+            </div>
+          </label>
+          <label class="language-card" [class.active]="language === 'fr'">
+            <input type="radio" name="lang" value="fr" [(ngModel)]="language" (change)="onLanguageChange()" />
+            <div>
+              <div class="lang-title">Fran&ccedil;ais</div>
+              <p class="muted tiny">Option pour tests multiling&uuml;es.</p>
+            </div>
+          </label>
+        </div>
+        <div class="inline-alert success" *ngIf="languageMessage">
+          {{ languageMessage }}
+        </div>
+      </div>
+    </section>
+
+    <section class="card settings-card backups-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow small">Copias de seguridad</p>
+          <h2>Vault Export / Import</h2>
+          <p class="muted small">Exporta cifrado o importa con sobrescritura o fusi&oacute;n asistida.</p>
+        </div>
+        <div class="pill pill-muted">Offline</div>
+      </div>
+
+      <div class="setting-block">
+        <div class="block-head">
+          <div class="block-title">Exportar vault cifrado</div>
+          <p class="muted tiny">Genera un archivo cifrado con tu clave maestra.</p>
+        </div>
+        <div class="block-actions">
+          <span class="muted tiny">Ideal para backups seguros o migrar de equipo.</span>
+          <button type="button" class="btn primary" (click)="onExportVault()" [disabled]="exporting">Exportar vault</button>
+        </div>
+        <div class="inline-alert success" *ngIf="exportMessage">
+          {{ exportMessage }}
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="setting-block">
+        <div class="block-head">
+          <div class="block-title">Importar vault</div>
+          <p class="muted tiny">Dos modos: sobrescribir todo o fusionar eligiendo qu&eacute; guardar.</p>
+        </div>
+
+        <div class="import-modes">
+          <label class="mode" [class.active]="importMode === 'overwrite'">
+            <input type="radio" name="importMode" value="overwrite" [(ngModel)]="importMode" (change)="onModeChange()" />
+            <div>
+              <div class="mode-title">Sobrescribir todo</div>
+              <p class="muted tiny">Reemplaza el vault actual por completo.</p>
+            </div>
+          </label>
+          <label class="mode" [class.active]="importMode === 'merge'">
+            <input type="radio" name="importMode" value="merge" [(ngModel)]="importMode" (change)="onModeChange()" />
+            <div>
+              <div class="mode-title">Fusi&oacute;n asistida</div>
+              <p class="muted tiny">Elige contrase&ntilde;as nuevas a guardar o descartar.</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="file-row">
+          <label class="btn ghost file-btn">
+            <input type="file" accept=".json,.keyping" (change)="onImportFile($event)" />
+            <span>Seleccionar archivo</span>
+          </label>
+          <div class="muted tiny" *ngIf="importFilename; else noFile">
+            Archivo: {{ importFilename }}
+          </div>
+          <ng-template #noFile>
+            <div class="muted tiny">A&uacute;n no has seleccionado archivo.</div>
+          </ng-template>
+        </div>
+
+        <div class="merge-preview" *ngIf="importMode === 'merge'">
+          <div class="merge-header">
+            <div class="muted tiny">Entradas nuevas detectadas</div>
+            <div class="merge-actions">
+              <button type="button" class="btn ghost tiny" (click)="selectAllMerge(true)" [disabled]="!mergePreview.length">
+                Guardar todas
+              </button>
+              <button type="button" class="btn ghost tiny" (click)="selectAllMerge(false)" [disabled]="!mergePreview.length">
+                Descartar todas
+              </button>
+            </div>
+          </div>
+          <div class="merge-list" *ngIf="mergePreview.length; else emptyMerge">
+            <div class="merge-item" *ngFor="let item of mergePreview">
+              <label class="checkbox">
+                <input type="checkbox" [(ngModel)]="item.selected" />
+                <div class="merge-text">
+                  <div class="merge-title">{{ item.label }}</div>
+                  <div class="merge-meta">
+                    <span *ngIf="item.username">{{ item.username }}</span>
+                    <span *ngIf="item.email">{{ item.email }}</span>
+                  </div>
+                </div>
+              </label>
+              <span class="pill" [ngClass]="{ 'pill-success': item.selected, 'pill-muted': !item.selected }">
+                {{ reasonLabel(item.reason) }}
+              </span>
+            </div>
+          </div>
+          <ng-template #emptyMerge>
+            <p class="muted tiny">Carga un archivo para revisar y elegir qu&eacute; fusionar.</p>
+          </ng-template>
+        </div>
+
+        <div class="block-actions">
+          <span class="muted tiny">La importaci&oacute;n se aplicar&aacute; al confirmar.</span>
+          <button
+            type="button"
+            class="btn primary"
+            (click)="applyImport()"
+            [disabled]="importing || (importMode === 'merge' && !mergePreview.length)"
+          >
+            Importar
+          </button>
+        </div>
+        <div class="inline-alert" *ngIf="importMessage" [ngClass]="importState">
+          {{ importMessage }}
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

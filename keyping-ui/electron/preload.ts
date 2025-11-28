@@ -33,4 +33,13 @@ contextBridge.exposeInMainWorld('keyping', {
 
   openExternal: (url: string) =>
     ipcRenderer.invoke('keyping:openExternal', url),
+
+  exportVault: () =>
+    ipcRenderer.invoke('keyping:exportVault'),
+
+  parseImport: (raw: string) =>
+    ipcRenderer.invoke('keyping:parseImport', raw),
+
+  importVault: (mode: 'overwrite' | 'merge', entries: any[], encrypted?: string) =>
+    ipcRenderer.invoke('keyping:importVault', { mode, entries, encrypted }),
 });

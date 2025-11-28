@@ -7,6 +7,26 @@ export type CheckResult = {
   reasons: string[];
 };
 
+export type VaultImportEntry = {
+  id?: string;
+  label?: string;
+  loginUrl?: string;
+  passwordChangeUrl?: string;
+  username?: string;
+  email?: string;
+  folder?: string;
+  twoFactorEnabled?: boolean;
+  password?: string;
+  secret?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type VaultImportPreview = {
+  entries: VaultImportEntry[];
+  source: 'encrypted' | 'plain';
+};
+
 export type PasswordMeta = {
   id: string;
   createdAt: number;
@@ -42,6 +62,9 @@ type KeypingApi = {
   copySecure?(text: string, ttlMs?: number): Promise<boolean>;
   getPassword(id: string): Promise<string | null>;
   openExternal(url: string): Promise<boolean>;
+  exportVault(): Promise<{ base64: string; filename: string }>;
+  parseImport(raw: string): Promise<VaultImportPreview>;
+  importVault(mode: 'overwrite' | 'merge', entries: VaultImportEntry[], encrypted?: string): Promise<{ imported: number; overwritten: boolean }>;
   ping?(): Promise<string>;
 };
 
@@ -115,5 +138,20 @@ export class ElectronService {
   async getPassword(id: string): Promise<string | null> {
     if (!this.api) throw new Error('No preload API available');
     return this.api.getPassword(id);
+  }
+
+  async exportVault(): Promise<{ base64: string; filename: string }> {
+    if (!this.api || !this.api.exportVault) throw new Error('No preload API available');
+    return this.api.exportVault();
+  }
+
+  async parseImport(raw: string): Promise<VaultImportPreview> {
+    if (!this.api || !this.api.parseImport) throw new Error('No preload API available');
+    return this.api.parseImport(raw);
+  }
+
+  async importVault(mode: 'overwrite' | 'merge', entries: VaultImportEntry[], encrypted?: string): Promise<{ imported: number; overwritten: boolean }> {
+    if (!this.api || !this.api.importVault) throw new Error('No preload API available');
+    return this.api.importVault(mode, entries, encrypted);
   }
 }

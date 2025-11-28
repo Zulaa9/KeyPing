@@ -42,8 +42,14 @@
         <span>Password Health</span>
       </a>
 
-      <a class="nav-item disabled">
-        <span class="nav-icon">⚙️</span>
+      <a
+        routerLink="/settings"
+        routerLinkActive="active"
+        class="nav-item"
+        [class.nav-disabled]="locked"
+        (click)="onNavClick($event)"
+      >
+        <span class="nav-icon" >⚙️</span>
         <span>Settings</span>
       </a>
     </nav>

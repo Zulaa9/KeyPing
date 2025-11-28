@@ -94,15 +94,30 @@
   }
 }
 
-.lock-error {
-  margin: 0;
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+.lock-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.chip.danger {
+  background: rgba(248, 113, 113, 0.12);
   color: #fecaca;
-  font-weight: 600;
-  text-align: left;
-  box-sizing: border-box;
-  background: #0f172a;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+.chip.muted {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.25);
 }

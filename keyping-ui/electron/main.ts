@@ -10,6 +10,11 @@ import {
   replacePasswordForEntry,
   getPasswordPlain,
   updateEntryMeta,
+  exportEncryptedVault,
+  parseImportPayload,
+  overwriteVaultWithEntries,
+  mergeVaultEntries,
+  importVaultFromEncrypted,
 } from './vault';
 
 import { findMostSimilarInVault } from './vault/similarity';
@@ -377,5 +382,31 @@ ipcMain.handle('keyping:openExternal', async (_evt, rawUrl: string) => {
   }
 
   return false;
+});
+
+ipcMain.handle('keyping:exportVault', async () => {
+  const buf = await exportEncryptedVault();
+  const filename = `keyping-vault-${new Date().toISOString().replace(/[:.]/g, '-')}.keyping`;
+  return { base64: buf.toString('base64'), filename };
+});
+
+ipcMain.handle('keyping:parseImport', async (_evt, raw: string) => {
+  return await parseImportPayload(raw);
+});
+
+ipcMain.handle('keyping:importVault', async (_evt, args: {
+  mode: 'overwrite' | 'merge';
+  entries: any[];
+  encrypted?: string;
+}) => {
+  if (args.mode === 'overwrite') {
+    const imported = args.encrypted
+      ? await importVaultFromEncrypted(args.encrypted)
+      : await overwriteVaultWithEntries(args.entries || []);
+    return { imported, overwritten: true };
+  }
+
+  const imported = await mergeVaultEntries(args.entries || []);
+  return { imported, overwritten: false };
 });
 
