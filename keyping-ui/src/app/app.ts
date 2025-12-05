@@ -2,7 +2,7 @@ import { Component, HostListener, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './components/header/header';
 import { FormsModule } from '@angular/forms';
-import { NgIf } from '@angular/common';
+import { NgIf, NgSwitch, NgSwitchCase } from '@angular/common';
 import { MasterLockService, MasterState } from './core/master-lock.service';
 import { TranslatePipe } from './core/translate.pipe';
 import { I18nService } from './core/i18n.service';
@@ -10,7 +10,7 @@ import { I18nService } from './core/i18n.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent, FormsModule, NgIf, TranslatePipe],
+  imports: [RouterOutlet, HeaderComponent, FormsModule, NgIf, TranslatePipe, NgSwitch, NgSwitchCase],
   templateUrl: './app.html'
 })
 export class AppComponent implements OnInit {

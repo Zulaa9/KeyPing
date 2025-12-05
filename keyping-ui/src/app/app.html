@@ -13,61 +13,78 @@
     </p>
 
     <form (ngSubmit)="lockState === 'unset' ? onCreateMaster() : onUnlock()" class="lock-form">
-      <label class="password-field">
-        <span>
-          {{
-            lockState === 'unset'
-              ? ('app.lock.masterLabel' | t)
-              : ('app.lock.enterLabel' | t)
-          }}
-        </span>
-        <div class="input-with-arrow">
-          <input
-            type="password"
-            [(ngModel)]="masterPassword"
-            name="masterPassword"
-            autocomplete="current-password"
-            required
-          />
-          <button
-            type="submit"
-            aria-label="{{ lockState === 'unset' ? ('app.lock.btnCreate' | t) : ('app.lock.btnUnlock' | t) }}"
-            class="arrow-btn"
-          >
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path
-                d="M5 12h14m-5-5l5 5-5 5"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                fill="none"
-              />
-            </svg>
-          </button>
+      <ng-container [ngSwitch]="lockState">
+        <label *ngSwitchCase="'locked'" class="password-field">
+          <span>{{ 'app.lock.enterLabel' | t }}</span>
+          <div class="input-with-arrow">
+            <input
+              type="password"
+              [(ngModel)]="masterPassword"
+              name="masterPassword"
+              autocomplete="current-password"
+              required
+            />
+            <button
+              type="submit"
+              aria-label="{{ 'app.lock.btnUnlock' | t }}"
+              class="arrow-btn"
+            >
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path
+                  d="M5 12h14m-5-5l5 5-5 5"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+          </div>
+        </label>
+
+        <div *ngSwitchCase="'unset'" class="new-master-fields">
+          <label class="password-field">
+            <span>{{ 'app.lock.masterLabel' | t }}</span>
+            <input
+              type="password"
+              [(ngModel)]="masterPassword"
+              name="masterPassword"
+              autocomplete="new-password"
+              required
+            />
+          </label>
+
+          <label class="password-field">
+            <span>{{ 'app.lock.confirmLabel' | t }}</span>
+            <input
+              type="password"
+              [(ngModel)]="masterPasswordConfirm"
+              name="masterPasswordConfirm"
+              autocomplete="new-password"
+              required
+            />
+          </label>
         </div>
-      </label>
+      </ng-container>
 
-      <label *ngIf="lockState === 'unset'">
-        <span>{{ 'app.lock.confirmLabel' | t }}</span>
-        <input
-          type="password"
-          [(ngModel)]="masterPasswordConfirm"
-          name="masterPasswordConfirm"
-          autocomplete="new-password"
-          required
-        />
-      </label>
-
-      <div class="lock-actions">
+      <div class="lock-actions" [class.actions-stacked]="lockState === 'unset'">
         <div class="lock-feedback" *ngIf="masterError">
           <div class="chip danger">
             <span *ngIf="masterCooldownLabel; else plainError">
-              {{ render(masterError) }} Жњ {{ render(masterCooldownLabel) }}
+              {{ render(masterError) }} - {{ render(masterCooldownLabel) }}
             </span>
             <ng-template #plainError>{{ render(masterError) }}</ng-template>
           </div>
         </div>
+
+        <button
+          *ngIf="lockState === 'unset'"
+          type="submit"
+          class="btn primary full-width"
+        >
+          {{ 'app.lock.btnCreate' | t }}
+        </button>
       </div>
     </form>
   </div>
