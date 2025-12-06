@@ -144,6 +144,12 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
     this.resetToAnchor();
   }
 
+  @HostListener('document:kp-open-generator')
+  onOpenGenerator(): void {
+    this.resetToAnchor();
+    this.showGenerator = true;
+  }
+
   private resetToAnchor(): void {
     const host = this.generatorWrapper?.nativeElement;
     if (!host) return;
