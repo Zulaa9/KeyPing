@@ -1,82 +1,220 @@
 .page {
   color: #e5e7eb;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    sans-serif;
-
-    padding-top: 24px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding-top: 24px;
 }
 
-/* Tarjeta principal del dashboard */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.page-header h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
 .card {
-  background: #020617;
+  background: linear-gradient(145deg, #0b1220, #0f172a);
   border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.25);
   padding: 18px 20px;
-  max-width: 840px;
+  margin-bottom: 16px;
 }
 
-/* Título principal */
-.card h2 {
-  margin: 0 0 4px;
-  font-size: 22px;
-  font-weight: 600;
+.card h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
 }
 
-/* Texto secundario */
+.section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
 .muted {
   margin: 0;
   font-size: 14px;
   color: #9ca3af;
 }
 
-/* Zona de botones */
 .card-actions {
   margin-top: 12px;
   display: flex;
   gap: 12px;
 }
 
-/* Botones (mismo estilo que en Passwords) */
-.btn {
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-size: 12px;
-  padding: 6px 16px;
-  cursor: pointer;
-  background: #1f2937;
+.intro-points {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   color: #e5e7eb;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.12s ease, border-color 0.12s ease,
-    transform 0.05s ease;
-
-  &:hover {
-    background: #111827;
-    transform: translateY(-0.5px);
-  }
-
-  &.primary {
-    background: #2563eb;
-    border-color: #2563eb;
-
-    &:hover {
-      background: #1d4ed8;
-      border-color: #1d4ed8;
-    }
-  }
 }
 
-/* Responsive: apilar botones en pantallas pequeñas */
+.intro-points li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.intro-points .emoji {
+  font-size: 18px;
+}
+
+.stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 10px 0 2px;
+}
+
+.stat {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.stat h4 {
+  margin: 4px 0 0;
+  font-size: 20px;
+  color: #e5e7eb;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #60a5fa;
+  margin: 0 0 4px;
+}
+
+.hero-card {
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.hero-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hero-list {
+  list-style: none;
+  margin: 6px 0 8px;
+  padding: 0;
+  color: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hero-score {
+  width: 120px;
+  height: 120px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.hero-score.good {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.hero-score.warn {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.hero-score.bad {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.score-value {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.score-label {
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #e5e7eb;
+}
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.activity-head,
+.activity-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.activity-head {
+  color: #cbd5e1;
+}
+
+.activity-row {
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.activity-label {
+  color: #e5e7eb;
+}
+
+.activity-status {
+  color: #cbd5e1;
+}
+
+.activity-time {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
 @media (max-width: 640px) {
   .card-actions {
     flex-direction: column;
     align-items: stretch;
-
-    .btn {
-      width: 100%;
-      justify-content: center;
-    }
   }
 }

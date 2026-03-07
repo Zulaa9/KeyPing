@@ -29,6 +29,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private cooldownTimer?: any;
   masterPassword = '';
   masterPasswordConfirm = '';
+  showIntro = true;
   private pendingSearchFocus = false;
   private navSub?: Subscription;
   showOnboarding = false;
@@ -136,8 +137,12 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     this.lockState = await this.master.init();
+    this.showIntro = this.lockState === 'unset';
     this.master.state$.subscribe(state => {
       this.lockState = state;
+      if (state !== 'unset') {
+        this.showIntro = false;
+      }
       if (state === 'unlocked') {
         this.maybeStartOnboarding();
       } else {
@@ -162,6 +167,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.navSub?.unsubscribe();
+  }
+
+  startMasterSetup(): void {
+    this.showIntro = false;
   }
 
   async onUnlock(): Promise<void> {

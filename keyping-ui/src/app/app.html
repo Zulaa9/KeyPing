@@ -124,51 +124,78 @@
       </ng-container>
 
       <ng-container *ngSwitchCase="'unset'">
-        <div class="first-time-heading">
-          <p class="muted tiny-eyebrow">{{ 'app.lock.subtitle' | t }}</p>
-          <h2>{{ 'app.lock.titleUnset' | t }}</h2>
+        <div *ngIf="showIntro; else masterForm" class="intro-card">
+          <p class="muted tiny-eyebrow">{{ 'onboarding.eyebrow' | t }}</p>
+          <h2>{{ 'intro.title' | t }}</h2>
+          <p class="muted">{{ 'intro.subtitle' | t }}</p>
+
+          <ul class="intro-points">
+            <li>
+              <span class="emoji">🔐</span>
+              <span>{{ 'intro.point1' | t }}</span>
+            </li>
+            <li>
+              <span class="emoji">⚡</span>
+              <span>{{ 'intro.point2' | t }}</span>
+            </li>
+            <li>
+              <span class="emoji">🛡️</span>
+              <span>{{ 'intro.point3' | t }}</span>
+            </li>
+          </ul>
+
+          <button type="button" class="btn primary full-width" (click)="startMasterSetup()">
+            {{ 'intro.ctaFirst' | t }}
+          </button>
         </div>
 
-        <form (ngSubmit)="onCreateMaster()" class="lock-form first-time-form">
-          <div class="new-master-fields first-time-fields">
-            <label class="password-field">
-              <span>{{ 'app.lock.masterLabel' | t }}</span>
-              <input
-                type="password"
-                [(ngModel)]="masterPassword"
-                name="masterPassword"
-                autocomplete="new-password"
-                required
-              />
-            </label>
-
-            <label class="password-field">
-              <span>{{ 'app.lock.confirmLabel' | t }}</span>
-              <input
-                type="password"
-                [(ngModel)]="masterPasswordConfirm"
-                name="masterPasswordConfirm"
-                autocomplete="new-password"
-                required
-              />
-            </label>
+        <ng-template #masterForm>
+          <div class="first-time-heading">
+            <p class="muted tiny-eyebrow">{{ 'intro.subtitle' | t }}</p>
+            <h2>{{ 'app.lock.titleUnset' | t }}</h2>
           </div>
 
-          <div class="lock-actions actions-stacked">
-            <div class="lock-feedback" *ngIf="masterError">
-              <div class="chip danger">
-                <ng-container *ngIf="masterCooldownLabel; else plainErrorUnset">
-                  {{ render(masterError) }} - {{ render(masterCooldownLabel) }}
-                </ng-container>
-                <ng-template #plainErrorUnset>{{ render(masterError) }}</ng-template>
-              </div>
+          <form (ngSubmit)="onCreateMaster()" class="lock-form first-time-form">
+            <div class="new-master-fields first-time-fields">
+              <label class="password-field">
+                <span>{{ 'app.lock.masterLabel' | t }}</span>
+                <input
+                  type="password"
+                  [(ngModel)]="masterPassword"
+                  name="masterPassword"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
+
+              <label class="password-field">
+                <span>{{ 'app.lock.confirmLabel' | t }}</span>
+                <input
+                  type="password"
+                  [(ngModel)]="masterPasswordConfirm"
+                  name="masterPasswordConfirm"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
             </div>
 
-            <button type="submit" class="btn primary full-width">
-              {{ 'app.lock.btnCreate' | t }}
-            </button>
-          </div>
-        </form>
+            <div class="lock-actions actions-stacked">
+              <div class="lock-feedback" *ngIf="masterError">
+                <div class="chip danger">
+                  <ng-container *ngIf="masterCooldownLabel; else plainErrorUnset">
+                    {{ render(masterError) }} - {{ render(masterCooldownLabel) }}
+                  </ng-container>
+                  <ng-template #plainErrorUnset>{{ render(masterError) }}</ng-template>
+                </div>
+              </div>
+
+              <button type="submit" class="btn primary full-width">
+                {{ 'app.lock.btnCreate' | t }}
+              </button>
+            </div>
+          </form>
+        </ng-template>
       </ng-container>
     </ng-container>
   </div>

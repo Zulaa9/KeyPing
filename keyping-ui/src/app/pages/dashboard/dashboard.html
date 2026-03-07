@@ -1,8 +1,90 @@
-<div class="page">
-  <section class="card">
-    <h2>{{ 'dashboard.title' | t }}</h2>
-    <p class="muted">
-      {{ 'dashboard.subtitle' | t }}
-    </p>
+<div class="page dashboard-page">
+  <div class="page-header">
+    <div>
+      <p class="eyebrow">{{ 'dashboard.eyebrow' | t }}</p>
+      <h1>{{ 'dashboard.title' | t }}</h1>
+      <p class="muted">
+        {{ 'dashboard.subtitle' | t }}
+      </p>
+    </div>
+  </div>
+
+  <section class="card intro-card">
+    <div class="section-heading">
+      <p class="eyebrow">{{ 'intro.titleAlt' | t }}</p>
+      <h3>{{ 'intro.subtitle' | t }}</h3>
+    </div>
+
+    <ul class="intro-points">
+      <li>
+        <span class="emoji">🔐</span>
+        <span>{{ 'intro.point1' | t }}</span>
+      </li>
+      <li>
+        <span class="emoji">⚡</span>
+        <span>{{ 'intro.point2' | t }}</span>
+      </li>
+      <li>
+        <span class="emoji">🛡️</span>
+        <span>{{ 'intro.point3' | t }}</span>
+      </li>
+    </ul>
+  </section>
+
+  <section class="card stats-card">
+    <div class="section-heading">
+      <p class="eyebrow">{{ 'dashboard.stats.eyebrow' | t }}</p>
+      <h3>{{ 'dashboard.stats.title' | t }}</h3>
+      <p class="muted small">{{ 'dashboard.stats.subtitle' | t }}</p>
+    </div>
+
+    <div class="stats-grid" *ngIf="!loading; else statsLoading">
+      <div class="stat">
+        <p class="eyebrow">{{ 'dashboard.stats.strong' | t }}</p>
+        <h4>{{ strong }}</h4>
+      </div>
+      <div class="stat">
+        <p class="eyebrow">{{ 'dashboard.stats.medium' | t }}</p>
+        <h4>{{ medium }}</h4>
+      </div>
+      <div class="stat">
+        <p class="eyebrow">{{ 'dashboard.stats.weak' | t }}</p>
+        <h4>{{ weak }}</h4>
+      </div>
+      <div class="stat">
+        <p class="eyebrow">{{ 'dashboard.stats.twofa' | t }}</p>
+        <h4>{{ with2fa }}</h4>
+      </div>
+      <div class="stat">
+        <p class="eyebrow">{{ 'dashboard.stats.folders' | t }}</p>
+        <h4>{{ folders }}</h4>
+      </div>
+      <div class="stat">
+        <p class="eyebrow">{{ 'dashboard.stats.duplicates' | t }}</p>
+        <h4>{{ duplicateCount }}</h4>
+      </div>
+    </div>
+    <ng-template #statsLoading>
+      <p class="muted small">{{ 'dashboard.stats.loading' | t }}</p>
+    </ng-template>
+
+  </section>
+  <section class="card activity-card">
+    <div class="section-heading">
+      <p class="eyebrow">{{ 'dashboard.activity.title' | t }}</p>
+      <h3>{{ 'dashboard.activity.subtitle' | t }}</h3>
+    </div>
+    <div class="activity-grid">
+      <div class="activity-head eyebrow">
+        <span>{{ 'dashboard.activity.col.label' | t }}</span>
+        <span>{{ 'dashboard.activity.col.status' | t }}</span>
+        <span>{{ 'dashboard.activity.col.time' | t }}</span>
+      </div>
+      <div class="activity-row" *ngFor="let item of activity">
+        <span class="activity-label">{{ item.label }}</span>
+        <span class="activity-status">{{ item.status }}</span>
+        <span class="activity-time">{{ item.time }}</span>
+      </div>
+    </div>
   </section>
 </div>
