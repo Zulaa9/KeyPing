@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, Output, EventEmitter } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
 import { NgIf } from '@angular/common';
@@ -19,6 +19,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   passwordCount: number | null = null;
   @Input() locked = false;
+  @Output() restartTour = new EventEmitter<void>();
 
   private navSub?: Subscription;
   private countSub?: Subscription;

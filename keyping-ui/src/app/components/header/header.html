@@ -52,6 +52,14 @@
         <span class="nav-icon" >⚙️</span>
         <span>{{ 'nav.settings' | t }}</span>
       </a>
+      <a
+        class="nav-item tour-nav"
+        [class.nav-disabled]="locked"
+        (click)="onNavClick($event); restartTour.emit()"
+      >
+        <span class="nav-icon">🧭</span>
+        <span>{{ 'onboarding.eyebrow' | t }}</span>
+      </a>
     </nav>
 
     <div class="sidebar-footer">

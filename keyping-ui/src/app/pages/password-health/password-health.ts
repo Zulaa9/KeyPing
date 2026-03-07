@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { NgFor, NgIf, NgClass } from '@angular/common';
 import { Router } from '@angular/router';
 import { ElectronService, PasswordMeta } from '../../core/electron.service';
@@ -48,6 +48,7 @@ export class PasswordHealthComponent implements OnInit {
 
   issues: HealthIssue[] = [];
   private revealedDupValues = new Set<string>();
+  showDemo = false;
 
   constructor(
     private es: ElectronService,
@@ -117,8 +118,23 @@ export class PasswordHealthComponent implements OnInit {
     this.loading = true;
     try {
       const metas = await this.es.listPasswords();
+      const allowDemo = this.isDemoAllowed();
+      if (!metas.length && allowDemo) {
+        this.useDemoData();
+        return;
+      }
+      this.showDemo = false;
       this.total = metas.length;
       this.resetCounters();
+
+      if (!metas.length) {
+        this.score = 0;
+        this.scoreLabel = this.t('health.score.noData');
+        this.duplicateGroups = [];
+        this.duplicateEntries = 0;
+        this.issues = [];
+        return;
+      }
 
       const entriesWithPlain: Array<{ meta: PasswordMeta; plain?: string | null }> = [];
       for (const meta of metas) {
@@ -149,6 +165,25 @@ export class PasswordHealthComponent implements OnInit {
     if (severity >= 80) return 'issue-danger';
     if (severity >= 50) return 'issue-warn';
     return 'issue-muted';
+  }
+
+  @HostListener('document:kp-demo-disable')
+  onDemoDisable(): void {
+    if (!this.showDemo) return;
+    this.showDemo = false;
+    this.total = 0;
+    this.resetCounters();
+    this.score = 0;
+    this.scoreLabel = this.t('health.score.noData');
+    this.issues = [];
+    this.duplicateGroups = [];
+    this.duplicateEntries = 0;
+  }
+
+  @HostListener('document:kp-demo-enable')
+  onDemoEnable(): void {
+    if (this.total > 0) return;
+    this.useDemoData();
   }
 
   private computeStats(entries: Array<{ meta: PasswordMeta; plain?: string | null }>): void {
@@ -295,5 +330,96 @@ export class PasswordHealthComponent implements OnInit {
 
   private t(key: string, params?: Record<string, string | number>): string {
     return this.i18n.translate(key, params);
+  }
+
+  private useDemoData(): void {
+    this.showDemo = true;
+    const now = Date.now();
+    const demo: Array<{ meta: PasswordMeta; plain: string }> = [
+      {
+        meta: {
+          id: 'demo-strong-1',
+          label: 'Banco Online',
+          username: 'cliente@bank.com',
+          length: 20,
+          classMask: 1 | 2 | 4 | 8,
+          twoFactorEnabled: true,
+          createdAt: now - 1000 * 60 * 60 * 24 * 60
+        },
+        plain: 'TorreAzul!2024$Bank'
+      },
+      {
+        meta: {
+          id: 'demo-strong-2',
+          label: 'GitHub',
+          email: 'dev@ejemplo.io',
+          length: 18,
+          classMask: 1 | 2 | 4 | 8,
+          twoFactorEnabled: true,
+          createdAt: now - 1000 * 60 * 60 * 24 * 14
+        },
+        plain: 'Gh!Safeguard#9821'
+      },
+      {
+        meta: {
+          id: 'demo-medium-1',
+          label: 'Netflix',
+          email: 'user@ejemplo.com',
+          length: 13,
+          classMask: 1 | 2 | 4 | 8,
+          twoFactorEnabled: false,
+          createdAt: now - 1000 * 60 * 60 * 24 * 30
+        },
+        plain: 'SeriesNight123!'
+      },
+      {
+        meta: {
+          id: 'demo-weak-1',
+          label: 'Wifi casa',
+          length: 8,
+          classMask: 1 | 2 | 4,
+          twoFactorEnabled: false,
+          createdAt: now - 1000 * 60 * 60 * 24 * 5
+        },
+        plain: 'Clave123'
+      },
+      {
+        meta: {
+          id: 'demo-dup-1',
+          label: 'Foro Tech',
+          username: 'usuario77',
+          length: 12,
+          classMask: 1 | 2 | 4 | 8,
+          twoFactorEnabled: false,
+          createdAt: now - 1000 * 60 * 60 * 24 * 10
+        },
+        plain: 'ReusedPass9!'
+      },
+      {
+        meta: {
+          id: 'demo-dup-2',
+          label: 'Correo personal',
+          email: 'mail@ejemplo.com',
+          length: 12,
+          classMask: 1 | 2 | 4 | 8,
+          twoFactorEnabled: false,
+          createdAt: now - 1000 * 60 * 60 * 24 * 3
+        },
+        plain: 'ReusedPass9!'
+      }
+    ];
+
+    this.total = demo.length;
+    this.resetCounters();
+
+    const entriesWithPlain = demo.map(d => ({ meta: { ...d.meta, length: d.plain.length }, plain: d.plain }));
+
+    this.computeDuplicates(entriesWithPlain);
+    this.computeStats(entriesWithPlain);
+    this.computeScore();
+  }
+
+  private isDemoAllowed(): boolean {
+    return localStorage.getItem('keyping.demo.disabled') !== '1';
   }
 }

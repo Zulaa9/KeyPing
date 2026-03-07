@@ -86,7 +86,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   // Remove default menu to hide devtools entrypoints
-  Menu.setApplicationMenu(null);
+  // Menu.setApplicationMenu(null);
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

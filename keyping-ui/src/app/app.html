@@ -1,10 +1,77 @@
 <div class="kp-titlebar"></div>
 
-<kp-header [locked]="lockState !== 'unlocked'"></kp-header>
+<kp-header [locked]="lockState !== 'unlocked'" (restartTour)="restartOnboarding()"></kp-header>
 
 <main class="container">
   <router-outlet />
 </main>
+
+<div
+  class="onboarding-overlay"
+  *ngIf="lockState === 'unlocked' && showOnboarding && currentOnboardingStep as step"
+  [ngClass]="{ 'overlay-dim': onboardingStep === 0, 'overlay-blur': onboardingStep >= 1 }"
+>
+  <div
+    class="onboarding-card anchored"
+    [ngClass]="'placement-' + onboardingPos.placement"
+    [ngStyle]="{ top: onboardingPos.top + 'px', left: onboardingPos.left + 'px' }"
+  >
+    <p class="tiny-eyebrow">{{ 'onboarding.eyebrow' | t }}</p>
+    <h2>{{ step.titleKey | t }}</h2>
+    <p class="muted onboarding-desc">{{ step.descKey | t }}</p>
+
+    <div class="onboarding-progress">
+      <span class="pill pill-muted">{{ onboardingStep + 1 }}/{{ onboardingSteps.length }}</span>
+      <div class="dots">
+        <span
+          *ngFor="let _ of onboardingSteps; index as i"
+          [class.active]="i === onboardingStep"
+        ></span>
+      </div>
+    </div>
+
+    <div class="onboarding-actions">
+      <button type="button" class="btn ghost skip-btn" (click)="skipOnboarding()">
+        {{ 'onboarding.skip' | t }}
+      </button>
+      <div class="onboarding-arrows">
+        <button
+          type="button"
+          class="btn ghost icon-btn prev-btn"
+          [ngClass]="{ 'btn-active': lastOnboardingAction === 'prev' }"
+          (click)="prevOnboarding()"
+          [disabled]="onboardingStep === 0"
+          [attr.title]="'onboarding.prev' | t"
+          aria-label="{{ 'onboarding.prev' | t }}"
+        >
+          ←
+        </button>
+        <button
+          type="button"
+          class="btn primary icon-btn next-btn"
+          [ngClass]="{ 'btn-active': lastOnboardingAction === 'next' }"
+          (click)="nextOnboarding()"
+          [attr.title]="
+            onboardingStep === onboardingSteps.length - 1
+              ? ('onboarding.done' | t)
+              : ('onboarding.next' | t)
+          "
+          aria-label="{{
+            onboardingStep === onboardingSteps.length - 1
+              ? ('onboarding.done' | t)
+              : ('onboarding.next' | t)
+          }}"
+        >
+          {{
+            onboardingStep === onboardingSteps.length - 1
+              ? '✓'
+              : '→'
+          }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="lock-screen" *ngIf="lockState !== 'unlocked'">
   <div class="lock-card" [class.first-time]="lockState === 'unset'">

@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnInit } from '@angular/core';
 import {
   NgFor,
   NgIf,
@@ -103,6 +103,9 @@ export class PasswordsComponent implements OnInit {
   historyLoading = false;
   historyError?: string;
   historyModalOpen = false;
+  showDemo = false;
+  demoEntries: PasswordMeta[] = this.buildDemoEntries();
+  demoHistory: PasswordMeta[] = [];
 
 
   constructor(
@@ -111,7 +114,8 @@ export class PasswordsComponent implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private master: MasterLockService,
-    private i18n: I18nService
+    private i18n: I18nService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -132,12 +136,19 @@ export class PasswordsComponent implements OnInit {
     try {
       this.entries = await this.es.listPasswords();
       this.passwordCountSvc.setLocalCount(this.entries.length);
+      this.showDemo = this.entries.length === 0 && this.isDemoAllowed();
       this.syncOrderingState();
-      if (previouslySelectedId) {
+      if (previouslySelectedId && !this.showDemo) {
         this.selected = this.entries.find(e => e.id === previouslySelectedId) || null;
       }
       this.master.persistVault(this.entries);
       await this.refreshDuplicateIndex();
+      if (this.showDemo) {
+        this.selected = this.demoEntries[0] || null;
+        this.history = [];
+        this.historyModalOpen = false;
+        return;
+      }
       if (this.selected) {
         await this.loadHistory(this.selected.id);
       } else {
@@ -208,7 +219,7 @@ export class PasswordsComponent implements OnInit {
     const fromTs = this.parseDateInput(this.dateFrom);
     const toTs = this.parseDateInput(this.dateTo, true);
 
-    return this.entries.filter(e => {
+    return this.baseEntries.filter(e => {
       if (term && !this.matchesSearch(e, term)) return false;
       if (this.strengthFilter !== 'all' && this.strengthLabel(e) !== this.strengthFilter) return false;
       if (this.onlyNoTwoFactor && e.twoFactorEnabled) return false;
@@ -362,6 +373,7 @@ export class PasswordsComponent implements OnInit {
 
   // ---- COPIAR ----
   async onCopy(entry: PasswordMeta): Promise<void> {
+    if (this.showDemo) return;
     try {
       await this.es.copyPassword(entry.id);
       this.copyingId = entry.id;
@@ -414,6 +426,7 @@ export class PasswordsComponent implements OnInit {
 
   // ---- ELIMINAR ----
   async onDelete(entry: PasswordMeta): Promise<void> {
+    if (this.showDemo) return;
     const ok = confirm(this.t('passwords.confirm.delete'));
     if (!ok) return;
 
@@ -433,6 +446,7 @@ export class PasswordsComponent implements OnInit {
 
   // ---- EDITAR ----
   startEdit(entry: PasswordMeta): void {
+    if (this.showDemo) return;
     this.editingId = entry.id;
     this.newPwd = '';
   }
@@ -443,6 +457,7 @@ export class PasswordsComponent implements OnInit {
   }
 
   async confirmEdit(entry: PasswordMeta): Promise<void> {
+    if (this.showDemo) return;
     if (!this.newPwd) return;
 
     const wasRevealed = !!this.revealed[entry.id];
@@ -490,6 +505,11 @@ export class PasswordsComponent implements OnInit {
   async onSelect(entry: PasswordMeta): Promise<void> {
     this.selected = entry;
     this.editingDetail = false;
+    if (this.showDemo) {
+      this.history = [];
+      this.historyModalOpen = false;
+      return;
+    }
     await this.loadHistory(entry.id);
   }
 
@@ -527,6 +547,7 @@ export class PasswordsComponent implements OnInit {
   }
 
   startDetailEdit(): void {
+    if (this.showDemo) return;
     if (!this.selected) return;
     this.editingDetail = true;
 
@@ -545,6 +566,7 @@ export class PasswordsComponent implements OnInit {
   }
   
   async saveDetailEdit(): Promise<void> {
+    if (this.showDemo) return;
     if (!this.selected) return;
 
     const oldId = this.selected.id;
@@ -645,6 +667,7 @@ export class PasswordsComponent implements OnInit {
 
   // ---- MOSTRAR / OCULTAR CONTRASEÑA ----
   async toggleShow(entry: PasswordMeta): Promise<void> {
+    if (this.showDemo) return;
     const id = entry.id;
 
     // si ya está visible, la ocultamos
@@ -673,6 +696,7 @@ export class PasswordsComponent implements OnInit {
   }
 
   async onRestoreVersion(entry: PasswordMeta): Promise<void> {
+    if (this.showDemo) return;
     try {
       const restored = await this.es.restorePasswordVersion(entry.id);
       await this.loadEntries();
@@ -688,6 +712,7 @@ export class PasswordsComponent implements OnInit {
   }
 
   async onClearHistory(): Promise<void> {
+    if (this.showDemo) return;
     if (!this.selected) return;
     const ok = confirm(this.t('passwords.history.confirmClear'));
     if (!ok) return;
@@ -704,6 +729,7 @@ export class PasswordsComponent implements OnInit {
   }
 
   openHistoryModal(): void {
+    if (this.showDemo) return;
     if (!this.history.length) return;
     this.historyModalOpen = true;
   }
@@ -715,6 +741,7 @@ export class PasswordsComponent implements OnInit {
   // ---- ABRIR URL EN NAVEGADOR ----
   async openUrl(url: string, ev?: MouseEvent): Promise<void> {
     if (ev) ev.stopPropagation();
+    if (this.showDemo) return;
     if (!url) return;
 
     try {
@@ -725,6 +752,7 @@ export class PasswordsComponent implements OnInit {
   }
   
   goToAddPassword(): void {
+    if (this.showDemo) return;
     this.router.navigate(['/add']);
   }
 
@@ -795,6 +823,12 @@ export class PasswordsComponent implements OnInit {
   }
 
   private syncOrderingState(): void {
+    if (this.showDemo) {
+      const folders = this.collectFolders();
+      this.folderOrder = folders.sort((a, b) => a.localeCompare(b));
+      this.itemOrder = this.mergeItemOrder(folders);
+      return;
+    }
     if (!this.folderOrder.length && !Object.keys(this.itemOrder).length) {
       this.loadPersistedOrdering();
     }
@@ -807,7 +841,7 @@ export class PasswordsComponent implements OnInit {
 
   private collectFolders(): string[] {
     const set = new Set<string>();
-    for (const e of this.entries) {
+    for (const e of this.baseEntries) {
       set.add(this.normalizeFolder(e.folder));
     }
     return Array.from(set);
@@ -822,7 +856,7 @@ export class PasswordsComponent implements OnInit {
   private mergeItemOrder(folders: string[]): Record<string, string[]> {
     const next: Record<string, string[]> = {};
     for (const folder of folders) {
-      const currentIds = this.entries
+      const currentIds = this.baseEntries
         .filter(e => this.normalizeFolder(e.folder) === folder)
         .map(e => e.id);
 
@@ -1154,10 +1188,51 @@ export class PasswordsComponent implements OnInit {
     this.closeFolderMenu();
   }
 
-  @HostListener('document:keydown.escape', ['$event'])
+@HostListener('document:keydown.escape', ['$event'])
   onEsc(ev: KeyboardEvent | Event): void {
     (ev as KeyboardEvent).stopPropagation?.();
     this.closeFolderMenu();
+  }
+
+  @HostListener('document:kp-toggle-filters', ['$event'])
+  onToggleFilters(ev: Event): void {
+    const open = (ev as CustomEvent<{ open?: boolean }>).detail?.open;
+    if (typeof open === 'boolean') {
+      this.filtersCollapsed = !open;
+    } else {
+      this.filtersCollapsed = !this.filtersCollapsed;
+    }
+  }
+
+  @HostListener('document:kp-demo-disable')
+  onDemoDisable(): void {
+    if (!this.showDemo) return;
+    this.showDemo = false;
+    this.selected = null;
+    this.history = [];
+    this.historyModalOpen = false;
+  }
+
+  @HostListener('document:kp-demo-enable')
+  async onDemoEnable(): Promise<void> {
+    if (this.entries.length > 0) return;
+    this.showDemo = true;
+    this.selected = this.demoEntries[0] || null;
+    this.history = [];
+    this.historyModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('document:kp-select-first-password')
+  async onSelectFirstPassword(): Promise<void> {
+    if (this.showDemo) {
+      this.selected = this.demoEntries[0] || null;
+      return;
+    }
+    if (!this.entries.length) return;
+    this.selected = this.entries[0];
+    await this.loadHistory(this.selected.id);
+    this.cdr.markForCheck();
   }
 
   private createGhost(text: string): HTMLElement {
@@ -1189,5 +1264,65 @@ export class PasswordsComponent implements OnInit {
 
   private t(key: string, params?: Record<string, string | number>): string {
     return this.i18n.translate(key, params);
+  }
+
+  private get baseEntries(): PasswordMeta[] {
+    return this.showDemo ? this.demoEntries : this.entries;
+  }
+
+  get viewEntries(): PasswordMeta[] {
+    return this.baseEntries;
+  }
+
+  private buildDemoEntries(): PasswordMeta[] {
+    const now = Date.now();
+    const mk = (id: string, label: string, folder: string, email?: string, username?: string, loginUrl?: string, twoFactorEnabled?: boolean, length = 16, classMask = 15): PasswordMeta => ({
+      id,
+      label,
+      folder,
+      email,
+      username,
+      loginUrl,
+      twoFactorEnabled,
+      createdAt: now - 86_400_000,
+      updatedAt: now - 43_200_000,
+      length,
+      classMask
+    });
+    return [
+      mk('demo-1', 'Gmail', 'Personal', 'alex@example.com', undefined, 'https://mail.google.com', true, 18),
+      mk('demo-2', 'Banco Online', 'Finanzas', undefined, 'abperez', 'https://banco.example.com', true, 20),
+      mk('demo-3', 'GitHub', 'Trabajo', 'dev@example.com', 'devuser', 'https://github.com', false, 24),
+      mk('demo-4', 'Netflix', 'Personal', 'cine@example.com', undefined, 'https://netflix.com', false, 14)
+    ];
+  }
+
+  private getDemoHistory(entry: PasswordMeta | null): PasswordMeta[] {
+    if (!entry) return [];
+    const baseTs = entry.createdAt || Date.now();
+    return [
+      {
+        ...entry,
+        id: `${entry.id}-h1`,
+        updatedAt: baseTs + 60_000,
+        createdAt: baseTs,
+        length: entry.length - 2,
+        classMask: entry.classMask,
+        active: false
+      },
+      {
+        ...entry,
+        id: `${entry.id}-h2`,
+        updatedAt: baseTs + 120_000,
+        createdAt: baseTs + 60_000,
+        length: entry.length,
+        classMask: entry.classMask,
+        active: true
+      }
+    ];
+  }
+
+  private isDemoAllowed(): boolean {
+    return localStorage.getItem('keyping.demo.disabled') !== '1';
   }
 }

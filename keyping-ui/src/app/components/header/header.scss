@@ -103,6 +103,13 @@
   color: #9ca3af;
   text-decoration: none;
   transition: 0.15s;
+  outline: none;
+}
+
+.nav-item:focus,
+.nav-item:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .nav-item.has-badge {
