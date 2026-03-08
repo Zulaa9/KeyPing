@@ -24,8 +24,32 @@ contextBridge.exposeInMainWorld('keyping', {
     return ipcRenderer.invoke('keyping:check', { pwd });
   },
 
-  savePassword: (pwd: string, label?: string, loginUrl?: string, passwordChangeUrl?: string, username?: string, email?: string, folder?: string, twoFactorEnabled?: boolean) =>
-    ipcRenderer.invoke('keyping:save', { pwd, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled }),
+  savePassword: (
+    pwd: string,
+    label?: string,
+    loginUrl?: string,
+    passwordChangeUrl?: string,
+    username?: string,
+    email?: string,
+    folder?: string,
+    twoFactorEnabled?: boolean,
+    iconName?: string,
+    iconSource?: 'auto' | 'manual',
+    detectedService?: string
+  ) =>
+    ipcRenderer.invoke('keyping:save', {
+      pwd,
+      label,
+      loginUrl,
+      passwordChangeUrl,
+      username,
+      email,
+      folder,
+      twoFactorEnabled,
+      iconName,
+      iconSource,
+      detectedService
+    }),
 
   listPasswords: () =>
     ipcRenderer.invoke('keyping:list'),
@@ -39,8 +63,32 @@ contextBridge.exposeInMainWorld('keyping', {
   updatePassword: (id: string, pwd: string) =>
     ipcRenderer.invoke('keyping:update', { id, pwd }),
   
-  updateMeta: (id: string, label: string, loginUrl: string, passwordChangeUrl: string, username?: string, email?: string, folder?: string, twoFactorEnabled?: boolean) =>
-    ipcRenderer.invoke('keyping:updateMeta', { id, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled }),
+  updateMeta: (
+    id: string,
+    label: string,
+    loginUrl: string,
+    passwordChangeUrl: string,
+    username?: string,
+    email?: string,
+    folder?: string,
+    twoFactorEnabled?: boolean,
+    iconName?: string,
+    iconSource?: 'auto' | 'manual',
+    detectedService?: string
+  ) =>
+    ipcRenderer.invoke('keyping:updateMeta', {
+      id,
+      label,
+      loginUrl,
+      passwordChangeUrl,
+      username,
+      email,
+      folder,
+      twoFactorEnabled,
+      iconName,
+      iconSource,
+      detectedService
+    }),
   
   getPassword: (id: string) =>
     ipcRenderer.invoke('keyping:getPassword', { id }),

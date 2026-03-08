@@ -19,6 +19,9 @@ export type VaultEntry = {
   username?: string;
   email?: string;
   folder?: string;
+  iconName?: string;
+  iconSource?: 'auto' | 'manual';
+  detectedService?: string;
 };
 
 export type VaultData = {

@@ -17,6 +17,8 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { MasterLockService } from '../../core/master-lock.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
+import { SERVICE_ICON_ASSETS } from '../../core/icons/icon-registry';
+import { resolveEntryIcon } from '../../core/icons/service-icon.resolver';
 
 type StrengthFilter = 'all' | 'strong' | 'medium' | 'weak';
 
@@ -106,6 +108,7 @@ export class PasswordsComponent implements OnInit {
   showDemo = false;
   demoEntries: PasswordMeta[] = this.buildDemoEntries();
   demoHistory: PasswordMeta[] = [];
+  private brokenIconAssets = new Set<string>();
 
 
   constructor(
@@ -295,6 +298,11 @@ export class PasswordsComponent implements OnInit {
   }
 
   private matchesSearch(entry: PasswordMeta, term: string): boolean {
+    const normalizedTerm = term.trim().toLowerCase();
+    if (this.matchesTwitterAlias(normalizedTerm)) {
+      return this.isTwitterEntry(entry);
+    }
+
     const folderRaw = (entry.folder || '').toLowerCase();
     const folderName = this.folderDisplayName(entry.folder || '').toLowerCase();
 
@@ -309,6 +317,29 @@ export class PasswordsComponent implements OnInit {
     ];
 
     return fields.some(f => f && f.toLowerCase().includes(term));
+  }
+
+  private matchesTwitterAlias(term: string): boolean {
+    if (!term) return false;
+    if (term === 'x') return true;
+    if (term.length < 2) return false;
+    return 'twitter'.startsWith(term) || term.startsWith('twit');
+  }
+
+  private isTwitterEntry(entry: PasswordMeta): boolean {
+    if (entry.detectedService === 'twitterx' || entry.iconName === 'twitterx') return true;
+
+    const label = (entry.label || '').trim().toLowerCase();
+    const loginUrl = (entry.loginUrl || '').toLowerCase();
+    const username = ((entry as any).username || '').toLowerCase();
+    const email = ((entry as any).email || '').toLowerCase();
+
+    if (label === 'x' || label.includes('twitter')) return true;
+    if (loginUrl.includes('x.com') || loginUrl.includes('twitter.com')) return true;
+    if (username.includes('twitter') || email.includes('twitter')) return true;
+
+    const resolved = resolveEntryIcon(entry);
+    return resolved.serviceId === 'twitterx';
   }
 
   private parseDateInput(value: string, endOfDay = false): number | null {
@@ -599,6 +630,8 @@ export class PasswordsComponent implements OnInit {
       }
     }
 
+    const iconMeta = this.resolveIconMetaForEdit();
+
     // 2) Actualizar metadata (nombre / URLs) sobre el id actual (nuevo si ha cambiado)
     const updatedMeta = await this.es.updateMeta(
       currentId,
@@ -608,7 +641,10 @@ export class PasswordsComponent implements OnInit {
       this.editUsername || '',
       this.editEmail || '',
       this.editFolder || '',
-      this.editTwoFactorEnabled
+      this.editTwoFactorEnabled,
+      iconMeta.iconName,
+      iconMeta.iconSource,
+      iconMeta.detectedService
     );
 
     // 3) Cerrar modo edicion pero mantener el panel abierto en la entrada actualizada
@@ -1274,6 +1310,43 @@ export class PasswordsComponent implements OnInit {
     return this.baseEntries;
   }
 
+  iconImageSrc(entry: PasswordMeta): string | null {
+    const iconName = entry.iconName || resolveEntryIcon(entry).iconName;
+    const normalized = iconName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const candidates = [
+      SERVICE_ICON_ASSETS[iconName],
+      `assets/icons/services/${iconName}.svg`,
+      `assets/icons/services/${normalized}.svg`,
+      `assets/icons/services/${iconName}.png`,
+      `assets/icons/services/${normalized}.png`
+    ].filter((v): v is string => !!v);
+
+    for (const src of candidates) {
+      if (!this.brokenIconAssets.has(src)) {
+        return src;
+      }
+    }
+    return null;
+  }
+
+  onIconImageError(src: string | null): void {
+    if (!src) return;
+    this.brokenIconAssets.add(src);
+  }
+
+  iconFallbackText(entry: PasswordMeta): string {
+    const raw = (entry.label || '').trim();
+    if (!raw) return '?';
+    const parts = raw
+      .split(/[^\p{L}\p{N}]+/u)
+      .map(p => p.trim())
+      .filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
   private buildDemoEntries(): PasswordMeta[] {
     const now = Date.now();
     const mk = (id: string, label: string, folder: string, email?: string, username?: string, loginUrl?: string, twoFactorEnabled?: boolean, length = 16, classMask = 15): PasswordMeta => ({
@@ -1320,6 +1393,31 @@ export class PasswordsComponent implements OnInit {
         active: true
       }
     ];
+  }
+
+  private resolveIconMetaForEdit(): { iconName?: string; iconSource?: 'auto' | 'manual'; detectedService?: string } {
+    if (!this.selected) return {};
+    if (this.selected.iconSource === 'manual' && this.selected.iconName) {
+      return {
+        iconName: this.selected.iconName,
+        iconSource: 'manual',
+        detectedService: this.selected.detectedService
+      };
+    }
+
+    const resolved = resolveEntryIcon({
+      label: this.editLabel,
+      loginUrl: this.editLoginUrl,
+      passwordChangeUrl: this.editPasswordChangeUrl,
+      username: this.editUsername,
+      email: this.editEmail
+    });
+
+    return {
+      iconName: resolved.iconName,
+      iconSource: 'auto',
+      detectedService: resolved.serviceId
+    };
   }
 
   private isDemoAllowed(): boolean {

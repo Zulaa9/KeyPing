@@ -100,7 +100,10 @@ export async function addPasswordToVault(
   username?: string,
   email?: string,
   folder?: string,
-  twoFactorEnabled?: boolean
+  twoFactorEnabled?: boolean,
+  iconName?: string,
+  iconSource?: 'auto' | 'manual',
+  detectedService?: string
 ): Promise<VaultEntry> {
   const hash = createHash('sha256').update(pwd).digest('hex');
   const normalized = normalizePattern(pwd);
@@ -122,7 +125,10 @@ export async function addPasswordToVault(
     passwordChangeUrl,
     username,
     email,
-    folder
+    folder,
+    iconName,
+    iconSource,
+    detectedService
   };
 
   const vault = await loadVault();
@@ -195,7 +201,10 @@ export async function updateEntryMeta(
   username?: string,
   email?: string,
   folder?: string,
-  twoFactorEnabled?: boolean
+  twoFactorEnabled?: boolean,
+  iconName?: string,
+  iconSource?: 'auto' | 'manual',
+  detectedService?: string
 ): Promise<VaultEntry> {
   const vault = await loadVault();
   const entry = vault.entries.find(e => e.id === id);
@@ -208,6 +217,9 @@ export async function updateEntryMeta(
   if (typeof email !== 'undefined') entry.email = email;
   if (typeof folder !== 'undefined') entry.folder = folder;
   if (typeof twoFactorEnabled !== 'undefined') entry.twoFactorEnabled = twoFactorEnabled;
+  if (typeof iconName !== 'undefined') entry.iconName = iconName;
+  if (typeof iconSource !== 'undefined') entry.iconSource = iconSource;
+  if (typeof detectedService !== 'undefined') entry.detectedService = detectedService;
   entry.updatedAt = Date.now();
 
   await saveVault(vault);
@@ -454,7 +466,10 @@ function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
     passwordChangeUrl: raw.passwordChangeUrl,
     username: raw.username,
     email: raw.email,
-    folder: raw.folder
+    folder: raw.folder,
+    iconName: raw.iconName,
+    iconSource: raw.iconSource,
+    detectedService: raw.detectedService
   };
 }
 

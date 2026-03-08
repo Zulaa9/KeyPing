@@ -16,6 +16,9 @@ export type VaultImportEntry = {
   email?: string;
   folder?: string;
   twoFactorEnabled?: boolean;
+  iconName?: string;
+  iconSource?: 'auto' | 'manual';
+  detectedService?: string;
   password?: string;
   secret?: string;
   createdAt?: number;
@@ -42,6 +45,9 @@ export type PasswordMeta = {
   passwordChangeUrl?: string;
   username?: string;
   email?: string;
+  iconName?: string;
+  iconSource?: 'auto' | 'manual';
+  detectedService?: string;
   active?: boolean;
   previousId?: string;
 };
@@ -83,13 +89,28 @@ type KeypingApi = {
     username?: string,
     email?: string,
     folder?: string,
-    twoFactorEnabled?: boolean
+    twoFactorEnabled?: boolean,
+    iconName?: string,
+    iconSource?: 'auto' | 'manual',
+    detectedService?: string
   ): Promise<PasswordMeta>;
   listPasswords(): Promise<PasswordMeta[]>;
   copyPassword(id: string): Promise<boolean>;
   deletePassword(id: string): Promise<boolean>;
   updatePassword(id: string, pwd: string): Promise<PasswordMeta>;
-  updateMeta(id: string, label?: string, loginUrl?: string, passwordChangeUrl?: string, username?: string, email?: string, folder?: string, twoFactorEnabled?: boolean): Promise<PasswordMeta>;
+  updateMeta(
+    id: string,
+    label?: string,
+    loginUrl?: string,
+    passwordChangeUrl?: string,
+    username?: string,
+    email?: string,
+    folder?: string,
+    twoFactorEnabled?: boolean,
+    iconName?: string,
+    iconSource?: 'auto' | 'manual',
+    detectedService?: string
+  ): Promise<PasswordMeta>;
   copySecure?(text: string, ttlMs?: number): Promise<boolean>;
   getPassword(id: string): Promise<string | null>;
   openExternal(url: string): Promise<boolean>;
@@ -130,10 +151,25 @@ export class ElectronService {
     username?: string,
     email?: string,
     folder?: string,
-    twoFactorEnabled?: boolean
+    twoFactorEnabled?: boolean,
+    iconName?: string,
+    iconSource?: 'auto' | 'manual',
+    detectedService?: string
   ): Promise<PasswordMeta> {
     if (!this.api) throw new Error('No preload API available');
-    return this.api.savePassword(pwd, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled);
+    return this.api.savePassword(
+      pwd,
+      label,
+      loginUrl,
+      passwordChangeUrl,
+      username,
+      email,
+      folder,
+      twoFactorEnabled,
+      iconName,
+      iconSource,
+      detectedService
+    );
   }
 
   async listPasswords(): Promise<PasswordMeta[]> {
@@ -162,11 +198,35 @@ export class ElectronService {
     if (!this.api) throw new Error('No preload API available');
     return this.api.updatePassword(id, pwd);
   }
-  async updateMeta(id: string, label?: string, loginUrl?: string, passwordChangeUrl?: string, username?: string, email?: string, folder?: string, twoFactorEnabled?: boolean): Promise<PasswordMeta> {
+  async updateMeta(
+    id: string,
+    label?: string,
+    loginUrl?: string,
+    passwordChangeUrl?: string,
+    username?: string,
+    email?: string,
+    folder?: string,
+    twoFactorEnabled?: boolean,
+    iconName?: string,
+    iconSource?: 'auto' | 'manual',
+    detectedService?: string
+  ): Promise<PasswordMeta> {
     if (!this.api || !this.api.updateMeta) {
       throw new Error('No preload API available');
     }
-    return this.api.updateMeta(id, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled);
+    return this.api.updateMeta(
+      id,
+      label,
+      loginUrl,
+      passwordChangeUrl,
+      username,
+      email,
+      folder,
+      twoFactorEnabled,
+      iconName,
+      iconSource,
+      detectedService
+    );
   }
 
   async openExternal(url: string): Promise<void> {

@@ -6,6 +6,7 @@ import { ElectronService, CheckResult } from '../../core/electron.service';
 import { PasswordCountService } from '../../core/password-count.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
+import { resolveEntryIcon } from '../../core/icons/service-icon.resolver';
 
 type AlertMsg = { level: CheckResult['level']; title: string; message: string };
 
@@ -77,6 +78,14 @@ export class AddPasswordComponent {
     }
     this.passwordError = false;
 
+    const resolvedIcon = resolveEntryIcon({
+      label: this.label,
+      loginUrl: this.loginUrl,
+      passwordChangeUrl: this.passwordChangeUrl,
+      username: this.username,
+      email: this.email
+    });
+
     await this.es.savePassword(
       this.pwd,
       this.label || undefined,
@@ -85,7 +94,10 @@ export class AddPasswordComponent {
       this.username || undefined,
       this.email || undefined,
       this.folder || undefined,
-      this.twoFactorEnabled
+      this.twoFactorEnabled,
+      resolvedIcon.iconName,
+      'auto',
+      resolvedIcon.serviceId
     );
 
     await this.passwordCountSvc.refreshFromDisk();
