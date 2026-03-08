@@ -105,6 +105,7 @@ export class PasswordsComponent implements OnInit {
   historyLoading = false;
   historyError?: string;
   historyModalOpen = false;
+  deleteConfirmEntry: PasswordMeta | null = null;
   showDemo = false;
   demoEntries: PasswordMeta[] = this.buildDemoEntries();
   demoHistory: PasswordMeta[] = [];
@@ -156,6 +157,7 @@ export class PasswordsComponent implements OnInit {
         await this.loadHistory(this.selected.id);
       } else {
         this.history = [];
+        this.historyModalOpen = false;
       }
     } finally {
       this.loading = false;
@@ -456,10 +458,24 @@ export class PasswordsComponent implements OnInit {
   }
 
   // ---- ELIMINAR ----
-  async onDelete(entry: PasswordMeta): Promise<void> {
+  requestDelete(entry: PasswordMeta): void {
     if (this.showDemo) return;
-    const ok = confirm(this.t('passwords.confirm.delete'));
-    if (!ok) return;
+    this.deleteConfirmEntry = entry;
+  }
+
+  cancelDelete(): void {
+    this.deleteConfirmEntry = null;
+  }
+
+  async confirmDelete(): Promise<void> {
+    const entry = this.deleteConfirmEntry;
+    if (!entry) return;
+    this.deleteConfirmEntry = null;
+    await this.onDelete(entry);
+  }
+
+  private async onDelete(entry: PasswordMeta): Promise<void> {
+    if (this.showDemo) return;
 
     await this.es.deletePassword(entry.id);
     await this.loadEntries();
@@ -1224,10 +1240,11 @@ export class PasswordsComponent implements OnInit {
     this.closeFolderMenu();
   }
 
-@HostListener('document:keydown.escape', ['$event'])
+  @HostListener('document:keydown.escape', ['$event'])
   onEsc(ev: KeyboardEvent | Event): void {
     (ev as KeyboardEvent).stopPropagation?.();
     this.closeFolderMenu();
+    this.cancelDelete();
   }
 
   @HostListener('document:kp-toggle-filters', ['$event'])

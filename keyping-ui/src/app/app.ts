@@ -213,12 +213,14 @@ export class AppComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown')
   @HostListener('document:click')
   onUserActivity(): void {
+    this.ensureOnboardingConsistency();
     this.master.touch();
   }
 
   @HostListener('document:keydown', ['$event'])
   onGlobalShortcuts(ev: KeyboardEvent): void {
-    if (this.showOnboarding) {
+    this.ensureOnboardingConsistency();
+    if (this.isOnboardingActive()) {
       this.handleOnboardingKey(ev);
       return;
     }
@@ -550,6 +552,12 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private handleOnboardingKey(ev: KeyboardEvent): void {
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      this.skipOnboarding();
+      return;
+    }
+
     const now = Date.now();
     if (now - this.lastOnboardingKeyTs < this.onboardingKeyThrottle) {
       ev.preventDefault();
@@ -582,8 +590,6 @@ export class AppComponent implements OnInit, OnDestroy {
         this.nextOnboarding();
         this.focusOnboardingControl('next');
       }
-    } else {
-      ev.preventDefault();
     }
   }
 
@@ -598,5 +604,21 @@ export class AppComponent implements OnInit, OnDestroy {
       const btn = document.querySelector(selector) as HTMLButtonElement | null;
       btn?.focus();
     }, 0);
+  }
+
+  private isOnboardingOverlayMounted(): boolean {
+    return !!document.querySelector('.onboarding-overlay');
+  }
+
+  private isOnboardingActive(): boolean {
+    return this.showOnboarding && !!this.currentOnboardingStep && this.isOnboardingOverlayMounted();
+  }
+
+  private ensureOnboardingConsistency(): void {
+    if (!this.showOnboarding) return;
+    if (this.currentOnboardingStep && this.isOnboardingOverlayMounted()) return;
+    this.clearHighlight();
+    this.dispatchFiltersToggle(false);
+    this.showOnboarding = false;
   }
 }
