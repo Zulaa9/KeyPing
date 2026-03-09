@@ -1,8 +1,10 @@
 import type { ServiceDefinition } from './service-detection.types';
 
+// Valores por defecto cuando no se puede identificar un servicio concreto.
 export const GENERIC_ICON_NAME = 'generic';
 export const GENERIC_SERVICE_ID = 'generic';
 
+// Iniciales mostradas cuando un servicio no tiene SVG dedicado.
 export const SERVICE_ICON_GLYPHS: Record<string, string> = {
   generic: '*',
   steam: 'S',
@@ -123,6 +125,8 @@ export const SERVICE_ICON_GLYPHS: Record<string, string> = {
   airtable: 'Atb'
 };
 
+// Mapa de iconos SVG disponibles por servicio.
+// Si un servicio no aparece aquí, la UI usa glifo textual de `SERVICE_ICON_GLYPHS`.
 export const SERVICE_ICON_ASSETS: Record<string, string> = {
   steam: 'assets/icons/services/steam.svg',
   github: 'assets/icons/services/github.svg',
@@ -216,6 +220,8 @@ export const SERVICE_ICON_ASSETS: Record<string, string> = {
   airtable: 'assets/icons/services/airtable.svg'
 };
 
+// Registro base para detección automática de servicios.
+// Ordenado por afinidad funcional para facilitar mantenimiento manual.
 export const SERVICE_ICON_REGISTRY: ServiceDefinition[] = [
   { id: 'steam', displayName: 'Steam', iconName: 'steam', domains: ['steampowered.com', 'steamcommunity.com'], keywords: ['steam'], aliases: [], priority: 80 },
   { id: 'github', displayName: 'GitHub', iconName: 'github', domains: ['github.com'], keywords: ['github'], aliases: ['gh'], priority: 70 },

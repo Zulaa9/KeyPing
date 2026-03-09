@@ -1,4 +1,4 @@
-// main.ts
+// Punto de entrada del proceso principal (Electron).
 import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain, Menu, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -40,6 +40,7 @@ const isMac = process.platform === 'darwin';
 const autoUpdateService = new AutoUpdateService(() => BrowserWindow.getAllWindows());
 
 function clearWindowsClipboardHistory(): Promise<boolean> {
+  // Limpia el historial de portapapeles de Windows (Win+V) en modo de mejor esfuerzo.
   if (!isWindows) return Promise.resolve(false);
 
   const psScript = `
@@ -123,7 +124,7 @@ function createWindow() {
     console.error('[main] render process gone', details);
   });
 
-  // basic hardening + open external links in default browser
+  // Endurecimiento básico: bloquea navegación externa dentro de la app.
   win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
     if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
       shell.openExternal(targetUrl);
@@ -155,7 +156,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Remove default menu to hide devtools entrypoints
+  // Mantener menú desactivado evita accesos casuales a DevTools en producción.
   // Menu.setApplicationMenu(null);
   void autoUpdateService.initialize();
   createWindow();
@@ -173,12 +174,12 @@ app.on('before-quit', () => {
 });
 
 /* ----------------------------------------------------------------
-   Multilingual pattern detector (MVP)
-   - normalizes case, diacritics and leet speak
-   - detects common words in EN/ES/FR/DE/PT/IT basics
-   - detects numeric sequences and keyboard runs
-   - detects repeated chars and incremental suffixes
-   - checks length and character variety
+   Detector multilingüe de patrones (versión inicial)
+   - normaliza mayúsculas/minúsculas, diacríticos y leet
+   - detecta palabras comunes (EN/ES/FR/DE/PT/IT)
+   - detecta secuencias numéricas y recorridos de teclado
+   - detecta repeticiones y sufijos incrementales
+   - valida longitud y variedad de caracteres
 ------------------------------------------------------------------ */
 
 type Level = 'ok' | 'warn' | 'danger';
@@ -191,13 +192,13 @@ const KEYBOARD_RUNS = [
 const NUM_SEQUENCES = ['0123','1234','2345','3456','4567','5678','6789','7890'];
 const YEAR_SUFFIX = /(19|20)\d{2}$/;
 
-// basic leet map
+// Mapa leet básico.
 const LEET_MAP: Record<string,string> = {
   '0':'o','1':'i','2':'z','3':'e','4':'a','5':'s','6':'g','7':'t','8':'b','9':'g',
   '@':'a','$':'s','!':'i','¡':'i','¿':'','?':'','+':'t'
 };
 
-// normalize to compare across languages and styles
+// Normaliza para comparar patrones entre idiomas y estilos de escritura.
 function normalizeBasic(s: string): string {
   let x = (s || '')
     .toLowerCase()
@@ -208,12 +209,12 @@ function normalizeBasic(s: string): string {
   return x;
 }
 
-// (2) Construye el diccionario normalizado UNA vez al arrancar:
+// Construye el diccionario normalizado una sola vez al arrancar.
 const COMMON_WORDS: Set<string> = (() => {
   const set = new Set<string>();
   for (const w of RAW_COMMON_WORDS) {
     const n = normalizeBasic(w);
-    // skip very short tokens (avoid "o", "i", etc.)
+    // Omite tokens muy cortos para evitar ruido.
     if (n && n.length >= 3) {
       set.add(n);
     }
@@ -233,7 +234,7 @@ function classMask(s: string): number {
 }
 
 function hasCommonWord(nrm: string): string | null {
-  // exact match -> siempre cuenta
+  // Coincidencia exacta: siempre cuenta.
   if (COMMON_WORDS.has(nrm)) return nrm;
 
   for (const w of COMMON_WORDS) {
@@ -281,7 +282,7 @@ async function checkPasswordBetter(pwd: string) {
 
   if (!orig) return { level, reasons };
 
-  // 1) reglas clasicas (diccionario, longitud, etc.)
+  // 1) Reglas clásicas (diccionario, longitud, variedad).
   const hit = hasCommonWord(nrm);
   if (hit) { level = 'danger'; reasons.push(`common word: "${hit}"`); }
 
@@ -311,7 +312,7 @@ async function checkPasswordBetter(pwd: string) {
     reasons.push('trivial base with small variation');
   }
 
-  // 2) similitud con historico (modo B equilibrado)
+  // 2) Similitud con histórico (modo equilibrado).
   try {
     const best = await findMostSimilarInVault(orig);
     if (best) {
@@ -321,11 +322,11 @@ async function checkPasswordBetter(pwd: string) {
         : '';
 
       if (score >= 80) {
-        // muy similar -> danger
+        // Muy similar => riesgo alto.
         level = 'danger';
         reasons.push(`similar to previous password${noteSnippet} (~${score}% match)`);
       } else if (score >= 60) {
-        // similar, pero no tan extrema -> warn
+        // Similaridad intermedia => advertencia.
         if (level === 'ok') level = 'warn';
         reasons.push(`somewhat similar to previous password${noteSnippet} (~${score}% match)`);
       }
@@ -337,9 +338,9 @@ async function checkPasswordBetter(pwd: string) {
   return { level, reasons };
 }
 
-/* -------------------- IPC bridge --------------------- */
+/* -------------------- Puente IPC --------------------- */
 
-// ping para diagnostico rapido
+// Verificación rápida de conectividad IPC.
 ipcMain.handle('keyping:ping', async () => {
   console.log('[main] ping');
   return `pong ${process.versions.electron}`;
@@ -364,13 +365,13 @@ ipcMain.handle('keyping:compactVault', async (_evt, args?: { keepOnlyCurrent?: b
   });
 });
 
-// checker principal (nota: ahora es async)
+// Comprobador principal (asíncrono por cálculo de similitud).
 ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
   console.log('[main] keyping:check called with:', JSON.stringify(args?.pwd));
   return await checkPasswordBetter(args?.pwd ?? '');
 });
 
-// guardar nueva entrada
+// Guarda una nueva entrada en el vault.
 ipcMain.handle('keyping:save', async (_evt, args: {
   pwd: string;
   label?: string;
@@ -401,7 +402,7 @@ ipcMain.handle('keyping:save', async (_evt, args: {
   return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
 });
 
-// listar solo activas
+// Lista solo entradas activas.
 ipcMain.handle('keyping:list', async () => {
   const entries = await getVaultEntries();
   return entries
@@ -413,7 +414,7 @@ ipcMain.handle('keyping:list', async () => {
     });
 });
 
-// Copiar password al portapapeles durante 20s
+// Copia contraseña al portapapeles y programa limpieza diferida.
 ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
   const secret = await getPasswordPlain(args.id);
 
@@ -430,13 +431,13 @@ ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
 
 
 
-// Soft delete
+// Borrado lógico (sin eliminar físicamente del historial).
 ipcMain.handle('keyping:delete', async (_evt, args: { id: string }) => {
   await softDeleteEntry(args.id);
   return true;
 });
 
-// Editar password (crea nueva entrada y desactiva la antigua)
+// Edita contraseña: crea versión nueva y desactiva la anterior.
 ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string }) => {
   const updated = await replacePasswordForEntry(args.id, args.pwd);
   if (!updated) throw new Error('Entry not found');

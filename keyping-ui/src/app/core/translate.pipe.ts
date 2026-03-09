@@ -8,12 +8,14 @@ import { I18nService } from './i18n.service';
   pure: false
 })
 export class TranslatePipe implements PipeTransform, OnDestroy {
+  // Pipe impuro para reaccionar al cambio de idioma sin recargar vistas manualmente.
   private sub: Subscription;
   private lastKey?: string;
   private lastParams?: Record<string, string | number>;
   private currentValue = '';
 
   constructor(private i18n: I18nService, private cdr: ChangeDetectorRef) {
+    // Al cambiar idioma, recalcula la última clave utilizada y marca CD.
     this.sub = this.i18n.language$.subscribe(() => {
       if (!this.lastKey) return;
       this.currentValue = this.i18n.translate(this.lastKey, this.lastParams);

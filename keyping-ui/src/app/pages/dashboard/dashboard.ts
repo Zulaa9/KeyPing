@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { NgIf, NgFor, NgClass } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { NgIf, NgFor } from '@angular/common';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { ElectronService, PasswordMeta } from '../../core/electron.service';
 import { I18nService } from '../../core/i18n.service';
@@ -11,11 +10,12 @@ type ActivityItem = { label: string; status: string; time: string };
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, TranslatePipe, NgIf, NgFor, NgClass],
+  imports: [TranslatePipe, NgIf, NgFor],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss']
 })
 export class DashboardComponent implements OnInit {
+  // KPIs agregados del vault para el panel principal.
   loading = true;
   total = 0;
   strong = 0;
@@ -32,7 +32,7 @@ export class DashboardComponent implements OnInit {
   activity: ActivityItem[] = [];
   version = pkg.version ?? '—';
 
-  constructor(private es: ElectronService, private router: Router, private i18nSvc: I18nService) {}
+  constructor(private es: ElectronService, private i18nSvc: I18nService) {}
 
   async ngOnInit(): Promise<void> {
     await this.loadStats();
@@ -58,6 +58,7 @@ export class DashboardComponent implements OnInit {
       const folderSet = new Set<string>();
       const entriesWithPlain: Array<{ meta: PasswordMeta; plain?: string | null }> = [];
 
+      // Recorremos entradas una sola vez para calcular todas las métricas.
       for (const meta of metas) {
         const variety = this.countVariety(meta.classMask || 0);
         const level = this.classify(meta.length || 0, variety);
@@ -73,6 +74,7 @@ export class DashboardComponent implements OnInit {
         if (len < 10) this.shortCount++;
         if (variety < 3) this.lowVarietyCount++;
 
+        // Solo para detectar duplicados por secreto real (no por metadata).
         let plain: string | null = null;
         try {
           plain = await this.es.getPassword(meta.id);
@@ -89,10 +91,6 @@ export class DashboardComponent implements OnInit {
     } finally {
       this.loading = false;
     }
-  }
-
-  go(path: string): void {
-    this.router.navigate([path]);
   }
 
   get scoreBadge(): 'good' | 'warn' | 'bad' {
@@ -135,6 +133,7 @@ export class DashboardComponent implements OnInit {
       this.scoreLabel = 'dashboard.score.none';
       return;
     }
+    // Scoring heurístico (no criptográfico) para orientar al usuario.
     const weakPct = Math.round((this.weak / this.total) * 100);
     const shortPct = Math.round((this.shortCount / this.total) * 100);
     const varietyPct = Math.round((this.lowVarietyCount / this.total) * 100);
@@ -159,6 +158,7 @@ export class DashboardComponent implements OnInit {
   }
 
   private computeActivity(metas: PasswordMeta[]): void {
+    // Línea temporal simple de los últimos cambios para contexto rápido.
     const sorted = [...metas].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
     this.activity = sorted.slice(0, 5).map(m => {
       const label = m.label || m.username || m.email || 'ID ' + m.id;

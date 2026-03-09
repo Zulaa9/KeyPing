@@ -1,4 +1,5 @@
-﻿export type UpdateStatus =
+// Tipos compartidos del módulo de actualizaciones (proceso principal/preload).
+export type UpdateStatus =
   | 'idle'
   | 'checking'
   | 'available'
@@ -8,6 +9,7 @@
   | 'error';
 
 export type UpdateState = {
+  // Estado serializable que se envía por IPC a la UI.
   status: UpdateStatus;
   currentVersion: string;
   availableVersion?: string;
@@ -19,6 +21,7 @@ export type UpdateState = {
 };
 
 export type UpdatePreferences = {
+  // Preferencias de comportamiento del updater persistidas en disco.
   autoCheck: boolean;
   autoDownload: boolean;
   installOnQuit: boolean;

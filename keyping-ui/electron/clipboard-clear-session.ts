@@ -1,6 +1,7 @@
 export type ClipboardTimerHandle = ReturnType<typeof setTimeout>;
 
 export type ClipboardClearDeps = {
+  // Dependencias inyectables para facilitar pruebas y desacoplar de Electron directo.
   readClipboardText: () => string;
   clearClipboard: () => void;
   clearWindowsClipboardHistory?: () => Promise<boolean>;
@@ -11,6 +12,7 @@ export type ClipboardClearDeps = {
 };
 
 export type ClipboardClearSession = {
+  // Identifica una operación concreta de copia iniciada por KeyPing.
   id: number;
   value: string;
   startedAt: number;
@@ -22,6 +24,7 @@ type ActiveSession = ClipboardClearSession & {
 };
 
 export class ClipboardClearSessionManager {
+  // Solo puede existir una sesión activa para evitar carreras entre copias consecutivas.
   private nextId = 1;
   private active: ActiveSession | null = null;
   private disposed = false;
@@ -33,6 +36,7 @@ export class ClipboardClearSessionManager {
       throw new Error('ClipboardClearSessionManager is disposed');
     }
 
+    // Invalidar sesión previa garantiza que solo gobierna la copia más reciente.
     this.invalidateActive();
 
     const session: ClipboardClearSession = {
@@ -75,6 +79,7 @@ export class ClipboardClearSessionManager {
     try {
       const current = this.deps.readClipboardText();
       if (current !== expectedValue) {
+        // Si el usuario copió algo distinto después, no tocamos su portapapeles.
         return;
       }
 

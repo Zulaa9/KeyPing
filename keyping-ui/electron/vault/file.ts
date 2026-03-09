@@ -10,14 +10,16 @@ import {
   VaultIntegrityStatus
 } from './types';
 
+// Persistencia física del vault cifrado y chequeos de integridad.
 function vaultPath(): string {
   return path.join(app.getPath('userData'), 'keyping-vault.kp');
 }
 
 const MIN_TIMESTAMP_MS = new Date('2010-01-01').getTime();
-const MAX_FUTURE_DRIFT_MS = 365 * 24 * 60 * 60 * 1000; // 1 year tolerance
+const MAX_FUTURE_DRIFT_MS = 365 * 24 * 60 * 60 * 1000; // tolerancia de 1 ano
 
 function migrate(data: any): VaultData {
+  // Migraciones de esquema al cargar para mantener compatibilidad hacia atrás.
   const entries: VaultEntry[] = Array.isArray(data?.entries) ? data.entries : [];
 
   for (const e of entries) {
@@ -36,6 +38,7 @@ function migrate(data: any): VaultData {
 }
 
 function isPlausibleTimestamp(ts: any, now: number): boolean {
+  // Evita datos claramente corruptos (fechas imposibles o muy futuras).
   if (typeof ts !== 'number' || !Number.isFinite(ts)) return false;
   if (ts < MIN_TIMESTAMP_MS) return false;
   if (ts > now + MAX_FUTURE_DRIFT_MS) return false;
@@ -79,6 +82,7 @@ export async function resetVault(): Promise<void> {
 }
 
 export async function checkVaultIntegrity(): Promise<VaultIntegrityReport> {
+  // Verificación defensiva por etapas: lectura, cabecera, decrypt, JSON y estructura.
   const file = vaultPath();
   const issues: VaultIntegrityIssue[] = [];
   const checkedAt = Date.now();

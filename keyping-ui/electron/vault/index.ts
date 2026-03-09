@@ -1,4 +1,3 @@
-// electron/vault/index.ts
 import { randomUUID, createHash, pbkdf2Sync, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { loadVault, saveVault, checkVaultIntegrity } from './file';
 import type { VaultEntry, VaultData } from './types';
@@ -6,6 +5,7 @@ import { normalizePattern } from './similarity';
 import { encryptVault, decryptVault } from './crypto';
 import { loadSettings, saveSettings, DEFAULT_MAX_HISTORY } from './settings';
 
+// Lógica de negocio del vault: altas, edición versionada, historial, import/export y compactación.
 function classMask(s: string): number {
   let m = 0;
   if (/[a-z]/.test(s)) m |= 1;
@@ -16,6 +16,7 @@ function classMask(s: string): number {
 }
 
 type Indexes = {
+  // Índices auxiliares para navegar cadenas de versiones sin recorrer N veces.
   byId: Map<string, VaultEntry>;
   childByPrev: Map<string, VaultEntry>;
 };
@@ -55,6 +56,7 @@ function chainFromNewest(latest: VaultEntry, idx: Indexes): VaultEntry[] {
 }
 
 function collectChains(entries: VaultEntry[]): VaultEntry[][] {
+  // Agrupa el vault por cadenas de versionado (latest -> ... -> oldest).
   const idx = buildIndexes(entries);
   const visited = new Set<string>();
   const chains: VaultEntry[][] = [];
@@ -88,6 +90,7 @@ function enforceHistoryLimit(
 }
 
 async function historyLimit(): Promise<number> {
+  // Usa valor por defecto si ajustes no define un límite explícito.
   const settings = await loadSettings();
   return settings.maxHistoryPerEntry ?? DEFAULT_MAX_HISTORY;
 }
@@ -154,6 +157,7 @@ export async function replacePasswordForEntry(
   id: string,
   newPwd: string
 ): Promise<VaultEntry | null> {
+  // Edición "append-only": conserva historial, crea nueva versión y desactiva la anterior.
   const vault = await loadVault();
   const old = vault.entries.find(e => e.id === id);
   if (!old) return null;
@@ -238,6 +242,7 @@ export async function getPasswordHistory(id: string): Promise<VaultEntry[]> {
 }
 
 export async function restorePasswordVersion(versionId: string): Promise<VaultEntry | null> {
+  // Restaurar implica crear una versión nueva activa basada en una histórica.
   const vault = await loadVault();
   const idx = buildIndexes(vault.entries);
   const version = idx.byId.get(versionId);
@@ -307,6 +312,7 @@ export async function deleteHistoryForEntry(id: string): Promise<number> {
 }
 
 export async function compactVault(opts?: { keepOnlyCurrent?: boolean; maxHistoryPerEntry?: number }): Promise<{ removed: number; kept: number; chains: number }> {
+  // Compacta historial por cadena según estrategia elegida.
   const vault = await loadVault();
   const chains = collectChains(vault.entries);
   const removedIds = new Set<string>();
@@ -346,6 +352,7 @@ export async function updateHistorySettings(maxHistoryPerEntry: number): Promise
 }
 
 async function dataForExport(includeHistory: boolean): Promise<VaultData> {
+  // Permite exportar solo estado vigente o incluir historial completo.
   const vault = await loadVault();
   if (includeHistory) return vault;
 
@@ -372,6 +379,7 @@ export async function exportVaultWithPassword(password: string, includeHistory =
 }
 
 export async function parseImportPayload(raw: string, password?: string): Promise<{ entries: ImportEntry[]; source: 'encrypted' | 'plain' | 'master'; requiresPassword?: boolean; masterPayload?: any }> {
+  // Detecta automáticamente formato de import (v2 master, v1 native o JSON plano).
   const parsed = JSON.parse(raw);
 
   if (parsed?.format === 'keyping-export-v2' && parsed?.enc === 'master') {
@@ -429,6 +437,7 @@ export async function importVaultFromMasterEncrypted(payload: { format: string; 
 }
 
 export async function mergeVaultEntries(entries: ImportEntry[]): Promise<number> {
+  // Merge simple: inserta entradas mapeadas sin deduplicación agresiva.
   const vault = await loadVault();
   let count = 0;
   for (const raw of entries) {
@@ -442,6 +451,7 @@ export async function mergeVaultEntries(entries: ImportEntry[]): Promise<number>
 }
 
 function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
+  // Normaliza entradas heterogéneas de import al modelo interno del vault.
   const pwd = (raw.password || raw.secret || (raw as any).pwd || '') as string;
   if (!pwd || typeof pwd !== 'string') return null;
 
@@ -474,6 +484,7 @@ function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
 }
 
 function encryptWithPassword(plain: string, password: string): { salt: string; iterations: number; data: string } {
+  // Cifrado portable para export v2 (password-based, independiente del dispositivo).
   const iterations = 150_000;
   const salt = randomBytes(16);
   const key = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
@@ -486,6 +497,7 @@ function encryptWithPassword(plain: string, password: string): { salt: string; i
 }
 
 function decryptWithPassword(payload: { salt: string; iterations: number; data: string }, password: string): string {
+  // Decrypt simétrico del formato export v2.
   const salt = Buffer.from(payload.salt, 'base64');
   const key = pbkdf2Sync(password, salt, payload.iterations || 150_000, 32, 'sha256');
   const combined = Buffer.from(payload.data, 'base64');

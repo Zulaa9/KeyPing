@@ -1,10 +1,9 @@
-// Comentarios sin tildes ni enies
-
 import { randomBytes, pbkdf2Sync, createCipheriv, createDecipheriv } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 
+// Módulo de cifrado nativo del vault en disco (AES-256-GCM + clave derivada local).
 const MASTER_KEY_FILE = 'kp-master.key';
 const PBKDF2_ITER = 120000; // seguro y razonablemente rapido
 const KEY_LEN = 32;         // AES-256
@@ -18,6 +17,7 @@ async function deriveMasterKey(): Promise<Buffer> {
   const file = getMasterKeyPath();
 
   try {
+    // Reutiliza semilla persistida para derivar siempre la misma clave local.
     const data = await fs.readFile(file, 'utf8');
     const parsed = JSON.parse(data);
     const base = Buffer.from(parsed.base, 'hex');
@@ -59,6 +59,7 @@ export async function encryptVault(data: string): Promise<Buffer> {
 
 // Desencripta a partir del Buffer concatenado
 export async function decryptVault(buf: Buffer): Promise<string> {
+  // Espera el formato [nonce(12)][tag(16)][ciphertext].
   const key = await deriveMasterKey();
 
   const nonce = buf.subarray(0, 12);

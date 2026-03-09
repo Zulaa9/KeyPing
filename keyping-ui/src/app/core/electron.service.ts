@@ -80,6 +80,7 @@ export type VaultIntegrityReport = {
 export type PasswordHistoryEntry = PasswordMeta;
 
 type KeypingApi = {
+  // Contrato del bridge expuesto por preload (`window.keyping`).
   checkCandidate(pwd: string): Promise<CheckResult>;
   savePassword(
     pwd: string,
@@ -131,10 +132,12 @@ type KeypingApi = {
 @Injectable({ providedIn: 'root' })
 export class ElectronService {
   private get api(): KeypingApi | undefined {
+    // Punto único de acceso al bridge para mantener el tipado centralizado.
     return (window as any).keyping as KeypingApi | undefined;
   }
 
   isElectron(): boolean {
+    // Permite desactivar features nativas cuando se ejecuta en navegador puro.
     return !!this.api;
   }
 

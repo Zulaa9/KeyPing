@@ -25,6 +25,7 @@ type OnboardingPlacement = 'right' | 'bottom' | 'bottom-right' | 'left' | 'cente
   templateUrl: './app.html'
 })
 export class AppComponent implements OnInit, OnDestroy {
+  // Estado de bloqueo maestro y mensajes de UI asociados
   lockState: MasterState = 'locked';
   masterError: { key: string; params?: Record<string, string | number> } | null = null;
   masterCooldownLabel: { key: string; params?: Record<string, string | number> } | null = null;
@@ -45,7 +46,7 @@ export class AppComponent implements OnInit, OnDestroy {
   };
   lastOnboardingAction: 'next' | 'prev' | 'skip' = 'next';
   private lastOnboardingKeyTs = 0;
-  private readonly onboardingKeyThrottle = 450; // ms
+  private readonly onboardingKeyThrottle = 450; // milisegundos
 
   readonly onboardingSteps: OnboardingStep[] = [
     { titleKey: 'onboarding.welcomeTitle', descKey: 'onboarding.welcomeDesc', route: '/dashboard', placement: 'center' },
@@ -168,10 +169,12 @@ export class AppComponent implements OnInit, OnDestroy {
     this.navSub = this.router.events
       .pipe(filter(e => e instanceof NavigationEnd))
       .subscribe(event => {
+        // Atajo Ctrl/Cmd+F: si venimos de otra vista, enfocamos cuando ya estamos en /passwords.
         if (this.pendingSearchFocus && (event as NavigationEnd).urlAfterRedirects.startsWith('/passwords')) {
           this.pendingSearchFocus = false;
           setTimeout(() => this.focusSearchInput());
         }
+        // Recalcula highlight al navegar durante el onboarding.
         if (this.showOnboarding) {
           this.applyHighlight();
         }
@@ -270,6 +273,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private startCooldownCountdown(): void {
+    // Mantiene visible el contador de espera tras varios intentos fallidos de desbloqueo.
     const update = () => {
       const seconds = this.master.getCooldownSeconds();
       if (seconds <= 0) {
@@ -383,8 +387,8 @@ export class AppComponent implements OnInit, OnDestroy {
     document.dispatchEvent(new CustomEvent('kp-demo-enable'));
     this.showOnboarding = false;
     this.onboardingStep = 0;
-    // Defer start so the click event that triggered the restart cannot
-    // immediately fail consistency checks before the overlay is mounted.
+    // Diferimos el inicio un ciclo de eventos para que el click que reinicia el tour
+    // no dispare validaciones antes de montar el overlay.
     setTimeout(() => this.maybeStartOnboarding(), 0);
   }
 
@@ -449,7 +453,7 @@ export class AppComponent implements OnInit, OnDestroy {
     };
 
     const pickPlacement = (desiredPlacement: OnboardingPlacement): OnboardingPlacement => {
-      // Prefer flipping to top if bottom space is tight
+      // Si abajo no hay espacio suficiente, intentamos arriba.
       if (
         (desiredPlacement === 'bottom' || desiredPlacement === 'bottom-right') &&
         space.bottom < cardHeight * 0.6 &&
@@ -457,7 +461,7 @@ export class AppComponent implements OnInit, OnDestroy {
       ) {
         return desiredPlacement === 'bottom-right' ? 'top-right' : 'top-left';
       }
-      // If desired side has room, use it
+      // Si la posición deseada cabe, la mantenemos.
       const fitsDesired =
         (desiredPlacement === 'right' && space.right >= 0) ||
         (desiredPlacement === 'left' && space.left >= 0) ||
@@ -467,7 +471,7 @@ export class AppComponent implements OnInit, OnDestroy {
         (desiredPlacement === 'top-right' && space.top >= 0 && space.right >= -cardWidth * 0.25);
       if (fitsDesired) return desiredPlacement;
 
-      // otherwise choose side with most space
+      // Si no cabe, elegimos la zona con más espacio disponible.
       const candidates: Array<{ p: OnboardingPlacement; v: number }> = [
         { p: 'right', v: space.right },
         { p: 'left', v: space.left },
@@ -508,7 +512,7 @@ export class AppComponent implements OnInit, OnDestroy {
       top = rect.top + window.scrollY;
     }
 
-    // Clamp to viewport
+    // Ajuste final para no salir de la ventana visible.
     if (left + cardWidth > viewportWidth + window.scrollX) {
       left = Math.max(window.scrollX + margin, viewportWidth + window.scrollX - cardWidth - margin);
     }
@@ -553,19 +557,8 @@ export class AppComponent implements OnInit, OnDestroy {
       node.classList.remove('onboarding-highlighted', 'btn-active', 'active', 'focus');
     });
     document.querySelectorAll('.onboarding-highlighted').forEach(el => el.classList.remove('onboarding-highlighted'));
-    // Force a small reflow to drop any lingering focus styles
+    // Fuerza un reflow mínimo para limpiar restos de estilos de foco/active.
     void document.body.offsetHeight;
-  }
-
-  private reloadStylesheets(): void {
-    document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
-      const l = link as HTMLLinkElement;
-      if (!l.href) return;
-      const baseHref = l.href.split('?')[0];
-      const clone = l.cloneNode(true) as HTMLLinkElement;
-      clone.href = `${baseHref}?v=${Date.now()}`;
-      l.replaceWith(clone);
-    });
   }
 
   private handleOnboardingKey(ev: KeyboardEvent): void {

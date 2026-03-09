@@ -8,6 +8,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
 import { resolveEntryIcon } from '../../core/icons/service-icon.resolver';
 
+// Mensaje de alerta mostrado tras evaluar la fortaleza de la contraseña candidata.
 type AlertMsg = { level: CheckResult['level']; title: string; message: string };
 
 @Component({
@@ -18,6 +19,7 @@ type AlertMsg = { level: CheckResult['level']; title: string; message: string };
   styleUrls: ['./add-password.scss']
 })
 export class AddPasswordComponent {
+  // Campos del formulario de alta de credencial.
   pwd = '';
   label = ''; // nombre del servicio/app
   loginUrl = '';
@@ -37,12 +39,14 @@ export class AddPasswordComponent {
     private i18n: I18nService
   ) {}
 
+  // Mapea el nivel de seguridad a un color semáforo usado en la UI.
   color(level: CheckResult['level']): string {
     if (level === 'danger') return '#ff6b6b';
     if (level === 'warn') return '#ffcc66';
     return '#4cd964';
   }
 
+  // Ejecuta el análisis de contraseña y prepara el mensaje localizado.
   async onCheck(): Promise<void> {
     if (!this.pwd) {
       this.alert = undefined;
@@ -59,11 +63,13 @@ export class AddPasswordComponent {
     this.alert = { level: res.level, title, message };
   }
 
+  // Evita disparar una comprobación en cada pulsación para reducir ruido y carga.
   debouncedCheck(): void {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.onCheck(), 180);
   }
 
+  // Limpia el estado de error cuando el usuario empieza a corregir la contraseña.
   onPasswordInput(): void {
     if (this.passwordError && this.pwd.trim()) {
       this.passwordError = false;
@@ -71,6 +77,7 @@ export class AddPasswordComponent {
     this.debouncedCheck();
   }
 
+  // Guarda la entrada resolviendo icono/servicio y refresca los contadores globales.
   async onSave(): Promise<void> {
     if (!this.pwd) {
       this.passwordError = true;
@@ -100,8 +107,10 @@ export class AddPasswordComponent {
       resolvedIcon.serviceId
     );
 
+    // Recalcula el total mostrado en el dashboard y cabecera tras el alta.
     await this.passwordCountSvc.refreshFromDisk();
 
+    // Restablece completamente el formulario para evitar residuos en memoria/UI.
     this.pwd = '';
     this.label = '';
     this.loginUrl = '';
@@ -116,10 +125,12 @@ export class AddPasswordComponent {
     await this.router.navigate(['/passwords']);
   }
 
+  // Cancela la creación y vuelve al listado sin persistir cambios.
   onCancel(): void {
     this.router.navigate(['/passwords']);
   }
 
+  // Atajo para centralizar traducciones y simplificar plantillas/métodos.
   private t(key: string, params?: Record<string, string | number>): string {
     return this.i18n.translate(key, params);
   }

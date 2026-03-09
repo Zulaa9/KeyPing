@@ -11,6 +11,7 @@ type StoredMaster = {
 
 @Injectable({ providedIn: 'root' })
 export class MasterLockService {
+  // Estado global de autenticación maestra.
   readonly state$ = new BehaviorSubject<MasterState>('locked');
 
   private masterKey: CryptoKey | null = null;
@@ -34,6 +35,7 @@ export class MasterLockService {
   private lastCooldownMs = 0;
 
   async init(): Promise<MasterState> {
+    // Inicializa configuración local (autolock y política de intentos) antes de exponer estado.
     this.loadAutoLock();
     this.loadAttemptPolicy();
     this.loadAttemptState();
@@ -44,6 +46,7 @@ export class MasterLockService {
   }
 
   lock(): void {
+    // Borra clave en memoria y cancela temporizador de inactividad.
     this.masterKey = null;
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = null;
@@ -53,12 +56,14 @@ export class MasterLockService {
   }
 
   touch(): void {
+    // Resetea el temporizador de autolock tras actividad del usuario.
     if (this.state$.value !== 'unlocked') return;
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = setTimeout(() => this.lock(), this.inactivityMs);
   }
 
   async setMaster(password: string): Promise<void> {
+    // Primera configuración: deriva clave, guarda verificación y marca sesión desbloqueada.
     const salt = this.randomBytes(16);
     const key = await this.deriveKey(password, this.toArrayBuffer(salt), 150_000);
     const check = await this.encryptText(key, this.verificationText);
@@ -76,6 +81,7 @@ export class MasterLockService {
   }
 
   async unlock(password: string): Promise<boolean> {
+    // Valida contraseña maestra y aplica política de cooldown progresivo.
     const stored = this.loadStoredMaster();
     if (!stored) return false;
     const now = Date.now();
@@ -124,6 +130,7 @@ export class MasterLockService {
   }
 
   async persistVault(data: unknown): Promise<void> {
+    // Cache cifrada del vault en localStorage para acceso rápido tras unlock.
     if (!this.masterKey) return;
     try {
       const json = JSON.stringify(data ?? null);
@@ -135,6 +142,7 @@ export class MasterLockService {
   }
 
   async loadCachedVault<T = any>(): Promise<T | null> {
+    // Solo devuelve datos si existe clave maestra activa en memoria.
     if (!this.masterKey) return null;
     try {
       const cipher = localStorage.getItem(this.vaultStorageKey);
@@ -256,6 +264,7 @@ export class MasterLockService {
   }
 
   setAttemptPolicy(freeAttempts: number, baseDelayMs: number, growthFactor: number): void {
+    // Normaliza límites y resetea estado de intentos al cambiar política.
     this.attemptPolicy = {
       freeAttempts: Math.max(0, Math.min(10, Math.round(freeAttempts))),
       baseDelayMs: Math.max(500, Math.round(baseDelayMs)),
@@ -345,6 +354,7 @@ export class MasterLockService {
   }
 
   private handleFailedAttempt(): void {
+    // A partir del umbral gratuito, el bloqueo crece de forma exponencial.
     this.failedAttempts++;
 
     if (this.failedAttempts <= this.attemptPolicy.freeAttempts) {

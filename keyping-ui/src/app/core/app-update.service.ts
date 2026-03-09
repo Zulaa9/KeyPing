@@ -22,6 +22,7 @@ const DEFAULT_PREFERENCES: UpdatePreferences = {
 
 @Injectable({ providedIn: 'root' })
 export class AppUpdateService {
+  // Estado reactivo de actualizaciones consumido por Settings y el banner.
   private readonly stateSubject = new BehaviorSubject<UpdateState>({
     status: 'idle',
     currentVersion: '0.0.0'
@@ -63,6 +64,7 @@ export class AppUpdateService {
     if (!api) return;
 
     try {
+      // Carga estado y preferencias en paralelo para minimizar latencia inicial.
       const [state, preferences] = await Promise.all([
         api.getUpdateState(),
         api.getUpdatePreferences()
@@ -74,6 +76,7 @@ export class AppUpdateService {
     }
 
     const maybeUnsub = api.onUpdateState((state: UpdateState) => {
+      // Fuente de verdad: eventos push desde el proceso principal.
       this.setState(state);
     });
 
@@ -100,6 +103,7 @@ export class AppUpdateService {
     }
 
     if (manual) {
+      // Controla si mostramos el mensaje "ya estás al día" tras checks manuales.
       this.wasManualCheckRequested = true;
     }
 

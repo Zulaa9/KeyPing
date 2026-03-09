@@ -71,7 +71,8 @@ function scoreFromTitle(entry: IconResolvableEntry): Candidate | null {
   const text = normalize(entry.label || '');
   if (!text) return null;
 
-  // Allow exact "X" title to resolve to X/Twitter without enabling broad 1-char matches.
+  // Permite que el título exacto "X" resuelva a X/Twitter sin habilitar
+  // coincidencias demasiado amplias con términos de un solo carácter.
   if (text === 'x') {
     const service = SERVICE_ICON_REGISTRY.find(s => s.id === 'twitterx');
     if (service) {

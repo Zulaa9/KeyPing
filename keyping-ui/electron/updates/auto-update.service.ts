@@ -18,6 +18,7 @@ const DEFAULT_PREFERENCES: UpdatePreferences = {
 type SetPreferencesInput = Partial<UpdatePreferences>;
 
 export class AutoUpdateService {
+  // Servicio del proceso principal que centraliza estado y acciones de auto-update.
   private readonly settingsPath = path.join(app.getPath('userData'), SETTINGS_FILE);
   private readonly getWindows: () => BrowserWindow[];
 
@@ -45,6 +46,7 @@ export class AutoUpdateService {
     this.registerIpcHandlers();
 
     if (this.preferences.autoCheck) {
+      // Da margen al arranque para evitar competir con la carga inicial de la app.
       setTimeout(() => {
         void this.checkForUpdates('startup');
       }, STARTUP_CHECK_DELAY_MS);
@@ -87,6 +89,7 @@ export class AutoUpdateService {
     }
 
     if (trigger === 'startup' && now - this.lastCheckAt < MIN_CHECK_INTERVAL_MS) {
+      // Evita chequeos en cascada si la app se reactiva varias veces en poco tiempo.
       return this.getState();
     }
 
@@ -177,7 +180,7 @@ export class AutoUpdateService {
   }
 
   private configureUpdater(): void {
-    // We always ask the user first before downloading.
+    // En este flujo siempre pedimos confirmación antes de descargar.
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = this.preferences.installOnQuit;
     autoUpdater.allowDowngrade = false;

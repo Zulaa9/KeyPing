@@ -1,4 +1,5 @@
-﻿export type UpdateStatus =
+// Tipos compartidos del flujo de actualizaciones (renderer).
+export type UpdateStatus =
   | 'idle'
   | 'checking'
   | 'available'
@@ -8,6 +9,7 @@
   | 'error';
 
 export type UpdateState = {
+  // Estado actual del ciclo de actualización y metadatos asociados.
   status: UpdateStatus;
   currentVersion: string;
   availableVersion?: string;
@@ -19,6 +21,7 @@ export type UpdateState = {
 };
 
 export type UpdatePreferences = {
+  // Preferencias persistidas para checks/descarga/instalación.
   autoCheck: boolean;
   autoDownload: boolean;
   installOnQuit: boolean;

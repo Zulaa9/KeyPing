@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 
+// Rutas principales de la aplicación. Se usa lazy loading por pantalla para reducir el bundle inicial.
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard').then(m => m.DashboardComponent) },

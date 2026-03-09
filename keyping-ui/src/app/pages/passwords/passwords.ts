@@ -3,10 +3,6 @@ import {
   NgFor,
   NgIf,
   NgClass,
-  UpperCasePipe,
-  NgSwitch,
-  NgSwitchCase,
-  NgSwitchDefault,
   NgStyle
 } from '@angular/common';
 
@@ -29,10 +25,6 @@ type StrengthFilter = 'all' | 'strong' | 'medium' | 'weak';
     NgFor,
     NgIf,
     NgClass,
-    UpperCasePipe,
-    NgSwitch,
-    NgSwitchCase,
-    NgSwitchDefault,
     FormsModule,
     NgStyle,
     TranslatePipe
@@ -108,7 +100,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   deleteConfirmEntry: PasswordMeta | null = null;
   showDemo = false;
   demoEntries: PasswordMeta[] = this.buildDemoEntries();
-  demoHistory: PasswordMeta[] = [];
   private brokenIconAssets = new Set<string>();
 
 
@@ -511,7 +502,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     if (wasSelected) {
       this.selected = this.pickSelectionAfterDelete(previousOrderedIds, entry.id);
     } else if (this.selected) {
-      // Rebind selected to current entries array to keep references consistent.
+      // Reasigna selected contra el array actual para mantener referencias consistentes.
       this.selected = this.entries.find(e => e.id === this.selected!.id) || null;
     }
 

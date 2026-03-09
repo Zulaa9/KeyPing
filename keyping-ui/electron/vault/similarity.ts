@@ -1,9 +1,9 @@
-// Motor de similitud de patrones (sin tildes ni enies)
+// Motor de similitud de patrones para comparar nuevas contraseñas con histórico.
 
 import { loadVault } from './file';
 import type { VaultEntry } from './types';
 
-// Mapa leet basico para normalizar
+// Mapa leet básico para normalizar variaciones comunes.
 const LEET_MAP: Record<string, string> = {
   '0': 'o',
   '1': 'i',
@@ -21,7 +21,7 @@ const LEET_MAP: Record<string, string> = {
   '+': 't'
 };
 
-// Normaliza un string para comparacion de patrones
+// Normaliza string para comparación robusta entre variantes visuales.
 export function normalizePattern(s: string): string {
   let x = (s || '')
     .toLowerCase()
@@ -35,7 +35,7 @@ export function normalizePattern(s: string): string {
   return x;
 }
 
-// Levenshtein distance
+// Distancia de edición de Levenshtein.
 function levenshtein(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
@@ -52,16 +52,16 @@ function levenshtein(a: string, b: string): number {
     for (let j = 1; j <= n; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       dp[idx(i, j)] = Math.min(
-        dp[idx(i - 1, j)] + 1,     // delete
-        dp[idx(i, j - 1)] + 1,     // insert
-        dp[idx(i - 1, j - 1)] + cost // substitute
+        dp[idx(i - 1, j)] + 1,     // borrado
+        dp[idx(i, j - 1)] + 1,     // inserción
+        dp[idx(i - 1, j - 1)] + cost // sustitución
       );
     }
   }
   return dp[idx(m, n)];
 }
 
-// Jaro-Winkler similarity (0..1)
+// Similaridad Jaro-Winkler (0..1).
 function jaroWinkler(s1: string, s2: string): number {
   const m1 = s1.length;
   const m2 = s2.length;
@@ -104,18 +104,18 @@ function jaroWinkler(s1: string, s2: string): number {
   const jaro =
     (m / m1 + m / m2 + (m - transpositions) / m) / 3;
 
-  // Winkler prefix boost
+  // Refuerzo por prefijo común (Winkler).
   let prefix = 0;
   for (let i = 0; i < Math.min(4, m1, m2); i++) {
     if (s1[i] === s2[i]) prefix++;
     else break;
   }
 
-  const p = 0.1; // scaling factor
+  const p = 0.1; // factor de escala
   return jaro + prefix * p * (1 - jaro);
 }
 
-// Longest common substring length
+// Longitud de la subcadena común más larga.
 function longestCommonSubstringLen(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
@@ -138,7 +138,7 @@ function longestCommonSubstringLen(a: string, b: string): number {
   return maxLen;
 }
 
-// Devuelve un score 0..100 de similitud entre dos patrones ya normalizados
+// Devuelve score 0..100 entre dos patrones ya normalizados.
 function similarityScoreNormalized(a: string, b: string): number {
   if (!a || !b) return 0;
   if (a === b) return 100;
@@ -152,7 +152,7 @@ function similarityScoreNormalized(a: string, b: string): number {
   const lcs = longestCommonSubstringLen(a, b);
   const lcsRatio = lcs / maxLen;
 
-  // combinacion ponderada (ajustable)
+  // Combinación ponderada de métricas (ajustable).
   const score =
     0.5 * levRatio +
     0.3 * jaro +
@@ -161,7 +161,7 @@ function similarityScoreNormalized(a: string, b: string): number {
   return Math.max(0, Math.min(1, score)) * 100;
 }
 
-// API publica: busca en el vault la entrada mas similar
+// API pública: busca en el vault la entrada más similar.
 export type SimilarityMatch = {
   entry: VaultEntry;
   score: number; // 0..100
@@ -184,7 +184,7 @@ export async function findMostSimilarInVault(candidatePwd: string): Promise<Simi
     }
   }
 
-  // si el mejor score es muy bajo, lo consideramos no relevante
+  // Si el mejor score es bajo, se considera no relevante para alertar.
   if (!best || best.score < 40) return null;
   return best;
 }

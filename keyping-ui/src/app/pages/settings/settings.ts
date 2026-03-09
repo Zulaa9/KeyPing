@@ -32,6 +32,7 @@ type TipRow = { label: string; from: string; to: string; tone: 'add' | 'remove' 
   styleUrls: ['./settings.scss']
 })
 export class SettingsComponent implements OnInit, OnDestroy {
+  // Estado de formularios y mensajes de la pantalla de ajustes.
   masterForm = { current: '', next: '', confirm: '' };
   masterMessage?: StatusMsg;
 
@@ -325,6 +326,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.importPasswordError = undefined;
 
     try {
+      // Parseo único para construir preview y detectar si requiere contraseña maestra.
       const text = await file.text();
       this.rawImportText = text;
       const parsed = await this.es.parseImport(text);
@@ -585,6 +587,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
               .filter((e): e is VaultImportEntry => !!e)
           : this.importEntries;
 
+      // Homogeneiza timestamps de import para que las vistas ordenen de forma estable.
       const now = Date.now();
       const stampedEntries = selectedEntries.map(entry => ({
         ...entry,
@@ -677,6 +680,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   }
 
   private classifyImportEntry(raw: any): MergeReason {
+    // Si el id existe, distinguimos entre entrada idéntica y entrada actualizada.
     if (raw?.id && this.currentIds.has(raw.id)) {
       return this.isUpdatedExisting(raw) ? 'conflict' : 'existing';
     }
@@ -716,7 +720,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       const sameEmail = !!targetEmail && targetEmail === email;
       const sameLogin = !!targetLogin && targetLogin === login;
 
-      // Conflict if matches by any identifying field but id differs
+      // Hay conflicto si coincide por algún identificador aunque cambie el id.
       return (sameLabel || sameUser || sameEmail || sameLogin);
     });
   }

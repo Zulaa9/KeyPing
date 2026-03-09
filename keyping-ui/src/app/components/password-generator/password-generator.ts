@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
   styleUrls: ['./password-generator.scss']
 })
 export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
+  // Estado visual y opciones de generación del panel flotante.
   showGenerator = false;
   generatorPinned = false;
   generatedPassword = '';
@@ -45,6 +46,7 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
   }
 
   onGeneratorButtonEnter(): void {
+    // En modo no fijado, el panel siempre se recoloca junto al botón.
     this.hoveringButton = true;
     if (!this.generatorPinned && !this.dragging) {
       this.resetToAnchor();
@@ -83,6 +85,7 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
   }
 
   onOptionChange(): void {
+    // Evita dejar todas las categorías desactivadas (contraseña vacía/imposible).
     if (!this.useUpper && !this.useLower && !this.useNumbers && !this.useSymbols) {
       this.useLower = true;
     }
@@ -102,6 +105,7 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
     const text = this.generatedPassword;
     if (!text) return;
     if (navigator?.clipboard?.writeText) {
+      // Solo usa la API moderna de portapapeles; sin ruta heredada.
       navigator.clipboard
         .writeText(text)
         .then(() => this.setCopyFeedback())
@@ -139,6 +143,7 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
     const insideWrapper = this.generatorWrapper?.nativeElement.contains(target as any);
     const insidePanel = this.generatorPanel?.nativeElement.contains(target as any);
     if (insideWrapper || insidePanel) return;
+    // Clic fuera: cerramos panel y reseteamos posición si no está fijado.
     this.showGenerator = false;
     this.generatorPinned = false;
     this.resetToAnchor();
@@ -151,6 +156,7 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
   }
 
   private resetToAnchor(): void {
+    // Coloca el panel relativo al wrapper para mantener alineación visual consistente.
     const host = this.generatorWrapper?.nativeElement;
     if (!host) return;
     const rect = host.getBoundingClientRect();
@@ -171,12 +177,14 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
     if (this.generatorPinned) return;
     this.hideTimer = setTimeout(() => {
       if (this.hoveringButton || this.hoveringPanel) return;
+      // Cierra de forma diferida para evitar parpadeos al pasar de botón a panel.
       this.showGenerator = false;
       this.resetToAnchor();
     }, 180);
   }
 
   private makePassword(): string {
+    // Garantiza al menos un carácter por pool activo antes de completar aleatoriamente.
     const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lower = 'abcdefghijklmnopqrstuvwxyz';
     const numbers = '0123456789';

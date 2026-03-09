@@ -1,7 +1,7 @@
-// Raw dictionary. We will normalize and dedupe at runtime in main.ts
+// Diccionario base en bruto. Se normaliza y deduplica en runtime desde main.ts.
 export const RAW_COMMON_WORDS: string[] = [
   // =========================
-  // Numeric / easy sequences
+  // Secuencias numéricas / fáciles
   // =========================
   '0','00','000','0000','00000','000000','00000000',
   '1','11','111','1111','11111','111111','11111111',
@@ -19,9 +19,11 @@ export const RAW_COMMON_WORDS: string[] = [
   '6969','999999999','314159','271828',
   '1357','13579','2468','9876',
   '112233','223344','123123','321321','147258','2580','0852',
+  '111222','111333','123321','159753','753159','741852','963258',
+  '102030','112358','123654','654123','159357',
 
   // =========================
-  // Keyboard walks / layouts
+  // Recorridos de teclado / layouts
   // =========================
   // QWERTY
   'q','qq','qqq','w','ww','www','e','ee','eee',
@@ -29,23 +31,24 @@ export const RAW_COMMON_WORDS: string[] = [
   'asdf','asdfg','asdfgh','asdfghj','asdfghjk','asdfghjkl',
   'zxc','zxcv','zxcvb','zxcvbn','zxcvbnm',
   '1q2w3e','1q2w3e4r','q1w2e3r4','!q@w#e','$r%t^y',
+  'q1w2e3','1qaz2wsx','zaq12wsx','qweasd','asdzxc','qazxswedc',
   'qaz','wsx','edc','rfv','tgb','yhn','ujm',
-  'qazwsx','qazwsxedc',
+  'qazwsx','qazwsxedc','poiuy','lkjhg','mkoijn','plokij',
   // QWERTZ (DE)
   'qwertz','yxcvbn','tzui','asdfghj','yxcvbnm',
   // AZERTY (FR)
   'azerty','azert','qsdf','azer','azertyuiop',
   // DVORAK (por si acaso)
   'aoeui','aoeu','dvorak',
-  // Gaming
+  // Videojuegos
   'wasd','wasd123','esdf','zqsd',
 
   // =========================
-  // English classics / roots
+  // Clasicos en ingles / raices
   // =========================
-  'password','password1','password123','passw0rd','p@ssword','p@ssw0rd','pass','pwd','letmein','welcome',
-  'admin','administrator','root','superuser','superadmin','owner','user','guest','login','default','system',
-  'test','testing','tester','demo','sample','example',
+  'password','password1','password123','password1234','password12','password2024','password2025','password2026','passw0rd','p@ssword','p@ssw0rd','pass','pwd','letmein','welcome',
+  'admin','admin1','admin1234','admin2024','admin2025','admin2026','administrator','root','root2024','root2025','superuser','superadmin','owner','user','guest','login','default','system',
+  'test','testing','tester','test123','demo','demo123','sample','example',
   'secret','secrets','private','priv','hidden','shadow','unknown',
   'hello','hi','thanks','thankyou',
   'love','iloveyou','loveyou','forever','always','friend','friends',
@@ -53,14 +56,14 @@ export const RAW_COMMON_WORDS: string[] = [
   'computer','computers','server','network','internet','intranet',
   'dragon','monkey','flower','summer','winter','spring','autumn','fall',
   'freedom','whatever','trustno1','master','masterkey','masterpass',
-  'god','god123','admin123','root123','qwerty123','abc123','abcd1234',
+  'god','god123','admin123','root123','qwerty123','abc123','abcd1234','welcome123',
   'money','million','rich','winner','winners','victory','success',
   'home','work','office','school','company','service','email','bank','shop','store',
 
   // Leetspeak & variants
   'p4ssw0rd','p@ss','p@55w0rd','pa$$word','pa55word','passw0rd!','admin!','adm1n','r00t','us3r',
   'h@ck3r','hack3r','hacker','n1nj4','ninja','l0ve','l0ver','lovers',
-  's3cret','s3rv3r','s3rvic3','pr1v4t3','pr1vate',
+  's3cret','s3rv3r','s3rvic3','pr1v4t3','pr1vate','adm1n123','r00t123',
 
   // Symbols (raíces típicas con signos)
   'password!','password?','password.','password@','password#',
@@ -79,8 +82,9 @@ export const RAW_COMMON_WORDS: string[] = [
   // Servicios / marcas comunes ES
   'google','gmail','facebook','instagram','tiktok','twitter','xcom','youtube','microsoft','windows','apple','icloud',
   'movistar','vodafone','orange','jazztel','yoigo','pepephone','masmovil','euskaltel','ono',
+  'bbva','santander','caixabank','bankinter','sabadell','ing','abanca','kutxabank','unicaja','openbank',
   // Roles
-  'jefe','empleado','trabajo','escuela','colegio','instituto','empresa','oficina',
+  'jefe','empleado','trabajo','escuela','colegio','instituto','empresa','oficina','nomina','recursoshumanos','rrhh',
   // Euskera / entorno local
   'agur','kaixo','ongi','ongi etorri','euskadi','bilbao','bizkaia','donostia','gasteiz',
   // Catalan/Valenciano (sin tildes)
@@ -94,20 +98,20 @@ export const RAW_COMMON_WORDS: string[] = [
   // =========================
   // French (sin acentos)
   // =========================
-  'motdepasse','bonjour','bonsoir','bienvenue','amour','secret','utilisateur','invite','admin','azerty','qsdf','securite',
+  'motdepasse','mot2passe','bonjour','bonsoir','bienvenue','amour','secret','utilisateur','invite','admin','azerty','qsdf','securite',
 
   // =========================
   // German (umlauts normalizados)
   // =========================
-  'passwort','hallo','willkommen','geheim','benutzer','gast','admin','qwertz','sicherheit','lieben','liebe','schatz',
+  'passwort','passwort123','hallo','willkommen','geheim','benutzer','gast','admin','qwertz','sicherheit','lieben','liebe','schatz',
 
   // =========================
   // Italian
   // =========================
-  'passworde','ciao','benvenuto','benvenuta','amore','segreto','utente','ospite','admin','qwerty','sicurezza',
+  'passworde','ciao','benvenuto','benvenuta','amore','segreto','utente','ospite','admin','qwerty','sicurezza','accesso',
 
   // =========================
-  // Months / Days (multi-idioma, sin tildes)
+  // Meses / dias (multi-idioma, sin tildes)
   // =========================
   'january','february','march','april','may','june','july','august','september','october','november','december',
   'enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre',
@@ -117,7 +121,7 @@ export const RAW_COMMON_WORDS: string[] = [
   'lun','mar','mie','jue','vie','sab','dom',
 
   // =========================
-  // Colors (en/ es / fr / de / it)
+  // Colores (en / es / fr / de / it)
   // =========================
   'red','blue','green','black','white','yellow','purple','orange','pink','brown','gray','grey',
   'rojo','azul','verde','negro','blanco','amarillo','morado','naranja','rosa','marron','gris',
@@ -126,7 +130,7 @@ export const RAW_COMMON_WORDS: string[] = [
   'rosso','blu','verde','nero','bianco','giallo','arancione','rosa','grigio','marrone',
 
   // =========================
-  // Family / relationships
+  // Familia / relaciones
   // =========================
   'mother','mom','mum','father','dad','daddy','mama','papa','abuelita','abuela','abuelo','hermano','hermana',
   'brother','sister','son','daughter','baby','bebe','novia','novio','wife','husband','family','familia',
@@ -139,33 +143,33 @@ export const RAW_COMMON_WORDS: string[] = [
   'perro','gato','pajaro','pez','leon','tigre','oso','lobo','aguila','tiburon','caballo',
 
   // =========================
-  // Foods / drinks
+  // Comidas / bebidas
   // =========================
   'pizza','burger','taco','pasta','sushi','coffee','tea','beer','vodka','whiskey','wine',
   'cafe','cerveza','vino','agua','pan','arroz','pollo','carne','pescado','tortilla',
 
   // =========================
-  // Tech brands & services
+  // Marcas y servicios tech
   // =========================
   'google','gmail','youtube','facebook','instagram','tiktok','twitter','x','linkedin','snapchat','whatsapp','telegram','discord',
-  'microsoft','windows','office','outlook','skype','onedrive','azure',
+  'microsoft','windows','office','outlook','skype','onedrive','azure','teams','sharepoint',
   'apple','icloud','iphone','ipad','mac','macos','imac','airpods',
-  'amazon','aws','prime','netflix','hbo','disney','spotify','steam','epic','twitch','github','gitlab','bitbucket',
+  'amazon','aws','prime','netflix','hbo','disney','spotify','steam','epic','twitch','github','gitlab','bitbucket','notion','trello','jira','slack','zoom',
   'binance','coinbase','kraken','metamask','ledger','trezor','crypto','bitcoin','ethereum','solana','polkadot','cardano',
   // ISPs / routers / SSID tipicos
   'adminrouter','router','modem','wifi','wifix','wifipassword','wifipass','internet','default','12345678','qwertyuiop',
-  'movistar','vodafone','orange','jazztel','yoigo','euskaltel','ono','verizon','att','comcast','xfinity','spectrum','tplink','dlink','huawei','zyxel','netgear',
+  'movistar','vodafone','orange','jazztel','yoigo','euskaltel','ono','verizon','att','comcast','xfinity','spectrum','tplink','dlink','huawei','zyxel','netgear','asus','mikrotik','ubiquiti',
 
   // =========================
-  // Operating systems / roles
+  // Sistemas operativos / roles
   // =========================
   'ubuntu','debian','linux','windows','mac','android','ios','chrome','chromebook',
   'root','sudo','sysadmin','dev','devops','support','guest','operator','operator1','service','services',
 
   // =========================
-  // Pop culture (genericos)
+  // Cultura pop (genericos)
   // =========================
-  'harrypotter','starwars','marvel','avengers','spiderman','superman','batman','onepiece','naruto','dragonball','pokemon','lol','valorant','fortnite','minecraft','gta','gta5',
+  'harrypotter','starwars','marvel','avengers','spiderman','superman','batman','onepiece','naruto','dragonball','pokemon','lol','valorant','fortnite','minecraft','gta','gta5','fifa','fc24','cod','warzone',
 
   // =========================
   // Cities / countries (muy comunes)
@@ -181,34 +185,34 @@ export const RAW_COMMON_WORDS: string[] = [
   'merde','putain','scheisse','stronzo',
 
   // =========================
-  // Names (muy comunes, subset pequeno)
+  // Nombres (muy comunes, subconjunto pequeno)
   // =========================
-  'maria','sofia','lucia','carmen','ana','laura','paula','martina','andrea','noa',
-  'juan','carlos','jose','luis','javier','david','daniel','pablo','alejandro','miguel',
-  'john','michael','david','james','robert','william','mary','jennifer','linda','jessica',
-  'marie','jean','pierre','luc','paul','laurent','julie','sophie',
-  'hans','peter','thomas','anna','lena','mia',
-  'giovanni','marco','luca','andrea','francesco','mario',
-  'joao','carlos','pedro','luis','rafael','ana','maria',
+  'maria','sofia','lucia','carmen','ana','laura','paula','martina','andrea','noa','alba','irene','elena','claudia',
+  'juan','carlos','jose','luis','javier','david','daniel','pablo','alejandro','miguel','sergio','adrian','raul','ivan',
+  'john','michael','david','james','robert','william','mary','jennifer','linda','jessica','chris','alex','matt','emma',
+  'marie','jean','pierre','luc','paul','laurent','julie','sophie','antoine','camille',
+  'hans','peter','thomas','anna','lena','mia','klaus','julia',
+  'giovanni','marco','luca','andrea','francesco','mario','giulia','chiara',
+  'joao','carlos','pedro','luis','rafael','ana','maria','bruno','tiago',
 
   // =========================
-  // Years / dates / hints (raices)
+  // Anos / fechas / pistas (raices)
   // =========================
-  'year','anio','ano','birthday','cumple','cumpleanos','born','nacimiento','fecha','fecha123','ddmmyy','mmddyy','yyyymmdd',
+  'year','anio','ano','birthday','cumple','cumpleanos','born','nacimiento','fecha','fecha123','ddmmyy','mmddyy','yyyymmdd','0101','3112',
 
   // =========================
-  // Security / auth terms
+  // Terminos de seguridad / autenticacion
   // =========================
   'token','totp','otp','2fa','mfa','factor','auth','authcode','security','secure','seguro','pin','nip','code','codigo','pass','passcode','key','keypass','master','vault','safe','lock','unlock',
 
   // =========================
-  // Work / edu
+  // Trabajo / educacion
   // =========================
-  'trabajo','empleo','curriculum','cv','resume','job','jobs','work','worker','boss','boss1','team','teams','project','projects',
-  'school','college','university','uni','campus','student','teacher','profesor','alumno',
+  'trabajo','empleo','curriculum','cv','resume','job','jobs','work','worker','boss','boss1','team','teams','project','projects','intranet','nomina','portalempleado',
+  'school','college','university','uni','campus','campusvirtual','student','teacher','profesor','alumno','classroom',
 
   // =========================
-  // Short roots commonly extended
+  // Raices cortas que suelen extenderse
   // =========================
   'adm','admin','usr','user','pwd','pass','abc','abcd','abcde','qwer','asdfg','zxcvb','qaz','wsx',
   'home','house','casa','c0d3','code','coder','dev','rooted','godmode','super',
@@ -216,14 +220,14 @@ export const RAW_COMMON_WORDS: string[] = [
   'admin@','admin#','admin$','root@','root#','root$','user@','user#','user$','pass@','pass#','pass$',
 
   // =========================
-  // Company / generic domains (raices)
+  // Empresa / dominios genericos (raices)
   // =========================
   'company','compania','empresa','service','services','support','help','helpdesk','desk','it','hr','sales','marketing','finance','billing','payments','payment','invoice','factura','facturacion',
 
   // =========================
   // Misc muy frecuentes
   // =========================
-  'abc123','abcdef','abcdefg','abcxyz','xyz','xyz123',
+  'abc123','abcdef','abcdefg','abcxyz','xyz','xyz123','asdf1234','qwer1234',
   'iloveu','loveme','onlyyou','foreverlove',
   'myself','mypc','myphone','myemail','mywifi',
   'qwertyui','poiuytrewq','mnbvcxz',

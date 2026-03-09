@@ -5,6 +5,7 @@ import type { PasswordMeta } from './electron.service';
 
 @Injectable({ providedIn: 'root' })
 export class PasswordCountService {
+  // Subject central para mostrar conteo de entradas en header y otras vistas.
   private _count$ = new BehaviorSubject<number | null>(null);
   readonly count$ = this._count$.asObservable();
 

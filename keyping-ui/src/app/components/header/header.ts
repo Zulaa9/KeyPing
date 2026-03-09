@@ -1,6 +1,6 @@
 import { Component, Input, OnDestroy, OnInit, Output, EventEmitter } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, Subscription } from 'rxjs';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { NgIf } from '@angular/common';
 import { PasswordGeneratorComponent } from '../password-generator/password-generator';
 import { PasswordCountService } from '../../core/password-count.service';
@@ -15,39 +15,33 @@ import { TranslatePipe } from '../../core/translate.pipe';
   styleUrls: ['./header.scss']
 })
 export class HeaderComponent implements OnInit, OnDestroy {
+  // Ruta centralizada del logo para no duplicar literales en plantilla.
   readonly logoPath = 'assets/logo.png';
 
   passwordCount: number | null = null;
   @Input() locked = false;
   @Output() restartTour = new EventEmitter<void>();
 
-  private navSub?: Subscription;
   private countSub?: Subscription;
 
   constructor(
-    private router: Router,
     private passwordCountSvc: PasswordCountService,
     private master: MasterLockService
   ) {}
 
   ngOnInit(): void {
+    // Refleja en sidebar el contador reactivo de entradas del vault.
     this.countSub = this.passwordCountSvc.count$.subscribe(count => {
       this.passwordCount = count;
     });
-
-    this.navSub = this.router.events
-      .pipe(filter(e => e instanceof NavigationEnd))
-      .subscribe(() => {
-        // Hook to refresh things on navigation if needed later
-      });
   }
 
   ngOnDestroy(): void {
-    this.navSub?.unsubscribe();
     this.countSub?.unsubscribe();
   }
 
   onNavClick(ev: MouseEvent): void {
+    // Bloquea navegación cuando la app está cerrada por lock maestro.
     if (this.locked) {
       ev.preventDefault();
       ev.stopPropagation();

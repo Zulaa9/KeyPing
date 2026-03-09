@@ -5,8 +5,10 @@ import { ElectronService, PasswordMeta } from '../../core/electron.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
 
+// Clasificación simplificada de fortaleza para métricas y estilo visual.
 type StrengthLevel = 'strong' | 'medium' | 'weak';
 
+// Resultado de análisis por entrada que alimenta la tabla de incidencias.
 type HealthIssue = {
   entry: PasswordMeta;
   plain?: string | null;
@@ -15,6 +17,7 @@ type HealthIssue = {
   level: StrengthLevel;
 };
 
+// Grupo de entradas que comparten exactamente la misma contraseña en claro.
 type DuplicateGroup = {
   value: string;
   entries: PasswordMeta[];
@@ -30,6 +33,7 @@ type DuplicateGroup = {
 export class PasswordHealthComponent implements OnInit {
   loading = true;
 
+  // Contadores base para gráficos/resúmenes.
   total = 0;
   strongCount = 0;
   mediumCount = 0;
@@ -56,18 +60,22 @@ export class PasswordHealthComponent implements OnInit {
     private i18n: I18nService
   ) {}
 
+  // Carga inicial de métricas al entrar en la vista.
   async ngOnInit(): Promise<void> {
     await this.loadHealth();
   }
 
+  // Permite saltar al listado y enfocar la credencial con problema.
   goToPassword(issue: HealthIssue): void {
     this.router.navigate(['/passwords'], { queryParams: { select: issue.entry.id } });
   }
 
+  // Evita mostrar contraseñas duplicadas en claro salvo interacción explícita.
   isDupRevealed(dup: DuplicateGroup): boolean {
     return this.revealedDupValues.has(dup.value);
   }
 
+  // Alterna visibilidad de un grupo duplicado sin propagar el click al contenedor.
   toggleDup(dup: DuplicateGroup, ev?: MouseEvent): void {
     if (ev) ev.stopPropagation();
     const key = dup.value;
@@ -78,6 +86,7 @@ export class PasswordHealthComponent implements OnInit {
     }
   }
 
+  // Porcentajes derivados usados por anillos, barras y tarjetas.
   get strongPct(): number {
     return this.asPct(this.strongCount);
   }
@@ -110,10 +119,12 @@ export class PasswordHealthComponent implements OnInit {
     return this.scoreCircumference * (1 - this.score / 100);
   }
 
+  // Devuelve cuántas clases de caracteres usa la entrada.
   variety(entry: PasswordMeta): number {
     return this.countVariety(entry.classMask || 0);
   }
 
+  // Orquesta la carga completa: datos, duplicados, estadísticas y score.
   async loadHealth(): Promise<void> {
     this.loading = true;
     try {
@@ -138,6 +149,7 @@ export class PasswordHealthComponent implements OnInit {
 
       const entriesWithPlain: Array<{ meta: PasswordMeta; plain?: string | null }> = [];
       for (const meta of metas) {
+        // El cálculo de duplicados requiere comparar el texto real de cada contraseña.
         let plain: string | null = null;
         try {
           plain = await this.es.getPassword(meta.id);
@@ -155,12 +167,14 @@ export class PasswordHealthComponent implements OnInit {
     }
   }
 
+  // Traduce la fortaleza técnica a etiqueta legible para el usuario.
   getStrength(level: StrengthLevel): string {
     if (level === 'strong') return this.t('health.level.strong');
     if (level === 'medium') return this.t('health.level.medium');
     return this.t('health.level.weak');
   }
 
+  // Determina la clase visual por severidad para resaltar riesgos.
   severityClass(severity: number): string {
     if (severity >= 80) return 'issue-danger';
     if (severity >= 50) return 'issue-warn';
@@ -169,6 +183,7 @@ export class PasswordHealthComponent implements OnInit {
 
   @HostListener('document:kp-demo-disable')
   onDemoDisable(): void {
+    // Si ya estamos en datos reales no hacemos nada.
     if (!this.showDemo) return;
     this.showDemo = false;
     this.total = 0;
@@ -182,10 +197,12 @@ export class PasswordHealthComponent implements OnInit {
 
   @HostListener('document:kp-demo-enable')
   onDemoEnable(): void {
+    // Solo activa demo cuando no hay datos reales cargados.
     if (this.total > 0) return;
     this.useDemoData();
   }
 
+  // Calcula contadores agregados e incidencias ordenadas por severidad.
   private computeStats(entries: Array<{ meta: PasswordMeta; plain?: string | null }>): void {
     const issues: HealthIssue[] = [];
 
@@ -224,6 +241,7 @@ export class PasswordHealthComponent implements OnInit {
 
       const dupGroup = this.findDuplicateGroup(plain);
       if (dupGroup) {
+        // Reutilización de contraseña: penalización fuerte por riesgo transversal.
         severity += 60;
         reasons.push(this.t('health.reason.duplicate', { count: dupGroup.entries.length }));
       }
@@ -242,6 +260,7 @@ export class PasswordHealthComponent implements OnInit {
     this.issues = issues.sort((a, b) => b.severity - a.severity);
   }
 
+  // Construye grupos de duplicados exactos a partir del secreto en claro.
   private computeDuplicates(entries: Array<{ meta: PasswordMeta; plain?: string | null }>): void {
     const map = new Map<string, PasswordMeta[]>();
 
@@ -267,6 +286,7 @@ export class PasswordHealthComponent implements OnInit {
     this.duplicateEntries = duplicateEntries;
   }
 
+  // Score ponderado 0-100: combina debilidades estructurales y reutilización.
   private computeScore(): void {
     if (this.total === 0) {
       this.score = 0;
@@ -291,12 +311,14 @@ export class PasswordHealthComponent implements OnInit {
     else this.scoreLabel = this.t('health.score.risky');
   }
 
+  // Regla simple de fortaleza basada en longitud y variedad.
   private classifyStrength(length: number, variety: number): StrengthLevel {
     if (length >= 16 && variety >= 3) return 'strong';
     if (length >= 12 && variety >= 2) return 'medium';
     return 'weak';
   }
 
+  // Decodifica la máscara de clases de caracteres (1/2/4/8) a recuento.
   private countVariety(mask: number): number {
     let count = 0;
     if (mask & 1) count++;
@@ -306,11 +328,13 @@ export class PasswordHealthComponent implements OnInit {
     return count;
   }
 
+  // Convierte cualquier contador absoluto a porcentaje del total.
   private asPct(value: number): number {
     if (!this.total) return 0;
     return Math.round((value / this.total) * 100);
   }
 
+  // Reinicia todos los agregados para recargas limpias sin arrastres de estado.
   private resetCounters(): void {
     this.strongCount = 0;
     this.mediumCount = 0;
@@ -323,15 +347,18 @@ export class PasswordHealthComponent implements OnInit {
     this.issues = [];
   }
 
+  // Busca el grupo de duplicado asociado a una contraseña concreta.
   private findDuplicateGroup(plain?: string | null): DuplicateGroup | undefined {
     if (!plain) return undefined;
     return this.duplicateGroups.find(g => g.value === plain);
   }
 
+  // Acceso centralizado a i18n para evitar repetir el servicio en cada método.
   private t(key: string, params?: Record<string, string | number>): string {
     return this.i18n.translate(key, params);
   }
 
+  // Datos de demostración para que la vista sea explicativa cuando la bóveda está vacía.
   private useDemoData(): void {
     this.showDemo = true;
     const now = Date.now();
@@ -419,6 +446,7 @@ export class PasswordHealthComponent implements OnInit {
     this.computeScore();
   }
 
+  // Permite desactivar demo por configuración local durante QA o tests manuales.
   private isDemoAllowed(): boolean {
     return localStorage.getItem('keyping.demo.disabled') !== '1';
   }

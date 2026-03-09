@@ -13,6 +13,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
   styleUrls: ['./update-banner.scss']
 })
 export class UpdateBannerComponent implements OnInit, OnDestroy {
+  // Estado proyectado del servicio de updates para renderizar banner contextual.
   state: UpdateState = { status: 'idle', currentVersion: '0.0.0' };
   visible = false;
   private dismissedToken?: string;
@@ -21,6 +22,7 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
   constructor(public updates: AppUpdateService) {}
 
   ngOnInit(): void {
+    // Fuente reactiva única: cada evento de update decide visibilidad y contenido.
     this.stateSub = this.updates.state$.subscribe(state => {
       this.state = state;
       this.visible = this.shouldRender(state);
@@ -44,6 +46,7 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
   }
 
   get errorSummary(): string {
+    // Traduce mensajes técnicos en categorías de error más legibles para el usuario.
     const raw = (this.state.errorMessage || '').toLowerCase();
     if (!raw) {
       return 'updates.error.summary.generic';
@@ -83,6 +86,7 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
   }
 
   private shouldRender(state: UpdateState): boolean {
+    // Evita mostrar estados neutros; solo aparece en estados accionables o de error.
     const isPopupStatus =
       state.status === 'available' ||
       state.status === 'downloading' ||
@@ -99,6 +103,7 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
   }
 
   private buildToken(state: UpdateState): string {
+    // Token de deduplicación para recordar banners descartados por el usuario.
     return [state.status, state.availableVersion || '', state.errorMessage || ''].join('|');
   }
 

@@ -6,6 +6,7 @@ import { BehaviorSubject, firstValueFrom } from 'rxjs';
   providedIn: 'root'
 })
 export class I18nService {
+  // Idiomas soportados en la app.
   private readonly supported = ['en', 'es'];
   private readonly languageSubject = new BehaviorSubject<string>(this.detectLanguage());
   private readonly dictionarySubject = new BehaviorSubject<Record<string, string>>({});
@@ -30,7 +31,7 @@ export class I18nService {
     try {
       localStorage.setItem('keyping_lang', normalized);
     } catch {
-      // Ignore storage errors (Electron without storage, private mode, etc.)
+      // Ignora errores de almacenamiento (entornos sin acceso a almacenamiento local o modo privado).
     }
   }
 
@@ -41,6 +42,7 @@ export class I18nService {
   }
 
   private async loadDictionary(lang: string): Promise<Record<string, string>> {
+    // Cachea diccionarios para evitar recargas HTTP repetidas entre cambios de idioma.
     if (this.cache.has(lang)) {
       return this.cache.get(lang) as Record<string, string>;
     }
@@ -63,7 +65,7 @@ export class I18nService {
       );
       return res || {};
     } catch (err) {
-      console.error(`[i18n] Unable to load language ${lang}`, err);
+      console.error(`[i18n] No se pudo cargar el idioma ${lang}`, err);
       return {};
     }
   }
@@ -81,7 +83,7 @@ export class I18nService {
       const stored = localStorage.getItem('keyping_lang');
       if (stored) return this.normalize(stored);
     } catch {
-      // ignore
+      // Sin almacenamiento disponible: se usa el idioma del navegador o valor por defecto.
     }
     const browserLang =
       typeof navigator !== 'undefined' && navigator.language ? navigator.language : '';

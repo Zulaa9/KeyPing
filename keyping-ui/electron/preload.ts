@@ -3,6 +3,8 @@ import { UpdatePreferences, UpdateState } from './updates/types';
 
 console.log('[preload] loaded');
 
+// API segura expuesta al renderer (contextIsolation=true).
+// Todo acceso a filesystem/IPC pasa por este puente tipado.
 contextBridge.exposeInMainWorld('keyping', {
   ping: () => ipcRenderer.invoke('keyping:ping'),
   checkVaultIntegrity: () => ipcRenderer.invoke('keyping:vaultIntegrity'),
@@ -21,6 +23,7 @@ contextBridge.exposeInMainWorld('keyping', {
     ipcRenderer.invoke('keyping:clearPasswordHistory', { id }),
 
   checkCandidate: (pwd: string) => {
+    // Se mantiene log de trazabilidad para diagnósticos de IPC.
     console.log('[preload] invoking keyping:check');
     return ipcRenderer.invoke('keyping:check', { pwd });
   },
