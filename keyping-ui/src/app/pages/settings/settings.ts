@@ -83,7 +83,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   updateState: UpdateState = { status: 'idle', currentVersion: '0.0.0' };
   updatePreferences: UpdatePreferences = {
     autoCheck: true,
-    autoDownload: true,
+    autoDownload: false,
     installOnQuit: true
   };
   updateMessage?: string;

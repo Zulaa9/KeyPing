@@ -1,53 +1,53 @@
-﻿<div class="update-banner" *ngIf="visible" [ngClass]="'status-' + state.status">
-  <div class="update-copy">
-    <p class="eyebrow">{{ 'updates.title' | t }}</p>
+﻿<div class="update-popup-backdrop" *ngIf="visible">
+  <div class="update-popup" [ngClass]="'status-' + state.status">
+    <div class="update-copy">
+      <p class="eyebrow">{{ 'updates.popup.title' | t }}</p>
 
-    <p class="message" *ngIf="state.status === 'checking'">
-      {{ 'updates.checking' | t }}
-    </p>
+      <p class="message" *ngIf="state.status === 'available'">
+        {{ 'updates.popup.available' | t:{ version: state.availableVersion || '?' } }}
+      </p>
 
-    <p class="message" *ngIf="state.status === 'available'">
-      {{ 'updates.available' | t:{ version: state.availableVersion || '?' } }}
-    </p>
+      <p class="message" *ngIf="state.status === 'downloading'">
+        {{ 'updates.popup.downloading' | t:{ version: state.availableVersion || '?' } }}
+        <span class="progress">{{ progressLabel }}</span>
+      </p>
 
-    <p class="message" *ngIf="state.status === 'downloading'">
-      {{ 'updates.downloading' | t:{ version: state.availableVersion || '?' } }}
-      <span class="progress">{{ progressLabel }}</span>
-    </p>
+      <p class="message" *ngIf="state.status === 'downloaded'">
+        {{ 'updates.popup.downloaded' | t:{ version: state.availableVersion || '?' } }}
+      </p>
 
-    <p class="message" *ngIf="state.status === 'downloaded'">
-      {{ 'updates.downloaded' | t:{ version: state.availableVersion || '?' } }}
-    </p>
+      <p class="message" *ngIf="state.status === 'error'">
+        {{ errorSummary | t }}
+      </p>
+      <p class="error-detail" *ngIf="state.status === 'error' && state.errorMessage">
+        {{ state.errorMessage }}
+      </p>
+    </div>
 
-    <p class="message" *ngIf="state.status === 'upToDate'">
-      {{ 'updates.upToDate' | t }}
-    </p>
+    <div class="update-actions">
+      <button type="button" class="btn ghost" *ngIf="state.status === 'available'" (click)="onPostpone()">
+        {{ 'updates.actions.later' | t }}
+      </button>
 
-    <p class="message" *ngIf="state.status === 'error'">
-      {{ 'updates.error' | t }}
-      <span class="error-detail" *ngIf="state.errorMessage">{{ state.errorMessage }}</span>
-    </p>
-  </div>
+      <button type="button" class="btn primary" *ngIf="state.status === 'available'" (click)="onDownload()">
+        {{ 'updates.actions.updateNow' | t }}
+      </button>
 
-  <div class="update-actions">
-    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'available'" (click)="onPostpone()">
-      {{ 'updates.actions.postpone' | t }}
-    </button>
+      <button type="button" class="btn ghost" *ngIf="state.status === 'downloaded'" (click)="onPostpone()">
+        {{ 'updates.actions.later' | t }}
+      </button>
 
-    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'available'" (click)="onDownload()">
-      {{ 'updates.actions.download' | t }}
-    </button>
+      <button type="button" class="btn primary" *ngIf="state.status === 'downloaded'" (click)="onInstall()">
+        {{ 'updates.actions.restartInstall' | t }}
+      </button>
 
-    <button type="button" class="btn primary tiny" *ngIf="state.status === 'downloaded'" (click)="onInstall()">
-      {{ 'updates.actions.restartInstall' | t }}
-    </button>
+      <button type="button" class="btn ghost" *ngIf="state.status === 'error'" (click)="onDismiss()">
+        {{ 'updates.actions.dismiss' | t }}
+      </button>
 
-    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'error' || state.status === 'upToDate'" (click)="onCheck()">
-      {{ 'updates.actions.checkNow' | t }}
-    </button>
-
-    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'error' || state.status === 'upToDate'" (click)="onDismiss()">
-      {{ 'updates.actions.dismiss' | t }}
-    </button>
+      <button type="button" class="btn primary" *ngIf="state.status === 'error'" (click)="onCheck()">
+        {{ 'updates.actions.checkNow' | t }}
+      </button>
+    </div>
   </div>
 </div>

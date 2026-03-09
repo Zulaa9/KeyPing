@@ -38,6 +38,23 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
     return `${pct.toFixed(0)}% (${transferred} / ${total})`;
   }
 
+  get errorSummary(): string {
+    const raw = (this.state.errorMessage || '').toLowerCase();
+    if (!raw) {
+      return 'updates.error.summary.generic';
+    }
+    if (raw.includes('conectar') || raw.includes('internet') || raw.includes('network')) {
+      return 'updates.error.summary.network';
+    }
+    if (raw.includes('servidor') || raw.includes('resolver') || raw.includes('server')) {
+      return 'updates.error.summary.server';
+    }
+    if (raw.includes('permis') || raw.includes('forbidden') || raw.includes('unauthorized')) {
+      return 'updates.error.summary.permissions';
+    }
+    return 'updates.error.summary.generic';
+  }
+
   async onCheck(): Promise<void> {
     await this.updates.checkForUpdates(true);
   }
@@ -61,8 +78,12 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
   }
 
   private shouldRender(state: UpdateState): boolean {
-    if (state.status === 'idle') return false;
-    if (state.status === 'upToDate' && !this.updates.shouldShowUpToDate) return false;
+    const isPopupStatus =
+      state.status === 'available' ||
+      state.status === 'downloading' ||
+      state.status === 'downloaded' ||
+      state.status === 'error';
+    if (!isPopupStatus) return false;
     if (!this.dismissedToken) return true;
 
     return this.dismissedToken !== this.buildToken(state);

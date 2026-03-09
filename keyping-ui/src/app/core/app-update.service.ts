@@ -16,7 +16,7 @@ type KeypingUpdateApi = {
 
 const DEFAULT_PREFERENCES: UpdatePreferences = {
   autoCheck: true,
-  autoDownload: true,
+  autoDownload: false,
   installOnQuit: true
 };
 

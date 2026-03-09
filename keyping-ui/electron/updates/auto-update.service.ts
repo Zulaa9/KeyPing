@@ -11,7 +11,7 @@ const MIN_CHECK_INTERVAL_MS = 60_000;
 
 const DEFAULT_PREFERENCES: UpdatePreferences = {
   autoCheck: true,
-  autoDownload: true,
+  autoDownload: false,
   installOnQuit: true
 };
 
@@ -177,7 +177,8 @@ export class AutoUpdateService {
   }
 
   private configureUpdater(): void {
-    autoUpdater.autoDownload = this.preferences.autoDownload;
+    // We always ask the user first before downloading.
+    autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = this.preferences.installOnQuit;
     autoUpdater.allowDowngrade = false;
   }
@@ -193,11 +194,11 @@ export class AutoUpdateService {
 
     autoUpdater.on('update-available', info => {
       this.updateState({
-        status: this.preferences.autoDownload ? 'downloading' : 'available',
+        status: 'available',
         availableVersion: info.version,
         errorMessage: undefined,
-        progressPercent: this.preferences.autoDownload ? 0 : undefined,
-        transferredBytes: this.preferences.autoDownload ? 0 : undefined,
+        progressPercent: undefined,
+        transferredBytes: undefined,
         totalBytes: undefined,
         checkedAt: Date.now()
       });
@@ -307,10 +308,29 @@ export class AutoUpdateService {
   }
 
   private formatError(error: unknown): string {
-    if (error instanceof Error && error.message) {
-      return error.message;
+    const message = error instanceof Error && error.message ? error.message : String(error || '');
+    const lower = message.toLowerCase();
+
+    if (lower.includes('net::err_internet_disconnected') || lower.includes('econnrefused') || lower.includes('etimedout') || lower.includes('fetch failed')) {
+      return 'No se pudo conectar al servidor de actualizaciones.';
     }
 
-    return 'Unknown update error';
+    if (lower.includes('enotfound') || lower.includes('name not resolved')) {
+      return 'No se pudo resolver el servidor de actualizaciones.';
+    }
+
+    if (lower.includes('403') || lower.includes('401') || lower.includes('forbidden') || lower.includes('unauthorized')) {
+      return 'No hay permisos para descargar esta actualizacion.';
+    }
+
+    if (lower.includes('404') || lower.includes('cannot find latest')) {
+      return 'No hay informacion de actualizacion disponible.';
+    }
+
+    if (message && message !== 'undefined') {
+      return 'Error al comprobar actualizaciones.';
+    }
+
+    return 'Error desconocido al comprobar actualizaciones.';
   }
 }
