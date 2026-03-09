@@ -7,6 +7,8 @@ import { MasterLockService, MasterState } from './core/master-lock.service';
 import { TranslatePipe } from './core/translate.pipe';
 import { I18nService } from './core/i18n.service';
 import { filter, Subscription } from 'rxjs';
+import { UpdateBannerComponent } from './components/update-banner/update-banner';
+import { AppUpdateService } from './core/app-update.service';
 type OnboardingStep = {
   titleKey: string;
   descKey: string;
@@ -19,7 +21,7 @@ type OnboardingPlacement = 'right' | 'bottom' | 'bottom-right' | 'left' | 'cente
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent, FormsModule, NgIf, NgFor, TranslatePipe, NgSwitch, NgSwitchCase, NgStyle, NgClass],
+  imports: [RouterOutlet, HeaderComponent, FormsModule, NgIf, NgFor, TranslatePipe, NgSwitch, NgSwitchCase, NgStyle, NgClass, UpdateBannerComponent],
   templateUrl: './app.html'
 })
 export class AppComponent implements OnInit, OnDestroy {
@@ -133,9 +135,15 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   ];
 
-  constructor(private master: MasterLockService, private i18n: I18nService, private router: Router) {}
+  constructor(
+    private master: MasterLockService,
+    private i18n: I18nService,
+    private router: Router,
+    private updates: AppUpdateService
+  ) {}
 
   async ngOnInit(): Promise<void> {
+    await this.updates.initialize();
     this.lockState = await this.master.init();
     this.showIntro = this.lockState === 'unset';
     this.master.state$.subscribe(state => {
@@ -167,6 +175,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.navSub?.unsubscribe();
+    this.updates.destroy();
   }
 
   startMasterSetup(): void {

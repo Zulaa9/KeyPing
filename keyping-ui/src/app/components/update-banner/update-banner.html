@@ -1,0 +1,53 @@
+﻿<div class="update-banner" *ngIf="visible" [ngClass]="'status-' + state.status">
+  <div class="update-copy">
+    <p class="eyebrow">{{ 'updates.title' | t }}</p>
+
+    <p class="message" *ngIf="state.status === 'checking'">
+      {{ 'updates.checking' | t }}
+    </p>
+
+    <p class="message" *ngIf="state.status === 'available'">
+      {{ 'updates.available' | t:{ version: state.availableVersion || '?' } }}
+    </p>
+
+    <p class="message" *ngIf="state.status === 'downloading'">
+      {{ 'updates.downloading' | t:{ version: state.availableVersion || '?' } }}
+      <span class="progress">{{ progressLabel }}</span>
+    </p>
+
+    <p class="message" *ngIf="state.status === 'downloaded'">
+      {{ 'updates.downloaded' | t:{ version: state.availableVersion || '?' } }}
+    </p>
+
+    <p class="message" *ngIf="state.status === 'upToDate'">
+      {{ 'updates.upToDate' | t }}
+    </p>
+
+    <p class="message" *ngIf="state.status === 'error'">
+      {{ 'updates.error' | t }}
+      <span class="error-detail" *ngIf="state.errorMessage">{{ state.errorMessage }}</span>
+    </p>
+  </div>
+
+  <div class="update-actions">
+    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'available'" (click)="onPostpone()">
+      {{ 'updates.actions.postpone' | t }}
+    </button>
+
+    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'available'" (click)="onDownload()">
+      {{ 'updates.actions.download' | t }}
+    </button>
+
+    <button type="button" class="btn primary tiny" *ngIf="state.status === 'downloaded'" (click)="onInstall()">
+      {{ 'updates.actions.restartInstall' | t }}
+    </button>
+
+    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'error' || state.status === 'upToDate'" (click)="onCheck()">
+      {{ 'updates.actions.checkNow' | t }}
+    </button>
+
+    <button type="button" class="btn ghost tiny" *ngIf="state.status === 'error' || state.status === 'upToDate'" (click)="onDismiss()">
+      {{ 'updates.actions.dismiss' | t }}
+    </button>
+  </div>
+</div>

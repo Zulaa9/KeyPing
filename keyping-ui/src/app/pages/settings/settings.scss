@@ -213,6 +213,24 @@
   margin-top: 4px;
 }
 
+.updates-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.checkbox input[type='checkbox'] {
+  accent-color: #2563eb;
+}
+
 .history-grid {
   display: flex;
   flex-wrap: wrap;

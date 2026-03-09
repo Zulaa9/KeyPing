@@ -7,6 +7,8 @@ import { PasswordCountService } from '../../core/password-count.service';
 import { I18nService } from '../../core/i18n.service';
 import { Subscription } from 'rxjs';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { AppUpdateService } from '../../core/app-update.service';
+import { UpdatePreferences, UpdateState } from '../../core/update.types';
 
 type MergeReason = 'new' | 'conflict' | 'existing';
 
@@ -68,6 +70,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
   confirmModal = { visible: false, countdown: 5, mode: 'overwrite' as 'overwrite' | 'merge' };
   private countdownTimer?: any;
   private langSub?: Subscription;
+  private updateStateSub?: Subscription;
+  private updatePreferencesSub?: Subscription;
   historyLimit = 20;
   historySettingsMessage?: string;
   historyCompactMessage?: string;
@@ -76,12 +80,22 @@ export class SettingsComponent implements OnInit, OnDestroy {
   historyKeepBusy = false;
   historyCompactFailed = false;
   historyKeepFailed = false;
+  updateState: UpdateState = { status: 'idle', currentVersion: '0.0.0' };
+  updatePreferences: UpdatePreferences = {
+    autoCheck: true,
+    autoDownload: true,
+    installOnQuit: true
+  };
+  updateMessage?: string;
+  updateMessageType: 'success' | 'error' | 'info' = 'info';
+  updateBusy = false;
 
   constructor(
     private es: ElectronService,
     private master: MasterLockService,
     private passwordCountSvc: PasswordCountService,
-    private i18n: I18nService
+    private i18n: I18nService,
+    private updates: AppUpdateService
   ) {}
 
   ngOnInit(): void {
@@ -95,11 +109,20 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.langSub = this.i18n.language$.subscribe(lang => {
       this.language = lang;
     });
+    this.updateStateSub = this.updates.state$.subscribe(state => {
+      this.updateState = state;
+    });
+    this.updatePreferencesSub = this.updates.preferences$.subscribe(preferences => {
+      this.updatePreferences = preferences;
+    });
     void this.loadHistorySettings();
+    void this.updates.initialize();
   }
 
   ngOnDestroy(): void {
     this.langSub?.unsubscribe();
+    this.updateStateSub?.unsubscribe();
+    this.updatePreferencesSub?.unsubscribe();
   }
 
   async onUpdateMaster(): Promise<void> {
@@ -728,5 +751,80 @@ export class SettingsComponent implements OnInit, OnDestroy {
     const key = `language.name.${lang}`;
     const value = this.i18n.translate(key);
     return value === key ? lang.toUpperCase() : value;
+  }
+
+  async onCheckUpdates(): Promise<void> {
+    this.updateMessage = undefined;
+    this.updateBusy = true;
+    try {
+      const next = await this.updates.checkForUpdates(true);
+      this.updateState = next;
+      if (next.status === 'upToDate') {
+        this.updateMessage = this.t('settings.updates.messages.upToDate');
+        this.updateMessageType = 'info';
+      }
+    } catch (err) {
+      console.error('[settings] check updates failed', err);
+      this.updateMessage = this.t('settings.updates.messages.error');
+      this.updateMessageType = 'error';
+    } finally {
+      this.updateBusy = false;
+    }
+  }
+
+  async onDownloadUpdate(): Promise<void> {
+    this.updateMessage = undefined;
+    this.updateBusy = true;
+    try {
+      await this.updates.downloadUpdate();
+    } catch (err) {
+      console.error('[settings] download update failed', err);
+      this.updateMessage = this.t('settings.updates.messages.error');
+      this.updateMessageType = 'error';
+    } finally {
+      this.updateBusy = false;
+    }
+  }
+
+  async onInstallUpdate(): Promise<void> {
+    this.updateMessage = undefined;
+    this.updateBusy = true;
+    try {
+      const ok = await this.updates.installUpdateAndRestart();
+      if (!ok) {
+        this.updateMessage = this.t('settings.updates.messages.notReady');
+        this.updateMessageType = 'info';
+      }
+    } catch (err) {
+      console.error('[settings] install update failed', err);
+      this.updateMessage = this.t('settings.updates.messages.error');
+      this.updateMessageType = 'error';
+    } finally {
+      this.updateBusy = false;
+    }
+  }
+
+  async onPostponeUpdate(): Promise<void> {
+    this.updateMessage = undefined;
+    await this.updates.postponeUpdate();
+    this.updateMessage = this.t('settings.updates.messages.postponed');
+    this.updateMessageType = 'info';
+  }
+
+  async onToggleUpdatePreference(key: keyof UpdatePreferences, value: boolean): Promise<void> {
+    this.updateMessage = undefined;
+    this.updateBusy = true;
+    try {
+      const next = await this.updates.setPreferences({ [key]: value } as Partial<UpdatePreferences>);
+      this.updatePreferences = next;
+      this.updateMessage = this.t('settings.updates.messages.saved');
+      this.updateMessageType = 'success';
+    } catch (err) {
+      console.error('[settings] update preferences failed', err);
+      this.updateMessage = this.t('settings.updates.messages.error');
+      this.updateMessageType = 'error';
+    } finally {
+      this.updateBusy = false;
+    }
   }
 }

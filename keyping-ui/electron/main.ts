@@ -29,11 +29,13 @@ import {
 
 import { findMostSimilarInVault } from './vault/similarity';
 import { clipboard } from 'electron';
+import { AutoUpdateService } from './updates/auto-update.service';
 
 
 let win: BrowserWindow | null = null;
 const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
+const autoUpdateService = new AutoUpdateService(() => BrowserWindow.getAllWindows());
 
 function createWindow() {
   const windowOptions: BrowserWindowConstructorOptions = {
@@ -63,6 +65,7 @@ function createWindow() {
   }
 
   win = new BrowserWindow(windowOptions);
+  autoUpdateService.attachWindow(win);
 
   // basic hardening + open external links in default browser
   win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
@@ -92,6 +95,7 @@ function createWindow() {
 app.whenReady().then(() => {
   // Remove default menu to hide devtools entrypoints
   // Menu.setApplicationMenu(null);
+  void autoUpdateService.initialize();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

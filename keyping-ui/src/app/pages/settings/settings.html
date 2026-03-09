@@ -188,6 +188,95 @@
           {{ languageMessage }}
         </div>
       </div>
+
+      <div class="divider"></div>
+
+      <div class="setting-block">
+        <div class="block-head">
+          <div>
+            <div class="block-title">{{ 'settings.updates.title' | t }}</div>
+            <p class="muted tiny">{{ 'settings.updates.subtitle' | t }}</p>
+          </div>
+          <div class="pill pill-muted">
+            {{ 'settings.updates.currentVersion' | t:{ version: updateState.currentVersion } }}
+          </div>
+        </div>
+
+        <div class="updates-toggles">
+          <label class="checkbox">
+            <input
+              type="checkbox"
+              [ngModel]="updatePreferences.autoCheck"
+              (ngModelChange)="onToggleUpdatePreference('autoCheck', $event)"
+            />
+            <span>{{ 'settings.updates.autoCheck' | t }}</span>
+          </label>
+          <label class="checkbox">
+            <input
+              type="checkbox"
+              [ngModel]="updatePreferences.autoDownload"
+              (ngModelChange)="onToggleUpdatePreference('autoDownload', $event)"
+            />
+            <span>{{ 'settings.updates.autoDownload' | t }}</span>
+          </label>
+          <label class="checkbox">
+            <input
+              type="checkbox"
+              [ngModel]="updatePreferences.installOnQuit"
+              (ngModelChange)="onToggleUpdatePreference('installOnQuit', $event)"
+            />
+            <span>{{ 'settings.updates.installOnQuit' | t }}</span>
+          </label>
+        </div>
+
+        <div class="inline-alert info">
+          {{ 'settings.updates.status.' + updateState.status | t }}
+          <span *ngIf="updateState.availableVersion">
+            - {{ 'settings.updates.availableVersion' | t:{ version: updateState.availableVersion } }}
+          </span>
+          <span *ngIf="updateState.status === 'downloading' && updateState.progressPercent !== undefined">
+            - {{ 'settings.updates.progress' | t:{ percent: updateState.progressPercent } }}
+          </span>
+        </div>
+
+        <div class="inline-alert error" *ngIf="updateState.status === 'error' && updateState.errorMessage">
+          {{ updateState.errorMessage }}
+        </div>
+
+        <div class="block-actions">
+          <button type="button" class="btn ghost" (click)="onCheckUpdates()" [disabled]="updateBusy">
+            {{ 'settings.updates.actions.check' | t }}
+          </button>
+          <button
+            type="button"
+            class="btn ghost"
+            (click)="onDownloadUpdate()"
+            [disabled]="updateBusy || updateState.status !== 'available'"
+          >
+            {{ 'settings.updates.actions.download' | t }}
+          </button>
+          <button
+            type="button"
+            class="btn primary"
+            (click)="onInstallUpdate()"
+            [disabled]="updateBusy || updateState.status !== 'downloaded'"
+          >
+            {{ 'settings.updates.actions.install' | t }}
+          </button>
+          <button
+            type="button"
+            class="btn ghost tiny"
+            (click)="onPostponeUpdate()"
+            [disabled]="updateBusy || updateState.status !== 'available'"
+          >
+            {{ 'settings.updates.actions.postpone' | t }}
+          </button>
+        </div>
+
+        <div class="inline-alert" *ngIf="updateMessage" [ngClass]="updateMessageType">
+          {{ updateMessage }}
+        </div>
+      </div>
     </section>
 
     <section class="card settings-card history-card">

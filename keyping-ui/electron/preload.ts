@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { UpdatePreferences, UpdateState } from './updates/types';
 
 console.log('[preload] loaded');
 
@@ -104,4 +105,31 @@ contextBridge.exposeInMainWorld('keyping', {
 
   importVault: (mode: 'overwrite' | 'merge', entries: any[], encrypted?: string, enc?: 'native' | 'master' | 'plain', password?: string, masterPayload?: any) =>
     ipcRenderer.invoke('keyping:importVault', { mode, entries, encrypted, enc, password, masterPayload }),
+
+  getUpdateState: (): Promise<UpdateState> =>
+    ipcRenderer.invoke('keyping:update:getState'),
+
+  getUpdatePreferences: (): Promise<UpdatePreferences> =>
+    ipcRenderer.invoke('keyping:update:getPreferences'),
+
+  setUpdatePreferences: (preferences: Partial<UpdatePreferences>): Promise<UpdatePreferences> =>
+    ipcRenderer.invoke('keyping:update:setPreferences', preferences),
+
+  checkForUpdates: (): Promise<UpdateState> =>
+    ipcRenderer.invoke('keyping:update:check'),
+
+  downloadUpdate: (): Promise<UpdateState> =>
+    ipcRenderer.invoke('keyping:update:download'),
+
+  installUpdateAndRestart: (): Promise<boolean> =>
+    ipcRenderer.invoke('keyping:update:install'),
+
+  postponeUpdate: (): Promise<UpdateState> =>
+    ipcRenderer.invoke('keyping:update:postpone'),
+
+  onUpdateState: (listener: (payload: UpdateState) => void): (() => void) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, payload: UpdateState) => listener(payload);
+    ipcRenderer.on('keyping:update:state', wrapped);
+    return () => ipcRenderer.removeListener('keyping:update:state', wrapped);
+  }
 });

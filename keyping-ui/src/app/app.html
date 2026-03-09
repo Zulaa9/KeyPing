@@ -1,6 +1,7 @@
 <div class="kp-titlebar"></div>
 
 <kp-header [locked]="lockState !== 'unlocked'" (restartTour)="restartOnboarding()"></kp-header>
+<kp-update-banner *ngIf="lockState === 'unlocked'"></kp-update-banner>
 
 <main class="container">
   <router-outlet />
