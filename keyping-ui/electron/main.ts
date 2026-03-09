@@ -1,7 +1,7 @@
 // main.ts
 import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain, Menu, shell } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
-import * as url from 'url';
 import { RAW_COMMON_WORDS } from './common-words';
 import {
   addPasswordToVault,
@@ -67,6 +67,20 @@ function createWindow() {
   win = new BrowserWindow(windowOptions);
   autoUpdateService.attachWindow(win);
 
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (isMainFrame) {
+      console.error('[main] renderer failed to load', {
+        errorCode,
+        errorDescription,
+        validatedURL
+      });
+    }
+  });
+
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[main] render process gone', details);
+  });
+
   // basic hardening + open external links in default browser
   win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
     if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
@@ -82,13 +96,19 @@ function createWindow() {
   });
 
   const devUrl = process.env.VITE_DEV_SERVER_URL;
-  const prodUrl = url.format({
-    pathname: path.join(__dirname, '../dist/keyping-ui/browser/index.html'),
-    protocol: 'file:',
-    slashes: true
-  });
+  const rendererIndexPath = path.join(app.getAppPath(), 'dist', 'keyping-ui', 'browser', 'index.html');
 
-  win.loadURL(devUrl ?? prodUrl);
+  if (devUrl) {
+    console.log('[main] loading renderer from dev server:', devUrl);
+    void win.loadURL(devUrl);
+  } else {
+    console.log('[main] loading renderer from file:', rendererIndexPath);
+    if (!fs.existsSync(rendererIndexPath)) {
+      console.error('[main] renderer index.html not found at expected path:', rendererIndexPath);
+    }
+    void win.loadFile(rendererIndexPath);
+  }
+
   win.once('ready-to-show', () => win?.show());
 }
 
