@@ -48,6 +48,26 @@
   font-size: 13px;
 }
 
+.progress-wrap {
+  margin-top: 2px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(51, 65, 85, 0.9);
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #22d3ee);
+  transition: width 0.2s ease;
+}
+
 .error-detail {
   margin: 0;
   color: #fca5a5;

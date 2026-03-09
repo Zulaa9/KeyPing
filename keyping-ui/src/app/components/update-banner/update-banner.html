@@ -11,6 +11,11 @@
         {{ 'updates.popup.downloading' | t:{ version: state.availableVersion || '?' } }}
         <span class="progress">{{ progressLabel }}</span>
       </p>
+      <div class="progress-wrap" *ngIf="state.status === 'downloading'">
+        <div class="progress-track">
+          <div class="progress-fill" [ngStyle]="{ width: progressPercent + '%' }"></div>
+        </div>
+      </div>
 
       <p class="message" *ngIf="state.status === 'downloaded'">
         {{ 'updates.popup.downloaded' | t:{ version: state.availableVersion || '?' } }}

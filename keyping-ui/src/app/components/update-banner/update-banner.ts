@@ -1,5 +1,5 @@
 ﻿import { Component, OnDestroy, OnInit } from '@angular/core';
-import { NgClass, NgIf } from '@angular/common';
+import { NgClass, NgIf, NgStyle } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AppUpdateService } from '../../core/app-update.service';
 import { UpdateState } from '../../core/update.types';
@@ -8,7 +8,7 @@ import { TranslatePipe } from '../../core/translate.pipe';
 @Component({
   selector: 'kp-update-banner',
   standalone: true,
-  imports: [NgIf, NgClass, TranslatePipe],
+  imports: [NgIf, NgClass, NgStyle, TranslatePipe],
   templateUrl: './update-banner.html',
   styleUrls: ['./update-banner.scss']
 })
@@ -36,6 +36,11 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
     const transferred = this.formatBytes(this.state.transferredBytes || 0);
     const total = this.state.totalBytes ? this.formatBytes(this.state.totalBytes) : '--';
     return `${pct.toFixed(0)}% (${transferred} / ${total})`;
+  }
+
+  get progressPercent(): number {
+    const pct = this.state.progressPercent ?? 0;
+    return Math.max(0, Math.min(100, pct));
   }
 
   get errorSummary(): string {
