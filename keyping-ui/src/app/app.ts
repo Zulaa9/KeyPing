@@ -382,7 +382,9 @@ export class AppComponent implements OnInit, OnDestroy {
     document.dispatchEvent(new CustomEvent('kp-demo-enable'));
     this.showOnboarding = false;
     this.onboardingStep = 0;
-    this.maybeStartOnboarding();
+    // Defer start so the click event that triggered the restart cannot
+    // immediately fail consistency checks before the overlay is mounted.
+    setTimeout(() => this.maybeStartOnboarding(), 0);
   }
 
   private navigateToStepRoute(): void {
