@@ -30,12 +30,54 @@ import {
 import { findMostSimilarInVault } from './vault/similarity';
 import { clipboard } from 'electron';
 import { AutoUpdateService } from './updates/auto-update.service';
+import { execFile } from 'node:child_process';
+import { ClipboardClearSessionManager } from './clipboard-clear-session';
 
 
 let win: BrowserWindow | null = null;
 const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 const autoUpdateService = new AutoUpdateService(() => BrowserWindow.getAllWindows());
+
+function clearWindowsClipboardHistory(): Promise<boolean> {
+  if (!isWindows) return Promise.resolve(false);
+
+  const psScript = `
+    try {
+      Add-Type -AssemblyName System.Runtime.WindowsRuntime -ErrorAction Stop
+      $null = [Windows.ApplicationModel.DataTransfer.Clipboard, Windows.ApplicationModel.DataTransfer, ContentType=WindowsRuntime]
+      $ok = [Windows.ApplicationModel.DataTransfer.Clipboard]::ClearHistory()
+      if ($ok) { exit 0 } else { exit 1 }
+    } catch {
+      exit 2
+    }
+  `;
+
+  return new Promise(resolve => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
+      { windowsHide: true, timeout: 4000 },
+      err => {
+        if (err) {
+          console.warn('[main] windows clipboard history clear failed', err.message);
+          resolve(false);
+          return;
+        }
+        resolve(true);
+      }
+    );
+  });
+}
+
+const clipboardSessionManager = new ClipboardClearSessionManager({
+  readClipboardText: () => clipboard.readText(),
+  clearClipboard: () => clipboard.clear(),
+  clearWindowsClipboardHistory: isWindows ? clearWindowsClipboardHistory : undefined,
+  schedule: (fn, ttlMs) => setTimeout(fn, ttlMs),
+  cancel: handle => clearTimeout(handle),
+  warn: (message, err) => console.warn(message, err)
+});
 
 function createWindow() {
   const windowOptions: BrowserWindowConstructorOptions = {
@@ -124,6 +166,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  clipboardSessionManager.dispose();
 });
 
 /* ----------------------------------------------------------------
@@ -393,17 +439,7 @@ ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
   }
 
   clipboard.writeText(secret);
-
-  const ttlMs = 20_000;
-  setTimeout(() => {
-    try {
-      if (clipboard.readText() === secret) {
-        clipboard.clear();
-      }
-    } catch (err) {
-      console.error('[main] clipboard clear failed', err);
-    }
-  }, ttlMs);
+  clipboardSessionManager.startSession(secret, 20_000);
 
   return true;
 });
