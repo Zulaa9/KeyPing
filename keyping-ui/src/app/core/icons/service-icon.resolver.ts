@@ -102,26 +102,10 @@ function scoreFromTitle(entry: IconResolvableEntry): Candidate | null {
 }
 
 function scoreFromUsername(entry: IconResolvableEntry): Candidate | null {
-  const email = normalize(entry.email || '');
   const username = normalize(entry.username || '');
   let best: Candidate | null = null;
 
-  const emailDomain = extractEmailDomain(email);
   for (const service of SERVICE_ICON_REGISTRY) {
-    if (emailDomain) {
-      const emailDomains = new Set([...(service.emailDomains || []), ...service.domains].map(normalize));
-      for (const domain of emailDomains) {
-        if (emailDomain === domain || emailDomain.endsWith(`.${domain}`)) {
-          const candidate: Candidate = {
-            service,
-            score: 44 + (service.priority || 0) * 0.015,
-            source: 'username'
-          };
-          best = better(best, candidate);
-        }
-      }
-    }
-
     const words = tokenize(username);
     const userKeyword = scoreKeyword(words, username, service.keywords, 38);
     const userAlias = scoreKeyword(words, username, service.aliases || [], 34);
@@ -183,13 +167,6 @@ function parseHost(rawUrl: string): string | null {
       return null;
     }
   }
-}
-
-function extractEmailDomain(email: string): string | null {
-  const at = email.lastIndexOf('@');
-  if (at === -1) return null;
-  const domain = normalize(email.slice(at + 1));
-  return domain || null;
 }
 
 function normalize(value: string): string {

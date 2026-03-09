@@ -27,12 +27,12 @@ describe('service icon resolver', () => {
     expect(result.source).toBe('title');
   });
 
-  it('detects by email domain', () => {
+  it('does not detect service from email domain alone', () => {
     const result = resolveEntryIcon({
       email: 'usuario@outlook.com'
     });
-    expect(result.serviceId).toBe('outlook');
-    expect(result.source).toBe('username');
+    expect(result.serviceId).toBe('generic');
+    expect(result.source).toBe('fallback');
   });
 
   it('detects newly added services by domain', () => {
@@ -57,6 +57,15 @@ describe('service icon resolver', () => {
       email: 'usuario@outlook.com'
     });
     expect(result.serviceId).toBe('github');
+    expect(result.source).toBe('title');
+  });
+
+  it('does not let gmail email override unrelated service title', () => {
+    const result = resolveEntryIcon({
+      label: 'Notion Workspace',
+      email: 'usuario@gmail.com'
+    });
+    expect(result.serviceId).toBe('notion');
     expect(result.source).toBe('title');
   });
 
