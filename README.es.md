@@ -15,6 +15,10 @@ Desarrollo activo. Las funcionalidades base son estables y se estan mejorando de
 
 ## Capturas
 
+### Flujo demo
+
+![Flujo de password GitHub](docs/screenshots/github-password-generator-flow.gif)
+
 ![Dashboard](docs/screenshots/dashboard.png)
 ![Lista de contrasenas](docs/screenshots/password-list.png)
 ![Salud de contrasenas](docs/screenshots/password-health.png)

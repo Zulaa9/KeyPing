@@ -15,6 +15,10 @@ Active development. Core features are stable and used daily, with continuous imp
 
 ## Screenshots
 
+### Demo Flow
+
+![GitHub Password Flow](docs/screenshots/github-password-generator-flow.gif)
+
 ![Dashboard](docs/screenshots/dashboard.png)
 ![Password List](docs/screenshots/password-list.png)
 ![Password Health](docs/screenshots/password-health.png)
