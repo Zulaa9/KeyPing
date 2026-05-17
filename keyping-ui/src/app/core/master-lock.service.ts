@@ -53,6 +53,7 @@ export class MasterLockService {
     if (this.state$.value !== 'unset') {
       this.state$.next('locked');
     }
+    window.keyping?.sessionLock?.();
   }
 
   touch(): void {
@@ -77,6 +78,7 @@ export class MasterLockService {
 
     this.masterKey = key;
     this.state$.next('unlocked');
+    window.keyping?.sessionUnlock?.();
     this.touch();
   }
 
@@ -102,6 +104,7 @@ export class MasterLockService {
 
       this.masterKey = key;
       this.state$.next('unlocked');
+      window.keyping?.sessionUnlock?.();
       this.failedAttempts = 0;
       this.nextUnlockAt = 0;
       this.lastCooldownMs = 0;
@@ -161,10 +164,11 @@ export class MasterLockService {
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (typeof parsed?.salt === 'string' && typeof parsed?.check === 'string') {
+        const rawIter = Number(parsed.iterations) || 150_000;
         return {
           salt: parsed.salt,
           check: parsed.check,
-          iterations: parsed.iterations || 150_000
+          iterations: Math.min(2_000_000, Math.max(100_000, Math.round(rawIter)))
         };
       }
       return null;

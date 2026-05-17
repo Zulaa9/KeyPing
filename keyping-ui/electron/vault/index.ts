@@ -499,7 +499,8 @@ function encryptWithPassword(plain: string, password: string): { salt: string; i
 function decryptWithPassword(payload: { salt: string; iterations: number; data: string }, password: string): string {
   // Decrypt simétrico del formato export v2.
   const salt = Buffer.from(payload.salt, 'base64');
-  const key = pbkdf2Sync(password, salt, payload.iterations || 150_000, 32, 'sha256');
+  const iterations = Math.min(2_000_000, Math.max(100_000, Math.round(payload.iterations || 150_000)));
+  const key = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
   const combined = Buffer.from(payload.data, 'base64');
   const iv = combined.subarray(0, 12);
   const tag = combined.subarray(12, 28);
