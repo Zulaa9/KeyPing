@@ -131,6 +131,11 @@ function createWindow() {
 
   win.webContents.on('render-process-gone', (_event, details) => {
     console.error('[main] render process gone', details);
+    sessionUnlocked = false;
+  });
+
+  win.webContents.on('did-navigate', () => {
+    sessionUnlocked = false;
   });
 
   // Endurecimiento básico: bloquea navegación externa dentro de la app.
