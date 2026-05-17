@@ -197,6 +197,16 @@ export async function getPasswordPlain(id: string): Promise<string | null> {
   return entry?.secret ?? null;
 }
 
+export async function getPasswordHashes(): Promise<{ id: string; hash: string }[]> {
+  const vault = await loadVault();
+  return vault.entries
+    .filter(e => e.active !== false)
+    .map(e => ({
+      id: e.id,
+      hash: createHash('sha256').update(e.secret || '').digest('hex')
+    }));
+}
+
 export async function updateEntryMeta(
   id: string,
   label?: string,

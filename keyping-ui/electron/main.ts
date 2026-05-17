@@ -25,6 +25,7 @@ import {
   compactVault,
   getHistorySettings,
   updateHistorySettings,
+  getPasswordHashes,
 } from './vault';
 
 import { findMostSimilarInVault } from './vault/similarity';
@@ -436,6 +437,18 @@ ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
   clipboardSessionManager.startSession(secret, 20_000);
 
   return true;
+});
+
+ipcMain.handle('keyping:copyText', (_evt, text: string) => {
+  if (typeof text !== 'string' || !text) return false;
+  clipboard.writeText(text);
+  clipboardSessionManager.startSession(text, 20_000);
+  return true;
+});
+
+ipcMain.handle('keyping:getPasswordHashes', async () => {
+  if (!sessionUnlocked) return [];
+  return await getPasswordHashes();
 });
 
 

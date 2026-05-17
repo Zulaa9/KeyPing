@@ -61,6 +61,12 @@ contextBridge.exposeInMainWorld('keyping', {
   copyPassword: (id: string) =>
     ipcRenderer.invoke('keyping:copy', { id }),
 
+  copyText: (text: string) =>
+    ipcRenderer.invoke('keyping:copyText', text),
+
+  getPasswordHashes: () =>
+    ipcRenderer.invoke('keyping:getPasswordHashes'),
+
   deletePassword: (id: string) =>
     ipcRenderer.invoke('keyping:delete', { id }),
 

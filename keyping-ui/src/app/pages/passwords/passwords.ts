@@ -7,6 +7,7 @@ import {
 } from '@angular/common';
 
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ElectronService, PasswordMeta } from '../../core/electron.service';
 import { PasswordCountService } from '../../core/password-count.service';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -103,6 +104,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   private brokenIconAssets = new Set<string>();
   private autoWhiteIconAssets = new Set<string>();
   private analyzedIconAssets = new Set<string>();
+  private lockSub?: Subscription;
   private readonly forceWhiteIconNames = new Set<string>([
     'github',
     'notion',
@@ -130,6 +132,12 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit(): Promise<void> {
+    this.lockSub = this.master.state$.subscribe(state => {
+      if (state === 'locked') {
+        this.revealed = {};
+      }
+    });
+
     await this.loadEntries();
 
     const preselect = this.route.snapshot.queryParamMap.get('select');
@@ -172,6 +180,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.lockSub?.unsubscribe();
     clearInterval(this.copyTimer);
     this.clearGhost();
   }
@@ -194,35 +203,18 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     this.duplicateIds = new Set<string>();
     if (!this.entries.length) return;
 
+    const rows = await window.keyping?.getPasswordHashes?.() ?? [];
+
     const map = new Map<string, string[]>();
-
-    const plainRows = await Promise.all(
-      this.entries.map(async entry => {
-        try {
-          const plain = await this.es.getPassword(entry.id);
-          return { id: entry.id, plain };
-        } catch (err) {
-          console.error('[renderer] duplicate scan failed', err);
-          return { id: entry.id, plain: null as string | null };
-        }
-      })
-    );
-
-    for (const row of plainRows) {
-      if (!row.plain) continue;
-      if (!map.has(row.plain)) {
-        map.set(row.plain, []);
-      }
-      map.get(row.plain)!.push(row.id);
+    for (const { id, hash } of rows) {
+      if (!map.has(hash)) map.set(hash, []);
+      map.get(hash)!.push(id);
     }
 
     const dupes = new Set<string>();
     for (const ids of map.values()) {
-      if (ids.length > 1) {
-        ids.forEach(id => dupes.add(id));
-      }
+      if (ids.length > 1) ids.forEach(id => dupes.add(id));
     }
-
     this.duplicateIds = dupes;
   }
 
@@ -469,9 +461,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     if (ev) ev.stopPropagation();
     if (!value) return;
     try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-      }
+      await window.keyping?.copyText?.(value);
     } catch (err) {
       console.error('[renderer] copy field error', err);
     }

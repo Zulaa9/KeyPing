@@ -82,6 +82,8 @@ declare global {
       sessionUnlock?(): Promise<void>;
       sessionLock?(): Promise<void>;
       getPassword?(id: string): Promise<string | null>;
+      copyText?(text: string): Promise<boolean>;
+      getPasswordHashes?(): Promise<Array<{ id: string; hash: string }>>;
     };
   }
 }
