@@ -41,6 +41,7 @@ if (process.platform === 'linux') {
 }
 
 let win: BrowserWindow | null = null;
+let sessionUnlocked = false;
 const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 const autoUpdateService = new AutoUpdateService(() => BrowserWindow.getAllWindows());
@@ -165,8 +166,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Mantener menú desactivado evita accesos casuales a DevTools en producción.
-  // Menu.setApplicationMenu(null);
+  if (app.isPackaged) {
+    Menu.setApplicationMenu(null);
+  }
   void autoUpdateService.initialize();
   createWindow();
   app.on('activate', () => {
@@ -287,7 +289,6 @@ async function checkPasswordBetter(pwd: string) {
   const nrm = normalizeBasic(pwd);
   const orig = pwd || '';
 
-  console.log('[main] RAW:', JSON.stringify(pwd), 'NORM:', nrm);
 
   if (!orig) return { level, reasons };
 
@@ -376,7 +377,6 @@ ipcMain.handle('keyping:compactVault', async (_evt, args?: { keepOnlyCurrent?: b
 
 // Comprobador principal (asíncrono por cálculo de similitud).
 ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
-  console.log('[main] keyping:check called with:', JSON.stringify(args?.pwd));
   return await checkPasswordBetter(args?.pwd ?? '');
 });
 
@@ -510,8 +510,12 @@ ipcMain.handle('keyping:clearPasswordHistory', async (_evt, args: { id: string }
   return await deleteHistoryForEntry(args.id);
 });
 
+ipcMain.handle('keyping:session:unlock', () => { sessionUnlocked = true; });
+ipcMain.handle('keyping:session:lock', () => { sessionUnlocked = false; });
+
 ipcMain.handle('keyping:getPassword', async (_evt, args: { id: string }) => {
-  return await getPasswordPlain(args.id); // devuelve string | null
+  if (!sessionUnlocked) return null;
+  return await getPasswordPlain(args.id);
 });
 
 ipcMain.handle('keyping:openExternal', async (_evt, rawUrl: string) => {
