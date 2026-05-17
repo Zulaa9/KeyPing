@@ -94,6 +94,9 @@ contextBridge.exposeInMainWorld('keyping', {
       detectedService
     }),
   
+  sessionUnlock: () => ipcRenderer.invoke('keyping:session:unlock'),
+  sessionLock: () => ipcRenderer.invoke('keyping:session:lock'),
+
   getPassword: (id: string) =>
     ipcRenderer.invoke('keyping:getPassword', { id }),
 

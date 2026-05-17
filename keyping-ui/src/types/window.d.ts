@@ -79,6 +79,9 @@ declare global {
       postponeUpdate?(): Promise<UpdateState>;
       onUpdateState?(listener: (payload: UpdateState) => void): (() => void) | void;
       ping?(): Promise<string>;
+      sessionUnlock?(): Promise<void>;
+      sessionLock?(): Promise<void>;
+      getPassword?(id: string): Promise<string | null>;
     };
   }
 }
