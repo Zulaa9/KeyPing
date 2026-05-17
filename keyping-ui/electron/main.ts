@@ -143,7 +143,9 @@ function createWindow() {
   win.webContents.on('will-navigate', (e, targetUrl) => {
     if (!targetUrl.startsWith('file://')) {
       e.preventDefault();
-      shell.openExternal(targetUrl);
+      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+        void shell.openExternal(targetUrl);
+      }
     }
   });
 
