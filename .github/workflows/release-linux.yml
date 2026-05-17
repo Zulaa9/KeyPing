@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -22,30 +25,24 @@ jobs:
         working-directory: keyping-ui
         run: npm install
 
-      - name: Build and publish AppImage
+      - name: Build AppImage
         working-directory: keyping-ui
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm run build:angular
           npm run electron:build
-          npx electron-builder --linux --publish always
+          npx electron-builder --linux --publish never
 
       - name: Generate checksums
         working-directory: keyping-ui
         run: bash scripts/generate-checksums.sh
 
-      - name: Upload checksums to release
+      - name: Upload assets to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.ref_name }}"
-          CHECKSUMS="keyping-ui/dist/build/SHA256SUMS.txt"
-          SIGNATURE="keyping-ui/dist/build/SHA256SUMS.txt.asc"
-
-          if [ -f "$CHECKSUMS" ]; then
-            gh release upload "$TAG" "$CHECKSUMS" --clobber
-          fi
-          if [ -f "$SIGNATURE" ]; then
-            gh release upload "$TAG" "$SIGNATURE" --clobber
+          gh release upload "$TAG" keyping-ui/dist/build/KeyPing-*.AppImage --clobber
+          gh release upload "$TAG" keyping-ui/dist/build/latest-linux.yml --clobber
+          if [ -f "keyping-ui/dist/build/SHA256SUMS.txt" ]; then
+            gh release upload "$TAG" keyping-ui/dist/build/SHA256SUMS.txt --clobber
           fi
