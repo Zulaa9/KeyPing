@@ -143,7 +143,8 @@ npm run dev
 
 Useful commands:
 
-- `npm run build` -> production build + packaging
+- `npm run build` -> production build + packaging (Windows)
+- `npm run build:linux` -> production build + AppImage packaging (Linux)
 - `npm run test` -> Angular tests
 - `npm run test:electron` -> Electron unit tests
 

@@ -143,7 +143,8 @@ npm run dev
 
 Comandos utiles:
 
-- `npm run build` -> build de produccion + empaquetado
+- `npm run build` -> build de produccion + empaquetado (Windows)
+- `npm run build:linux` -> build de produccion + empaquetado AppImage (Linux)
 - `npm run test` -> tests de Angular
 - `npm run test:electron` -> tests unitarios de Electron
 
