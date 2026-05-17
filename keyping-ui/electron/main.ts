@@ -402,6 +402,7 @@ ipcMain.handle('keyping:save', async (_evt, args: {
   iconSource?: 'auto' | 'manual';
   detectedService?: string;
 }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   const entry = await addPasswordToVault(
     args.pwd,
     args.label,
@@ -419,6 +420,7 @@ ipcMain.handle('keyping:save', async (_evt, args: {
   return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
 });
 
+
 // Lista solo entradas activas.
 ipcMain.handle('keyping:list', async () => {
   const entries = await getVaultEntries();
@@ -433,6 +435,8 @@ ipcMain.handle('keyping:list', async () => {
 
 // Copia contraseña al portapapeles y programa limpieza diferida.
 ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
+  if (!sessionUnlocked) return false;
+
   const secret = await getPasswordPlain(args.id);
 
   if (!secret) {
@@ -462,12 +466,14 @@ ipcMain.handle('keyping:getPasswordHashes', async () => {
 
 // Borrado lógico (sin eliminar físicamente del historial).
 ipcMain.handle('keyping:delete', async (_evt, args: { id: string }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   await softDeleteEntry(args.id);
   return true;
 });
 
 // Edita contraseña: crea versión nueva y desactiva la anterior.
 ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   const updated = await replacePasswordForEntry(args.id, args.pwd);
   if (!updated) throw new Error('Entry not found');
 
@@ -489,6 +495,7 @@ ipcMain.handle('keyping:updateMeta', async (_evt, args: {
   iconSource?: 'auto' | 'manual';
   detectedService?: string;
 }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   const entry = await updateEntryMeta(
     args.id,
     args.label,
