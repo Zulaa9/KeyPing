@@ -34,12 +34,6 @@ import { execFile } from 'node:child_process';
 import { ClipboardClearSessionManager } from './clipboard-clear-session';
 
 
-if (process.platform === 'linux') {
-  app.disableHardwareAcceleration();
-  app.commandLine.appendSwitch('ozone-platform', 'wayland');
-  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
-}
-
 let win: BrowserWindow | null = null;
 const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
@@ -87,11 +81,10 @@ const clipboardSessionManager = new ClipboardClearSessionManager({
 });
 
 function createWindow() {
-  const isLinux = process.platform === 'linux';
   const windowOptions: BrowserWindowConstructorOptions = {
     width: 1100,
     height: 720,
-    show: isLinux,
+    show: false,
     backgroundColor: '#0f172a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -159,9 +152,7 @@ function createWindow() {
     void win.loadFile(rendererIndexPath);
   }
 
-  if (!isLinux) {
-    win.once('ready-to-show', () => win?.show());
-  }
+  win.once('ready-to-show', () => win?.show());
 }
 
 app.whenReady().then(() => {
