@@ -1,0 +1,51 @@
+name: Release Linux
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: keyping-ui
+        run: npm install
+
+      - name: Build and publish AppImage
+        working-directory: keyping-ui
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run build:angular
+          npm run electron:build
+          npx electron-builder --linux --publish always
+
+      - name: Generate checksums
+        working-directory: keyping-ui
+        run: bash scripts/generate-checksums.sh
+
+      - name: Upload checksums to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          CHECKSUMS="keyping-ui/dist/build/SHA256SUMS.txt"
+          SIGNATURE="keyping-ui/dist/build/SHA256SUMS.txt.asc"
+
+          if [ -f "$CHECKSUMS" ]; then
+            gh release upload "$TAG" "$CHECKSUMS" --clobber
+          fi
+          if [ -f "$SIGNATURE" ]; then
+            gh release upload "$TAG" "$SIGNATURE" --clobber
+          fi
