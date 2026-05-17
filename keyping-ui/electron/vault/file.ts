@@ -71,9 +71,11 @@ export async function saveVault(data: VaultData): Promise<void> {
   const file = vaultPath();
   const json = JSON.stringify(data);
   const encrypted = await encryptVault(json);
+  const tmp = `${file}.tmp`;
 
   await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, encrypted);
+  await fs.writeFile(tmp, encrypted, { mode: 0o600 });
+  await fs.rename(tmp, file);
 }
 
 export async function resetVault(): Promise<void> {

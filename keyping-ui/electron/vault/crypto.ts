@@ -38,7 +38,7 @@ async function deriveMasterKey(): Promise<Buffer> {
         base: base.toString('hex'),
         salt: salt.toString('hex')
       }),
-      'utf8'
+      { encoding: 'utf8', mode: 0o600 }
     );
 
     return key;
