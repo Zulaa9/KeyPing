@@ -1,11 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { UpdatePreferences, UpdateState } from './updates/types';
 
-console.log('[preload] loaded');
-
 // API segura expuesta al renderer (contextIsolation=true).
 // Todo acceso a filesystem/IPC pasa por este puente tipado.
 contextBridge.exposeInMainWorld('keyping', {
+  platform: process.platform,
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+
   ping: () => ipcRenderer.invoke('keyping:ping'),
   checkVaultIntegrity: () => ipcRenderer.invoke('keyping:vaultIntegrity'),
   getHistorySettings: () => ipcRenderer.invoke('keyping:getHistorySettings'),
@@ -22,11 +25,8 @@ contextBridge.exposeInMainWorld('keyping', {
   clearPasswordHistory: (id: string) =>
     ipcRenderer.invoke('keyping:clearPasswordHistory', { id }),
 
-  checkCandidate: (pwd: string) => {
-    // Se mantiene log de trazabilidad para diagnósticos de IPC.
-    console.log('[preload] invoking keyping:check');
-    return ipcRenderer.invoke('keyping:check', { pwd });
-  },
+  checkCandidate: (pwd: string) =>
+    ipcRenderer.invoke('keyping:check', { pwd }),
 
   savePassword: (
     pwd: string,
@@ -61,12 +61,18 @@ contextBridge.exposeInMainWorld('keyping', {
   copyPassword: (id: string) =>
     ipcRenderer.invoke('keyping:copy', { id }),
 
+  copyText: (text: string) =>
+    ipcRenderer.invoke('keyping:copyText', text),
+
+  getPasswordHashes: () =>
+    ipcRenderer.invoke('keyping:getPasswordHashes'),
+
   deletePassword: (id: string) =>
     ipcRenderer.invoke('keyping:delete', { id }),
 
   updatePassword: (id: string, pwd: string) =>
     ipcRenderer.invoke('keyping:update', { id, pwd }),
-  
+
   updateMeta: (
     id: string,
     label: string,
@@ -93,7 +99,15 @@ contextBridge.exposeInMainWorld('keyping', {
       iconSource,
       detectedService
     }),
-  
+
+  // Auth: password verified in main process, session key derived there.
+  authUnlock: (password: string) => ipcRenderer.invoke('keyping:auth:unlock', password),
+  authSetup: (password: string) => ipcRenderer.invoke('keyping:auth:setup', password),
+  authVerify: (password: string) => ipcRenderer.invoke('keyping:auth:verify', password),
+  sessionLock: () => ipcRenderer.invoke('keyping:session:lock'),
+
+  getMainCooldown: () => ipcRenderer.invoke('keyping:auth:getCooldown'),
+
   getPassword: (id: string) =>
     ipcRenderer.invoke('keyping:getPassword', { id }),
 

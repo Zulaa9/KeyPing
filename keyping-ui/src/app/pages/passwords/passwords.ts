@@ -7,6 +7,7 @@ import {
 } from '@angular/common';
 
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ElectronService, PasswordMeta } from '../../core/electron.service';
 import { PasswordCountService } from '../../core/password-count.service';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -103,6 +104,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   private brokenIconAssets = new Set<string>();
   private autoWhiteIconAssets = new Set<string>();
   private analyzedIconAssets = new Set<string>();
+  private lockSub?: Subscription;
   private readonly forceWhiteIconNames = new Set<string>([
     'github',
     'notion',
@@ -130,6 +132,12 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit(): Promise<void> {
+    this.lockSub = this.master.state$.subscribe(state => {
+      if (state === 'locked') {
+        this.revealed = {};
+      }
+    });
+
     await this.loadEntries();
 
     const preselect = this.route.snapshot.queryParamMap.get('select');
@@ -152,7 +160,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
       if (previouslySelectedId && !this.showDemo) {
         this.selected = this.entries.find(e => e.id === previouslySelectedId) || null;
       }
-      this.master.persistVault(this.entries);
       await this.refreshDuplicateIndex();
       if (this.showDemo) {
         this.selected = this.demoEntries[0] || null;
@@ -172,6 +179,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.lockSub?.unsubscribe();
     clearInterval(this.copyTimer);
     this.clearGhost();
   }
@@ -194,35 +202,18 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     this.duplicateIds = new Set<string>();
     if (!this.entries.length) return;
 
+    const rows = await window.keyping?.getPasswordHashes?.() ?? [];
+
     const map = new Map<string, string[]>();
-
-    const plainRows = await Promise.all(
-      this.entries.map(async entry => {
-        try {
-          const plain = await this.es.getPassword(entry.id);
-          return { id: entry.id, plain };
-        } catch (err) {
-          console.error('[renderer] duplicate scan failed', err);
-          return { id: entry.id, plain: null as string | null };
-        }
-      })
-    );
-
-    for (const row of plainRows) {
-      if (!row.plain) continue;
-      if (!map.has(row.plain)) {
-        map.set(row.plain, []);
-      }
-      map.get(row.plain)!.push(row.id);
+    for (const { id, hash } of rows) {
+      if (!map.has(hash)) map.set(hash, []);
+      map.get(hash)!.push(id);
     }
 
     const dupes = new Set<string>();
     for (const ids of map.values()) {
-      if (ids.length > 1) {
-        ids.forEach(id => dupes.add(id));
-      }
+      if (ids.length > 1) ids.forEach(id => dupes.add(id));
     }
-
     this.duplicateIds = dupes;
   }
 
@@ -469,9 +460,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     if (ev) ev.stopPropagation();
     if (!value) return;
     try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-      }
+      await window.keyping?.copyText?.(value);
     } catch (err) {
       console.error('[renderer] copy field error', err);
     }
@@ -506,7 +495,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     this.showDemo = this.entries.length === 0 && this.isDemoAllowed();
     this.syncOrderingState();
     delete this.revealed[entry.id];
-    this.master.persistVault(this.entries);
 
     if (this.showDemo) {
       this.selected = this.demoEntries[0] || null;
@@ -581,7 +569,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
 
     // 4) Recargar lista
     await this.loadEntries();
-    this.master.persistVault(this.entries);
 
     // 5) Si el panel de detalle estaba abierto para esta entrada,
     //    volvemos a seleccionar la entrada actualizada
@@ -761,7 +748,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     });
     this.entries = nextEntries;
     this.selected = nextEntries.find(e => e.id === currentId) || updatedMeta;
-    this.master.persistVault(this.entries);
     if (this.selected) {
       await this.loadHistory(this.selected.id);
     }
@@ -816,7 +802,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
         this.selected = match;
         await this.loadHistory(match.id);
       }
-      this.master.persistVault(this.entries);
     } catch (err) {
       console.error('[renderer] restore version failed', err);
     }
@@ -833,7 +818,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
       if (this.selected) {
         await this.loadHistory(this.selected.id);
       }
-      this.master.persistVault(this.entries);
     } catch (err) {
       console.error('[renderer] clear history failed', err);
     }
@@ -1080,7 +1064,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     ev.stopPropagation();
     const folderKey = this.normalizeFolder(folder);
     await this.repositionEntry(this.draggingEntryId, folderKey, entry.id);
-    this.master.persistVault(this.entries);
   }
 
   async onEntryDropContainer(folder: string, ev: DragEvent): Promise<void> {
@@ -1089,7 +1072,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     ev.preventDefault();
     ev.stopPropagation();
     await this.repositionEntry(this.draggingEntryId, folderKey);
-    this.master.persistVault(this.entries);
   }
 
   onEntryDragOverContainer(folder: string, ev: DragEvent): void {
@@ -1287,7 +1269,6 @@ export class PasswordsComponent implements OnInit, OnDestroy {
       if (this.selected?.id) {
         this.selected = updatedEntries.find(e => e.id === this.selected!.id) || null;
       }
-      this.master.persistVault(this.entries);
     } finally {
       this.folderActionInProgress = false;
       this.closeFolderMenu();

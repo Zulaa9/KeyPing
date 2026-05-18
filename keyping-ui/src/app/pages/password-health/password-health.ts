@@ -11,16 +11,17 @@ type StrengthLevel = 'strong' | 'medium' | 'weak';
 // Resultado de análisis por entrada que alimenta la tabla de incidencias.
 type HealthIssue = {
   entry: PasswordMeta;
-  plain?: string | null;
   reasons: string[];
   severity: number;
   level: StrengthLevel;
 };
 
-// Grupo de entradas que comparten exactamente la misma contraseña en claro.
+// Grupo de entradas que comparten el mismo hash HMAC de contraseña.
+// revealedValue se carga bajo demanda al hacer click explícito.
 type DuplicateGroup = {
-  value: string;
+  hash: string;
   entries: PasswordMeta[];
+  revealedValue?: string | null;
 };
 
 @Component({
@@ -51,7 +52,6 @@ export class PasswordHealthComponent implements OnInit {
   readonly scoreRadius = 46;
 
   issues: HealthIssue[] = [];
-  private revealedDupValues = new Set<string>();
   showDemo = false;
 
   constructor(
@@ -70,19 +70,29 @@ export class PasswordHealthComponent implements OnInit {
     this.router.navigate(['/passwords'], { queryParams: { select: issue.entry.id } });
   }
 
-  // Evita mostrar contraseñas duplicadas en claro salvo interacción explícita.
+  // Revela si el usuario ha pedido ver el valor del grupo.
   isDupRevealed(dup: DuplicateGroup): boolean {
-    return this.revealedDupValues.has(dup.value);
+    return dup.revealedValue !== undefined;
   }
 
-  // Alterna visibilidad de un grupo duplicado sin propagar el click al contenedor.
-  toggleDup(dup: DuplicateGroup, ev?: MouseEvent): void {
+  // Alterna visibilidad del valor de un grupo duplicado.
+  // En datos reales: fetch a demanda de una entrada representativa.
+  // En demo: el hash es directamente el texto plano del demo.
+  async toggleDup(dup: DuplicateGroup, ev?: MouseEvent): Promise<void> {
     if (ev) ev.stopPropagation();
-    const key = dup.value;
-    if (this.revealedDupValues.has(key)) {
-      this.revealedDupValues.delete(key);
+    if (dup.revealedValue !== undefined) {
+      dup.revealedValue = undefined;
+    } else if (this.showDemo) {
+      dup.revealedValue = dup.hash;
     } else {
-      this.revealedDupValues.add(key);
+      const firstId = dup.entries[0]?.id;
+      try {
+        dup.revealedValue = firstId
+          ? (await window.keyping?.getPassword?.(firstId) ?? null)
+          : null;
+      } catch {
+        dup.revealedValue = null;
+      }
     }
   }
 
@@ -147,20 +157,13 @@ export class PasswordHealthComponent implements OnInit {
         return;
       }
 
-      const entriesWithPlain: Array<{ meta: PasswordMeta; plain?: string | null }> = [];
-      for (const meta of metas) {
-        // El cálculo de duplicados requiere comparar el texto real de cada contraseña.
-        let plain: string | null = null;
-        try {
-          plain = await this.es.getPassword(meta.id);
-        } catch (err) {
-          console.error('[PasswordHealth] failed to fetch password', err);
-        }
-        entriesWithPlain.push({ meta, plain });
-      }
+      // Build an id→hash map; no plaintext flows to the renderer.
+      const hashRows = await window.keyping?.getPasswordHashes?.() ?? [];
+      const hashMap = new Map<string, string>(hashRows.map(r => [r.id, r.hash]));
+      const entriesWithHash = metas.map(meta => ({ meta, hash: hashMap.get(meta.id) ?? null }));
 
-      this.computeDuplicates(entriesWithPlain);
-      this.computeStats(entriesWithPlain);
+      this.computeDuplicates(entriesWithHash);
+      this.computeStats(entriesWithHash);
       this.computeScore();
     } finally {
       this.loading = false;
@@ -203,12 +206,12 @@ export class PasswordHealthComponent implements OnInit {
   }
 
   // Calcula contadores agregados e incidencias ordenadas por severidad.
-  private computeStats(entries: Array<{ meta: PasswordMeta; plain?: string | null }>): void {
+  private computeStats(entries: Array<{ meta: PasswordMeta; hash?: string | null }>): void {
     const issues: HealthIssue[] = [];
 
-    for (const { meta, plain } of entries) {
+    for (const { meta, hash } of entries) {
       const variety = this.countVariety(meta.classMask || 0);
-      const len = meta.length || (plain ? plain.length : 0) || 0;
+      const len = meta.length || 0;
       const level = this.classifyStrength(len, variety);
 
       if (level === 'strong') this.strongCount++;
@@ -239,7 +242,7 @@ export class PasswordHealthComponent implements OnInit {
         reasons.push(this.t('health.reason.weak'));
       }
 
-      const dupGroup = this.findDuplicateGroup(plain);
+      const dupGroup = this.findDuplicateGroup(hash);
       if (dupGroup) {
         // Reutilización de contraseña: penalización fuerte por riesgo transversal.
         severity += 60;
@@ -247,37 +250,29 @@ export class PasswordHealthComponent implements OnInit {
       }
 
       if (reasons.length > 0) {
-        issues.push({
-          entry: meta,
-          plain,
-          reasons,
-          severity,
-          level
-        });
+        issues.push({ entry: meta, reasons, severity, level });
       }
     }
 
     this.issues = issues.sort((a, b) => b.severity - a.severity);
   }
 
-  // Construye grupos de duplicados exactos a partir del secreto en claro.
-  private computeDuplicates(entries: Array<{ meta: PasswordMeta; plain?: string | null }>): void {
+  // Construye grupos de duplicados por hash HMAC.
+  private computeDuplicates(entries: Array<{ meta: PasswordMeta; hash?: string | null }>): void {
     const map = new Map<string, PasswordMeta[]>();
 
-    for (const { meta, plain } of entries) {
-      if (!plain) continue;
-      if (!map.has(plain)) {
-        map.set(plain, []);
-      }
-      map.get(plain)!.push(meta);
+    for (const { meta, hash } of entries) {
+      if (!hash) continue;
+      if (!map.has(hash)) map.set(hash, []);
+      map.get(hash)!.push(meta);
     }
 
     const groups: DuplicateGroup[] = [];
     let duplicateEntries = 0;
 
-    for (const [value, metas] of map.entries()) {
+    for (const [hash, metas] of map.entries()) {
       if (metas.length > 1) {
-        groups.push({ value, entries: metas });
+        groups.push({ hash, entries: metas });
         duplicateEntries += metas.length;
       }
     }
@@ -347,10 +342,10 @@ export class PasswordHealthComponent implements OnInit {
     this.issues = [];
   }
 
-  // Busca el grupo de duplicado asociado a una contraseña concreta.
-  private findDuplicateGroup(plain?: string | null): DuplicateGroup | undefined {
-    if (!plain) return undefined;
-    return this.duplicateGroups.find(g => g.value === plain);
+  // Busca el grupo de duplicado asociado a un hash HMAC de contraseña.
+  private findDuplicateGroup(hash?: string | null): DuplicateGroup | undefined {
+    if (!hash) return undefined;
+    return this.duplicateGroups.find(g => g.hash === hash);
   }
 
   // Acceso centralizado a i18n para evitar repetir el servicio en cada método.
@@ -439,10 +434,11 @@ export class PasswordHealthComponent implements OnInit {
     this.total = demo.length;
     this.resetCounters();
 
-    const entriesWithPlain = demo.map(d => ({ meta: { ...d.meta, length: d.plain.length }, plain: d.plain }));
+    // Demo: use plaintext as pseudo-hash (demo values are not real secrets).
+    const entriesWithHash = demo.map(d => ({ meta: { ...d.meta, length: d.plain.length }, hash: d.plain }));
 
-    this.computeDuplicates(entriesWithPlain);
-    this.computeStats(entriesWithPlain);
+    this.computeDuplicates(entriesWithHash);
+    this.computeStats(entriesWithHash);
     this.computeScore();
   }
 

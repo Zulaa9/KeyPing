@@ -1,6 +1,6 @@
 {
   "name": "keyping-ui",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "private": true,
   "description": "KeyPing - desktop app that detects reused or similar passwords locally (Angular + Electron, offline).",
   "author": "Unax Zulaika Fuente (Zulaa9)",
@@ -15,7 +15,7 @@
     "start": "ng serve",
     "electron:build": "tsc -p electron/tsconfig.json",
     "electron:watch": "tsc -p electron/tsconfig.json -w",
-    "dev": "concurrently -n ANG,TS,ELC \"ng serve --port 4300\" \"npm:electron:watch\" \"wait-on http://localhost:4300 && cross-env VITE_DEV_SERVER_URL=http://localhost:4300 electron .\"",
+    "dev": "concurrently -n ANG,TS,ELC \"ng serve --port 4300\" \"npm:electron:watch\" \"node scripts/wait-angular.js && cross-env VITE_DEV_SERVER_URL=http://localhost:4300 electron .\"",
     "build:angular": "ng build --configuration production",
     "generate:checksums": "powershell -ExecutionPolicy Bypass -File scripts/generate-checksums.ps1",
     "build": "npm run build:angular && npm run electron:build && electron-builder && npm run generate:checksums",

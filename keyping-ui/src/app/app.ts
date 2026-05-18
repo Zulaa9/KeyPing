@@ -6,6 +6,7 @@ import { NgClass, NgFor, NgIf, NgStyle, NgSwitch, NgSwitchCase } from '@angular/
 import { MasterLockService, MasterState } from './core/master-lock.service';
 import { TranslatePipe } from './core/translate.pipe';
 import { I18nService } from './core/i18n.service';
+import { ElectronService } from './core/electron.service';
 import { filter, Subscription } from 'rxjs';
 import { UpdateBannerComponent } from './components/update-banner/update-banner';
 import { AppUpdateService } from './core/app-update.service';
@@ -140,8 +141,17 @@ export class AppComponent implements OnInit, OnDestroy {
     private master: MasterLockService,
     private i18n: I18nService,
     private router: Router,
-    private updates: AppUpdateService
+    private updates: AppUpdateService,
+    private electron: ElectronService
   ) {}
+
+  get isLinux(): boolean {
+    return this.electron.isLinux();
+  }
+
+  minimizeWindow(): void { this.electron.minimizeWindow(); }
+  maximizeWindow(): void { this.electron.maximizeWindow(); }
+  closeWindow(): void { this.electron.closeWindow(); }
 
   async ngOnInit(): Promise<void> {
     await this.updates.initialize();

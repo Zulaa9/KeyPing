@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
-import { encryptVault, decryptVault } from './crypto';
+import { encryptVault, decryptVault, decryptVaultWithKey } from './crypto';
 import {
   VaultData,
   VaultEntry,
@@ -71,9 +71,26 @@ export async function saveVault(data: VaultData): Promise<void> {
   const file = vaultPath();
   const json = JSON.stringify(data);
   const encrypted = await encryptVault(json);
+  const tmp = `${file}.tmp`;
 
   await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, encrypted);
+  await fs.writeFile(tmp, encrypted, { mode: 0o600 });
+  await fs.rename(tmp, file);
+}
+
+// Load vault using an explicit key — migration path from legacy kp-master.key scheme.
+export async function loadVaultWithKey(key: Buffer): Promise<VaultData> {
+  const file = vaultPath();
+  try {
+    const buf = await fs.readFile(file);
+    if (buf.byteLength < 28) return { entries: [] };
+    const json = await decryptVaultWithKey(buf, key);
+    const raw = JSON.parse(json);
+    return migrate(raw);
+  } catch (err: any) {
+    if (err.code === 'ENOENT') return { entries: [] };
+    return { entries: [] };
+  }
 }
 
 export async function resetVault(): Promise<void> {

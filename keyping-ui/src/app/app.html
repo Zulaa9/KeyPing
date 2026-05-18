@@ -1,4 +1,10 @@
-<div class="kp-titlebar"></div>
+<div class="kp-titlebar">
+  <div *ngIf="isLinux" class="kp-linux-controls">
+    <button type="button" class="kp-wc-btn" (click)="minimizeWindow()" title="Minimize">&#x2212;</button>
+    <button type="button" class="kp-wc-btn" (click)="maximizeWindow()" title="Maximize">&#x25A1;</button>
+    <button type="button" class="kp-wc-btn kp-wc-close" (click)="closeWindow()" title="Close">&#x00D7;</button>
+  </div>
+</div>
 
 <kp-header [locked]="lockState !== 'unlocked'" (restartTour)="restartOnboarding()"></kp-header>
 <kp-update-banner *ngIf="lockState === 'unlocked'"></kp-update-banner>

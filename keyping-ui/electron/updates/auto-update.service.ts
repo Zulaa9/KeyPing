@@ -286,7 +286,7 @@ export class AutoUpdateService {
 
   private async persistPreferences(): Promise<void> {
     const payload = JSON.stringify(this.preferences, null, 2);
-    await fs.writeFile(this.settingsPath, payload, 'utf8');
+    await fs.writeFile(this.settingsPath, payload, { encoding: 'utf8', mode: 0o600 });
   }
 
   private updateState(next: Partial<UpdateState>): void {

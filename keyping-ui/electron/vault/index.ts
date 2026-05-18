@@ -1,11 +1,28 @@
-import { randomUUID, createHash, pbkdf2Sync, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { randomUUID, pbkdf2Sync, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { loadVault, saveVault, checkVaultIntegrity } from './file';
 import type { VaultEntry, VaultData } from './types';
 import { normalizePattern } from './similarity';
-import { encryptVault, decryptVault } from './crypto';
+import { encryptVault, decryptVault, loadOrCreateHmacKey, hmacSha256 } from './crypto';
 import { loadSettings, saveSettings, DEFAULT_MAX_HISTORY } from './settings';
 
 // Lógica de negocio del vault: altas, edición versionada, historial, import/export y compactación.
+
+const HASH_VERSION = 'hmac-sha256-v1';
+const EXPORT_PBKDF2_ITER = 600_000; // OWASP 2023: mínimo 600k para PBKDF2-SHA256
+
+let cachedHmacKey: Buffer | null = null;
+
+async function getHmacKey(): Promise<Buffer> {
+  if (!cachedHmacKey) {
+    cachedHmacKey = await loadOrCreateHmacKey();
+  }
+  return cachedHmacKey;
+}
+
+function vaultHash(secret: string, key: Buffer): string {
+  return hmacSha256(secret, key);
+}
+
 function classMask(s: string): number {
   let m = 0;
   if (/[a-z]/.test(s)) m |= 1;
@@ -16,7 +33,6 @@ function classMask(s: string): number {
 }
 
 type Indexes = {
-  // Índices auxiliares para navegar cadenas de versiones sin recorrer N veces.
   byId: Map<string, VaultEntry>;
   childByPrev: Map<string, VaultEntry>;
 };
@@ -56,7 +72,6 @@ function chainFromNewest(latest: VaultEntry, idx: Indexes): VaultEntry[] {
 }
 
 function collectChains(entries: VaultEntry[]): VaultEntry[][] {
-  // Agrupa el vault por cadenas de versionado (latest -> ... -> oldest).
   const idx = buildIndexes(entries);
   const visited = new Set<string>();
   const chains: VaultEntry[][] = [];
@@ -90,9 +105,25 @@ function enforceHistoryLimit(
 }
 
 async function historyLimit(): Promise<number> {
-  // Usa valor por defecto si ajustes no define un límite explícito.
   const settings = await loadSettings();
   return settings.maxHistoryPerEntry ?? DEFAULT_MAX_HISTORY;
+}
+
+// Migra hashes SHA-256 planos a HMAC-SHA256 con clave de vault y elimina campo `password` duplicado.
+export async function runStartupMigrations(): Promise<void> {
+  const vault = await loadVault();
+  if (vault.hashVersion === HASH_VERSION) return;
+
+  const hmacKey = await getHmacKey();
+  for (const entry of vault.entries) {
+    const secret = entry.secret || (entry as any).password || '';
+    if (secret) {
+      entry.hash = vaultHash(secret, hmacKey);
+    }
+    delete (entry as any).password;
+  }
+  vault.hashVersion = HASH_VERSION;
+  await saveVault(vault);
 }
 
 export async function addPasswordToVault(
@@ -108,7 +139,8 @@ export async function addPasswordToVault(
   iconSource?: 'auto' | 'manual',
   detectedService?: string
 ): Promise<VaultEntry> {
-  const hash = createHash('sha256').update(pwd).digest('hex');
+  const hmacKey = await getHmacKey();
+  const hash = vaultHash(pwd, hmacKey);
   const normalized = normalizePattern(pwd);
 
   const entry: VaultEntry = {
@@ -122,7 +154,6 @@ export async function addPasswordToVault(
     secret: pwd,
     normalized,
     label,
-    password: pwd,
     active: true,
     loginUrl,
     passwordChangeUrl,
@@ -135,6 +166,7 @@ export async function addPasswordToVault(
   };
 
   const vault = await loadVault();
+  if (!vault.hashVersion) vault.hashVersion = HASH_VERSION;
   vault.entries.push(entry);
   await saveVault(vault);
 
@@ -157,14 +189,14 @@ export async function replacePasswordForEntry(
   id: string,
   newPwd: string
 ): Promise<VaultEntry | null> {
-  // Edición "append-only": conserva historial, crea nueva versión y desactiva la anterior.
   const vault = await loadVault();
   const old = vault.entries.find(e => e.id === id);
   if (!old) return null;
 
   old.active = false;
 
-  const hash = createHash('sha256').update(newPwd).digest('hex');
+  const hmacKey = await getHmacKey();
+  const hash = vaultHash(newPwd, hmacKey);
   const normalized = normalizePattern(newPwd);
 
   const newEntry: VaultEntry = {
@@ -178,7 +210,6 @@ export async function replacePasswordForEntry(
     hash,
     normalized,
     secret: newPwd,
-    password: newPwd,
     active: true,
     previousId: old.id
   };
@@ -195,6 +226,17 @@ export async function getPasswordPlain(id: string): Promise<string | null> {
   const vault = await loadVault();
   const entry = vault.entries.find(e => e.id === id);
   return entry?.secret ?? null;
+}
+
+export async function getPasswordHashes(): Promise<{ id: string; hash: string }[]> {
+  const hmacKey = await getHmacKey();
+  const vault = await loadVault();
+  return vault.entries
+    .filter(e => e.active !== false)
+    .map(e => ({
+      id: e.id,
+      hash: e.secret ? vaultHash(e.secret, hmacKey) : e.hash
+    }));
 }
 
 export async function updateEntryMeta(
@@ -242,7 +284,6 @@ export async function getPasswordHistory(id: string): Promise<VaultEntry[]> {
 }
 
 export async function restorePasswordVersion(versionId: string): Promise<VaultEntry | null> {
-  // Restaurar implica crear una versión nueva activa basada en una histórica.
   const vault = await loadVault();
   const idx = buildIndexes(vault.entries);
   const version = idx.byId.get(versionId);
@@ -256,10 +297,11 @@ export async function restorePasswordVersion(versionId: string): Promise<VaultEn
     current.active = false;
   }
 
-  const secret = version.secret || version.password || '';
+  const secret = version.secret || '';
   if (!secret || typeof secret !== 'string') return null;
 
-  const hash = createHash('sha256').update(secret).digest('hex');
+  const hmacKey = await getHmacKey();
+  const hash = vaultHash(secret, hmacKey);
   const normalized = normalizePattern(secret);
   const now = Date.now();
 
@@ -273,7 +315,6 @@ export async function restorePasswordVersion(versionId: string): Promise<VaultEn
     hash,
     normalized,
     secret,
-    password: secret
   };
 
   vault.entries.push(restored);
@@ -312,7 +353,6 @@ export async function deleteHistoryForEntry(id: string): Promise<number> {
 }
 
 export async function compactVault(opts?: { keepOnlyCurrent?: boolean; maxHistoryPerEntry?: number }): Promise<{ removed: number; kept: number; chains: number }> {
-  // Compacta historial por cadena según estrategia elegida.
   const vault = await loadVault();
   const chains = collectChains(vault.entries);
   const removedIds = new Set<string>();
@@ -352,7 +392,6 @@ export async function updateHistorySettings(maxHistoryPerEntry: number): Promise
 }
 
 async function dataForExport(includeHistory: boolean): Promise<VaultData> {
-  // Permite exportar solo estado vigente o incluir historial completo.
   const vault = await loadVault();
   if (includeHistory) return vault;
 
@@ -379,7 +418,6 @@ export async function exportVaultWithPassword(password: string, includeHistory =
 }
 
 export async function parseImportPayload(raw: string, password?: string): Promise<{ entries: ImportEntry[]; source: 'encrypted' | 'plain' | 'master'; requiresPassword?: boolean; masterPayload?: any }> {
-  // Detecta automáticamente formato de import (v2 master, v1 native o JSON plano).
   const parsed = JSON.parse(raw);
 
   if (parsed?.format === 'keyping-export-v2' && parsed?.enc === 'master') {
@@ -412,10 +450,11 @@ export async function parseImportPayload(raw: string, password?: string): Promis
 }
 
 export async function overwriteVaultWithEntries(entries: ImportEntry[]): Promise<number> {
+  const hmacKey = await getHmacKey();
   const mapped = entries
-    .map(e => mapImportedEntry(e))
+    .map(e => mapImportedEntry(e, hmacKey))
     .filter((e): e is VaultEntry => !!e);
-  await saveVault({ entries: mapped });
+  await saveVault({ entries: mapped, hashVersion: HASH_VERSION });
   return mapped.length;
 }
 
@@ -424,7 +463,7 @@ export async function importVaultFromEncrypted(base64: string): Promise<number> 
   const json = await decryptVault(buf);
   const data = JSON.parse(json) as VaultData;
   if (!Array.isArray(data?.entries)) throw new Error('Archivo de export invalido');
-  await saveVault({ entries: data.entries as VaultEntry[] });
+  await saveVault({ entries: data.entries as VaultEntry[], hashVersion: data.hashVersion });
   return data.entries.length;
 }
 
@@ -432,16 +471,16 @@ export async function importVaultFromMasterEncrypted(payload: { format: string; 
   const json = decryptWithPassword(payload, password);
   const data = JSON.parse(json) as VaultData;
   if (!Array.isArray(data?.entries)) throw new Error('Archivo de export invalido');
-  await saveVault({ entries: data.entries as VaultEntry[] });
+  await saveVault({ entries: data.entries as VaultEntry[], hashVersion: data.hashVersion });
   return data.entries.length;
 }
 
 export async function mergeVaultEntries(entries: ImportEntry[]): Promise<number> {
-  // Merge simple: inserta entradas mapeadas sin deduplicación agresiva.
+  const hmacKey = await getHmacKey();
   const vault = await loadVault();
   let count = 0;
   for (const raw of entries) {
-    const mapped = mapImportedEntry(raw);
+    const mapped = mapImportedEntry(raw, hmacKey);
     if (!mapped) continue;
     vault.entries.push(mapped);
     count++;
@@ -450,9 +489,8 @@ export async function mergeVaultEntries(entries: ImportEntry[]): Promise<number>
   return count;
 }
 
-function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
-  // Normaliza entradas heterogéneas de import al modelo interno del vault.
-  const pwd = (raw.password || raw.secret || (raw as any).pwd || '') as string;
+function mapImportedEntry(raw: ImportEntry, hmacKey: Buffer): VaultEntry | null {
+  const pwd = ((raw as any).password || raw.secret || (raw as any).pwd || '') as string;
   if (!pwd || typeof pwd !== 'string') return null;
 
   const createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
@@ -465,11 +503,10 @@ function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
     twoFactorEnabled: !!raw.twoFactorEnabled,
     length: pwd.length,
     classMask: classMask(pwd),
-    hash: createHash('sha256').update(pwd).digest('hex'),
+    hash: vaultHash(pwd, hmacKey),
     secret: pwd,
     normalized: normalizePattern(pwd),
     label: raw.label,
-    password: pwd,
     active: raw.active !== false,
     previousId: raw.previousId,
     loginUrl: raw.loginUrl,
@@ -484,8 +521,7 @@ function mapImportedEntry(raw: ImportEntry): VaultEntry | null {
 }
 
 function encryptWithPassword(plain: string, password: string): { salt: string; iterations: number; data: string } {
-  // Cifrado portable para export v2 (password-based, independiente del dispositivo).
-  const iterations = 150_000;
+  const iterations = EXPORT_PBKDF2_ITER;
   const salt = randomBytes(16);
   const key = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
   const iv = randomBytes(12);
@@ -493,13 +529,14 @@ function encryptWithPassword(plain: string, password: string): { salt: string; i
   const enc = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   const combined = Buffer.concat([iv, tag, enc]).toString('base64');
+  key.fill(0);
   return { salt: salt.toString('base64'), iterations, data: combined };
 }
 
 function decryptWithPassword(payload: { salt: string; iterations: number; data: string }, password: string): string {
-  // Decrypt simétrico del formato export v2.
   const salt = Buffer.from(payload.salt, 'base64');
-  const key = pbkdf2Sync(password, salt, payload.iterations || 150_000, 32, 'sha256');
+  const iterations = Math.min(2_000_000, Math.max(100_000, Math.round(payload.iterations || EXPORT_PBKDF2_ITER)));
+  const key = pbkdf2Sync(password, salt, iterations, 32, 'sha256');
   const combined = Buffer.from(payload.data, 'base64');
   const iv = combined.subarray(0, 12);
   const tag = combined.subarray(12, 28);
@@ -507,6 +544,7 @@ function decryptWithPassword(payload: { salt: string; iterations: number; data: 
   const decipher = createDecipheriv('aes-256-gcm', key, iv);
   decipher.setAuthTag(tag);
   const dec = Buffer.concat([decipher.update(cipher), decipher.final()]).toString('utf8');
+  key.fill(0);
   return dec;
 }
 
@@ -517,5 +555,3 @@ export type {
   VaultIntegrityIssueCode,
   VaultIntegrityStatus
 } from './types';
-
-

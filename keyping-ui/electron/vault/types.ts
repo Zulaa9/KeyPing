@@ -7,15 +7,14 @@ export type VaultEntry = {
   twoFactorEnabled?: boolean;
   length: number;
   classMask: number;
-  hash: string;        // hash sha256 de la contraseña
+  hash: string;
   secret?: string;
-  normalized?: string; // patrón normalizado (para similitud)
-  label?: string;      // nombre de la web/app/servicio
-  password?: string;   // secreto en claro dentro del vault cifrado
-  active?: boolean;    // true = vigente, false = histórica / eliminada
-  previousId?: string; // id de la entrada anterior (edición)
-  loginUrl?: string;   // URL de login
-  passwordChangeUrl?: string; // URL directa para cambio de contraseña
+  normalized?: string;
+  label?: string;
+  active?: boolean;
+  previousId?: string;
+  loginUrl?: string;
+  passwordChangeUrl?: string;
   username?: string;
   email?: string;
   folder?: string;
@@ -26,6 +25,7 @@ export type VaultEntry = {
 
 export type VaultData = {
   entries: VaultEntry[];
+  hashVersion?: string; // 'hmac-sha256-v1' when hashes are keyed HMAC; absent = legacy SHA-256
 };
 
 export type VaultIntegrityIssueCode =

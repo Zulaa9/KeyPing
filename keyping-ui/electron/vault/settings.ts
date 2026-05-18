@@ -41,6 +41,6 @@ export async function saveSettings(partial: StoredSettings): Promise<Required<St
   };
   const file = settingsPath();
   await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(next), 'utf8');
+  await fs.writeFile(file, JSON.stringify(next), { encoding: 'utf8', mode: 0o600 });
   return next;
 }

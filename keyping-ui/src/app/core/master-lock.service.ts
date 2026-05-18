@@ -9,18 +9,20 @@ type StoredMaster = {
   iterations: number;
 };
 
+const MIN_MASTER_LENGTH = 8;
+const MASTER_PBKDF2_ITER = 600_000; // OWASP 2023: mínimo 600k para PBKDF2-SHA256
+const MAX_AUTOLOCK_MINUTES = 30;    // Máximo 30 minutos para limitar exposición en sesión abierta
+
 @Injectable({ providedIn: 'root' })
 export class MasterLockService {
   // Estado global de autenticación maestra.
   readonly state$ = new BehaviorSubject<MasterState>('locked');
 
-  private masterKey: CryptoKey | null = null;
   private inactivityTimer: any;
-  private inactivityMs = 5 * 60 * 1000; // default 5 minutos, configurable
+  private inactivityMs = 5 * 60 * 1000;
   private autoLockMinutes = 5;
 
   private readonly masterStorageKey = 'keyping.master.v1';
-  private readonly vaultStorageKey = 'keyping.vault.enc.v1';
   private readonly autoLockStorageKey = 'keyping.lock.autolock.v1';
   private readonly attemptPolicyKey = 'keyping.lock.policy.v1';
   private readonly attemptStateKey = 'keyping.lock.policy.state.v1';
@@ -35,10 +37,11 @@ export class MasterLockService {
   private lastCooldownMs = 0;
 
   async init(): Promise<MasterState> {
-    // Inicializa configuración local (autolock y política de intentos) antes de exponer estado.
     this.loadAutoLock();
     this.loadAttemptPolicy();
     this.loadAttemptState();
+    // Sincroniza estado de cooldown con el proceso principal al arrancar.
+    await this.syncMainCooldown();
     const stored = this.loadStoredMaster();
     const nextState: MasterState = stored ? 'locked' : 'unset';
     this.state$.next(nextState);
@@ -46,44 +49,44 @@ export class MasterLockService {
   }
 
   lock(): void {
-    // Borra clave en memoria y cancela temporizador de inactividad.
-    this.masterKey = null;
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = null;
     if (this.state$.value !== 'unset') {
       this.state$.next('locked');
     }
+    window.keyping?.sessionLock?.();
   }
 
   touch(): void {
-    // Resetea el temporizador de autolock tras actividad del usuario.
     if (this.state$.value !== 'unlocked') return;
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = setTimeout(() => this.lock(), this.inactivityMs);
   }
 
   async setMaster(password: string): Promise<void> {
-    // Primera configuración: deriva clave, guarda verificación y marca sesión desbloqueada.
+    if (!password || password.length < MIN_MASTER_LENGTH) {
+      throw new Error(`Master password must be at least ${MIN_MASTER_LENGTH} characters`);
+    }
+
+    // Main process creates kp-auth.json and derives the vault key from this password.
+    await window.keyping?.authSetup?.(password);
+
+    // Renderer stores a keyed check in localStorage solely for init() state detection.
     const salt = this.randomBytes(16);
-    const key = await this.deriveKey(password, this.toArrayBuffer(salt), 150_000);
+    const key = await this.deriveKey(password, this.toArrayBuffer(salt), MASTER_PBKDF2_ITER);
     const check = await this.encryptText(key, this.verificationText);
+    localStorage.setItem(this.masterStorageKey, JSON.stringify({
+      salt: this.toB64(salt), check, iterations: MASTER_PBKDF2_ITER
+    }));
+    // Remove any stale vault cache from previous versions.
+    localStorage.removeItem('keyping.vault.enc.v1');
 
-    const payload: StoredMaster = {
-      salt: this.toB64(salt),
-      check,
-      iterations: 150_000
-    };
-    localStorage.setItem(this.masterStorageKey, JSON.stringify(payload));
-
-    this.masterKey = key;
     this.state$.next('unlocked');
+    this.clearAttemptState();
     this.touch();
   }
 
   async unlock(password: string): Promise<boolean> {
-    // Valida contraseña maestra y aplica política de cooldown progresivo.
-    const stored = this.loadStoredMaster();
-    if (!stored) return false;
     const now = Date.now();
     this.expireCooldownIfElapsed(now);
     if (now < this.nextUnlockAt) {
@@ -91,68 +94,29 @@ export class MasterLockService {
       return false;
     }
 
+    // Main process verifies the password and derives the vault encryption key.
+    let mainResult = false;
     try {
-      const salt = this.fromB64(stored.salt);
-      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || 150_000);
-      const plain = await this.decryptText(key, stored.check);
-      if (plain !== this.verificationText) {
-        this.handleFailedAttempt();
-        return false;
-      }
-
-      this.masterKey = key;
-      this.state$.next('unlocked');
-      this.failedAttempts = 0;
-      this.nextUnlockAt = 0;
-      this.lastCooldownMs = 0;
-      this.clearAttemptState();
-      this.touch();
-      return true;
+      mainResult = !!(await window.keyping?.authUnlock?.(password));
     } catch (err) {
-      console.warn('[master] unlock failed', err);
+      console.warn('[master] authUnlock IPC error', err);
+    }
+
+    if (!mainResult) {
       this.handleFailedAttempt();
       return false;
     }
-  }
 
-  /** Verifica la contraseña maestra sin cambiar el estado actual ni disparar cooldown. */
-  async verifyMaster(password: string): Promise<boolean> {
-    const stored = this.loadStoredMaster();
-    if (!stored) return false;
-    try {
-      const salt = this.fromB64(stored.salt);
-      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || 150_000);
-      const plain = await this.decryptText(key, stored.check);
-      return plain === this.verificationText;
-    } catch {
-      return false;
-    }
-  }
+    // Remove any stale vault cache from previous versions.
+    localStorage.removeItem('keyping.vault.enc.v1');
 
-  async persistVault(data: unknown): Promise<void> {
-    // Cache cifrada del vault en localStorage para acceso rápido tras unlock.
-    if (!this.masterKey) return;
-    try {
-      const json = JSON.stringify(data ?? null);
-      const cipher = await this.encryptText(this.masterKey, json);
-      localStorage.setItem(this.vaultStorageKey, cipher);
-    } catch (err) {
-      console.warn('[master] unable to persist vault cache', err);
-    }
-  }
-
-  async loadCachedVault<T = any>(): Promise<T | null> {
-    // Solo devuelve datos si existe clave maestra activa en memoria.
-    if (!this.masterKey) return null;
-    try {
-      const cipher = localStorage.getItem(this.vaultStorageKey);
-      if (!cipher) return null;
-      const json = await this.decryptText(this.masterKey, cipher);
-      return JSON.parse(json) as T;
-    } catch (err) {
-      console.warn('[master] unable to load vault cache', err);
-      return null;
-    }
+    this.state$.next('unlocked');
+    this.failedAttempts = 0;
+    this.nextUnlockAt = 0;
+    this.lastCooldownMs = 0;
+    this.clearAttemptState();
+    this.touch();
+    return true;
   }
 
   private loadStoredMaster(): StoredMaster | null {
@@ -161,10 +125,11 @@ export class MasterLockService {
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (typeof parsed?.salt === 'string' && typeof parsed?.check === 'string') {
+        const rawIter = Number(parsed.iterations) || MASTER_PBKDF2_ITER;
         return {
           salt: parsed.salt,
           check: parsed.check,
-          iterations: parsed.iterations || 150_000
+          iterations: Math.min(2_000_000, Math.max(100_000, Math.round(rawIter)))
         };
       }
       return null;
@@ -211,31 +176,10 @@ export class MasterLockService {
     return this.toB64(combined);
   }
 
-  private async decryptText(key: CryptoKey, b64: string): Promise<string> {
-    const data = this.fromB64(b64);
-    const iv = data.subarray(0, 12);
-    const cipher = data.subarray(12);
-    const plainBuf = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: this.toArrayBuffer(iv) },
-      key,
-      this.toArrayBuffer(cipher)
-    );
-    return new TextDecoder().decode(plainBuf);
-  }
-
   private toB64(u8: Uint8Array): string {
     let s = '';
     u8.forEach(b => (s += String.fromCharCode(b)));
     return btoa(s);
-  }
-
-  private fromB64(b64: string): Uint8Array {
-    const s = atob(b64);
-    const u8 = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) {
-      u8[i] = s.charCodeAt(i);
-    }
-    return u8;
   }
 
   private randomBytes(len: number): Uint8Array {
@@ -245,14 +189,13 @@ export class MasterLockService {
   }
 
   private toArrayBuffer(u8: Uint8Array): ArrayBuffer {
-    // Copia a un ArrayBuffer real (evita SharedArrayBuffer)
     const copy = new Uint8Array(u8.byteLength);
     copy.set(new Uint8Array(u8.buffer, u8.byteOffset, u8.byteLength));
     return copy.buffer;
   }
 
   setAutoLockMinutes(minutes: number): void {
-    const clamped = Math.max(1, Math.min(60, Math.round(minutes)));
+    const clamped = Math.max(1, Math.min(MAX_AUTOLOCK_MINUTES, Math.round(minutes)));
     this.autoLockMinutes = clamped;
     this.inactivityMs = clamped * 60 * 1000;
     localStorage.setItem(this.autoLockStorageKey, JSON.stringify({ minutes: clamped }));
@@ -264,7 +207,6 @@ export class MasterLockService {
   }
 
   setAttemptPolicy(freeAttempts: number, baseDelayMs: number, growthFactor: number): void {
-    // Normaliza límites y resetea estado de intentos al cambiar política.
     this.attemptPolicy = {
       freeAttempts: Math.max(0, Math.min(10, Math.round(freeAttempts))),
       baseDelayMs: Math.max(500, Math.round(baseDelayMs)),
@@ -291,15 +233,7 @@ export class MasterLockService {
   async rotateMaster(current: string, next: string): Promise<boolean> {
     const unlocked = await this.unlock(current);
     if (!unlocked) return false;
-
-    const cached = await this.loadCachedVault<any>();
     await this.setMaster(next);
-
-    if (cached) {
-      await this.persistVault(cached);
-    }
-
-    // Forzar re-autenticacion con la nueva clave maestra
     this.lock();
     return true;
   }
@@ -308,7 +242,7 @@ export class MasterLockService {
     try {
       const raw = JSON.parse(localStorage.getItem(this.autoLockStorageKey) || '{}');
       if (typeof raw?.minutes === 'number' && raw.minutes > 0) {
-        this.autoLockMinutes = Math.max(1, Math.min(60, Math.round(raw.minutes)));
+        this.autoLockMinutes = Math.max(1, Math.min(MAX_AUTOLOCK_MINUTES, Math.round(raw.minutes)));
         this.inactivityMs = this.autoLockMinutes * 60 * 1000;
       }
     } catch {
@@ -343,7 +277,6 @@ export class MasterLockService {
         this.failedAttempts = Math.max(0, Number((raw as any).failedAttempts) || 0);
         this.nextUnlockAt = Math.max(0, Number((raw as any).nextUnlockAt) || 0);
         this.lastCooldownMs = Math.max(0, Number((raw as any).lastCooldownMs) || 0);
-
         this.expireCooldownIfElapsed();
       }
     } catch {
@@ -353,22 +286,34 @@ export class MasterLockService {
     }
   }
 
+  private async syncMainCooldown(): Promise<void> {
+    try {
+      const state = await window.keyping?.getMainCooldown?.();
+      if (state && state.nextUnlockAt > this.nextUnlockAt) {
+        this.failedAttempts = Math.max(this.failedAttempts, state.failedAttempts);
+        this.nextUnlockAt = state.nextUnlockAt;
+        this.lastCooldownMs = state.remainingMs || 0;
+        this.persistAttemptState();
+      }
+    } catch {
+      // No-op: sincronización de mejor esfuerzo.
+    }
+  }
+
   private handleFailedAttempt(): void {
-    // A partir del umbral gratuito, el bloqueo crece de forma exponencial.
     this.failedAttempts++;
 
     if (this.failedAttempts <= this.attemptPolicy.freeAttempts) {
       this.nextUnlockAt = 0;
       this.lastCooldownMs = 0;
-      return;
+    } else {
+      const exponent = Math.max(0, this.failedAttempts - this.attemptPolicy.freeAttempts - 1);
+      const rawDelay = this.attemptPolicy.baseDelayMs * Math.pow(this.attemptPolicy.growthFactor, exponent);
+      const delay = Math.min(Number.MAX_SAFE_INTEGER / 2, rawDelay);
+      this.nextUnlockAt = Date.now() + delay;
+      this.lastCooldownMs = delay;
+      this.persistAttemptState();
     }
-
-    const exponent = Math.max(0, this.failedAttempts - this.attemptPolicy.freeAttempts - 1);
-    const rawDelay = this.attemptPolicy.baseDelayMs * Math.pow(this.attemptPolicy.growthFactor, exponent);
-    const delay = Math.min(Number.MAX_SAFE_INTEGER / 2, rawDelay);
-    this.nextUnlockAt = Date.now() + delay;
-    this.lastCooldownMs = delay;
-    this.persistAttemptState();
   }
 
   private persistAttemptState(): void {

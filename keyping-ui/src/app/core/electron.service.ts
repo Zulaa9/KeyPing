@@ -81,6 +81,11 @@ export type PasswordHistoryEntry = PasswordMeta;
 
 type KeypingApi = {
   // Contrato del bridge expuesto por preload (`window.keyping`).
+  platform: string;
+  minimizeWindow(): Promise<void>;
+  maximizeWindow(): Promise<void>;
+  closeWindow(): Promise<void>;
+
   checkCandidate(pwd: string): Promise<CheckResult>;
   savePassword(
     pwd: string,
@@ -139,6 +144,22 @@ export class ElectronService {
   isElectron(): boolean {
     // Permite desactivar features nativas cuando se ejecuta en navegador puro.
     return !!this.api;
+  }
+
+  isLinux(): boolean {
+    return this.api?.platform === 'linux';
+  }
+
+  minimizeWindow(): void {
+    void this.api?.minimizeWindow();
+  }
+
+  maximizeWindow(): void {
+    void this.api?.maximizeWindow();
+  }
+
+  closeWindow(): void {
+    void this.api?.closeWindow();
   }
 
   async checkCandidate(pwd: string): Promise<CheckResult> {

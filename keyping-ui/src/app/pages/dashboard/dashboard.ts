@@ -56,7 +56,6 @@ export class DashboardComponent implements OnInit {
       this.scoreLabel = '';
 
       const folderSet = new Set<string>();
-      const entriesWithPlain: Array<{ meta: PasswordMeta; plain?: string | null }> = [];
 
       // Recorremos entradas una sola vez para calcular todas las métricas.
       for (const meta of metas) {
@@ -73,19 +72,12 @@ export class DashboardComponent implements OnInit {
         const len = meta.length || 0;
         if (len < 10) this.shortCount++;
         if (variety < 3) this.lowVarietyCount++;
-
-        // Solo para detectar duplicados por secreto real (no por metadata).
-        let plain: string | null = null;
-        try {
-          plain = await this.es.getPassword(meta.id);
-        } catch {
-          plain = null;
-        }
-        entriesWithPlain.push({ meta, plain });
       }
 
+      // Duplicate detection via HMAC hashes — no plaintext flows to the renderer.
       this.folders = folderSet.size;
-      this.duplicateCount = this.countDuplicates(entriesWithPlain);
+      const hashRows = await window.keyping?.getPasswordHashes?.() ?? [];
+      this.duplicateCount = this.countDuplicates(hashRows);
       this.computeScore();
       this.computeActivity(metas);
     } finally {
@@ -114,11 +106,10 @@ export class DashboardComponent implements OnInit {
     return count;
   }
 
-  private countDuplicates(entries: Array<{ meta: PasswordMeta; plain?: string | null }>): number {
+  private countDuplicates(rows: Array<{ id: string; hash: string }>): number {
     const map = new Map<string, number>();
-    for (const { plain } of entries) {
-      if (!plain) continue;
-      map.set(plain, (map.get(plain) || 0) + 1);
+    for (const { hash } of rows) {
+      map.set(hash, (map.get(hash) || 0) + 1);
     }
     let dup = 0;
     for (const v of map.values()) {

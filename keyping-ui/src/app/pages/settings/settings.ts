@@ -292,7 +292,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.exportModal.error = this.t('settings.export.modal.errorRequired');
       return;
     }
-    const ok = await this.master.verifyMaster(this.exportModal.password.trim());
+    const ok = !!(await window.keyping?.authVerify?.(this.exportModal.password.trim()));
     if (!ok) {
       this.exportModal.error = this.t('settings.export.modal.errorInvalid');
       return;
@@ -324,6 +324,13 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.importState = undefined;
     this.importPassword = '';
     this.importPasswordError = undefined;
+
+    const MAX_IMPORT_BYTES = 20 * 1024 * 1024; // 20 MB
+    if (file.size > MAX_IMPORT_BYTES) {
+      this.importMessage = this.t('settings.import.msg.readError');
+      this.importState = 'error';
+      return;
+    }
 
     try {
       // Parseo único para construir preview y detectar si requiere contraseña maestra.

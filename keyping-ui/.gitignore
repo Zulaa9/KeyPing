@@ -10,6 +10,7 @@
 
 # --- Electron build outputs ---
 /dist-electron
+/dist-electron-tests
 /dist/build
 
 # --- Node modules ---

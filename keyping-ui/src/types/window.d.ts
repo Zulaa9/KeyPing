@@ -79,6 +79,14 @@ declare global {
       postponeUpdate?(): Promise<UpdateState>;
       onUpdateState?(listener: (payload: UpdateState) => void): (() => void) | void;
       ping?(): Promise<string>;
+      authUnlock?(password: string): Promise<boolean>;
+      authSetup?(password: string): Promise<boolean>;
+      authVerify?(password: string): Promise<boolean>;
+      sessionLock?(): Promise<void>;
+      getMainCooldown?(): Promise<{ failedAttempts: number; nextUnlockAt: number; remainingMs: number }>;
+      getPassword?(id: string): Promise<string | null>;
+      copyText?(text: string): Promise<boolean>;
+      getPasswordHashes?(): Promise<Array<{ id: string; hash: string }>>;
     };
   }
 }
