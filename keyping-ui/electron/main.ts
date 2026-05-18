@@ -28,6 +28,16 @@ import {
   getPasswordHashes,
   runStartupMigrations,
 } from './vault';
+import { loadVaultWithKey, loadVault, saveVault } from './vault/file';
+import {
+  hasAuthFile,
+  setupMasterPassword,
+  verifyPasswordAndDeriveKey,
+  setSessionKey,
+  clearSessionKey,
+  deriveLegacyMasterKey,
+  removeLegacyKeyFile,
+} from './vault/crypto';
 
 import { findMostSimilarInVault } from './vault/similarity';
 import { clipboard } from 'electron';
@@ -162,10 +172,12 @@ function createWindow() {
   win.webContents.on('render-process-gone', (_event, details) => {
     console.error('[main] render process gone', details);
     sessionUnlocked = false;
+    clearSessionKey();
   });
 
   win.webContents.on('did-navigate', () => {
     sessionUnlocked = false;
+    clearSessionKey();
   });
 
   win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
@@ -211,7 +223,6 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
-  await runStartupMigrations().catch(err => console.error('[main] startup migration failed', err));
   void autoUpdateService.initialize();
   createWindow();
   app.on('activate', () => {
@@ -554,14 +565,90 @@ ipcMain.handle('keyping:clearPasswordHistory', async (_evt, args: { id: string }
   return await deleteHistoryForEntry(args.id);
 });
 
-// El unlock verifica el cooldown en el proceso principal además de en el renderer.
-ipcMain.handle('keyping:session:unlock', () => {
-  if (isMainCooldownActive()) {
-    throw new Error('Cooldown active');
+// Migrates vault from legacy kp-master.key scheme to password-derived key scheme.
+async function migrateFromLegacyKey(password: string): Promise<void> {
+  const oldKey = await deriveLegacyMasterKey();
+  if (!oldKey) {
+    // No legacy key and no auth file: fresh install via authUnlock path (shouldn't happen
+    // in normal flow, but handle gracefully by just setting up auth with the given password).
+    await setupMasterPassword(password);
+    return;
   }
+
+  const oldVault = await loadVaultWithKey(oldKey);
+  oldKey.fill(0);
+
+  await setupMasterPassword(password);
+
+  if (oldVault.entries.length > 0) {
+    await saveVault(oldVault);
+  }
+
+  await removeLegacyKeyFile();
+}
+
+function clearMainAttemptState(): void {
+  authAttemptState.failedAttempts = 0;
+  authAttemptState.nextUnlockAt = 0;
+  authAttemptState.lastCooldownMs = 0;
+}
+
+// Verifies the master password in the main process and unlocks the session.
+// Handles first-launch migration from the legacy random-key scheme automatically.
+ipcMain.handle('keyping:auth:unlock', async (_evt, password: string) => {
+  if (typeof password !== 'string' || !password || password.length > 1024) return false;
+  if (isMainCooldownActive()) return false;
+
+  const authExists = await hasAuthFile();
+
+  if (authExists) {
+    const key = await verifyPasswordAndDeriveKey(password);
+    if (!key) {
+      recordMainFailedAttempt();
+      return false;
+    }
+    setSessionKey(key);
+    key.fill(0);
+  } else {
+    await migrateFromLegacyKey(password);
+  }
+
   sessionUnlocked = true;
+  clearMainAttemptState();
+  await runStartupMigrations().catch(err => console.error('[main] startup migration failed', err));
+  return true;
 });
-ipcMain.handle('keyping:session:lock', () => { sessionUnlocked = false; });
+
+// Sets up a new master password (initial setup or password rotation).
+// When called while a session is active, re-encrypts the vault with the new key.
+// When called without a session, only allowed if no auth file exists yet (fresh install).
+ipcMain.handle('keyping:auth:setup', async (_evt, password: string) => {
+  if (typeof password !== 'string' || password.length < 8 || password.length > 1024) {
+    throw new Error('Invalid password length');
+  }
+
+  if (!sessionUnlocked && await hasAuthFile()) {
+    throw new Error('Unauthorized');
+  }
+
+  if (sessionUnlocked) {
+    const vault = await loadVault();
+    await setupMasterPassword(password);
+    await saveVault(vault);
+  } else {
+    await setupMasterPassword(password);
+  }
+
+  sessionUnlocked = true;
+  clearMainAttemptState();
+  await runStartupMigrations().catch(err => console.error('[main] startup migration failed', err));
+  return true;
+});
+
+ipcMain.handle('keyping:session:lock', () => {
+  sessionUnlocked = false;
+  clearSessionKey();
+});
 
 // Gestión de intentos fallidos en el proceso principal (no manipulable desde el renderer).
 ipcMain.handle('keyping:auth:failedAttempt', () => {
@@ -572,10 +659,10 @@ ipcMain.handle('keyping:auth:failedAttempt', () => {
   };
 });
 
+// Guarded: only reachable after a successful auth, so it cannot be used to bypass cooldown.
 ipcMain.handle('keyping:auth:clearAttemptState', () => {
-  authAttemptState.failedAttempts = 0;
-  authAttemptState.nextUnlockAt = 0;
-  authAttemptState.lastCooldownMs = 0;
+  if (!sessionUnlocked) return;
+  clearMainAttemptState();
 });
 
 ipcMain.handle('keyping:auth:getCooldown', () => {
