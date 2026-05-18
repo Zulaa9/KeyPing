@@ -1,11 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { UpdatePreferences, UpdateState } from './updates/types';
 
-console.log('[preload] loaded');
-
 // API segura expuesta al renderer (contextIsolation=true).
 // Todo acceso a filesystem/IPC pasa por este puente tipado.
 contextBridge.exposeInMainWorld('keyping', {
+  platform: process.platform,
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  maximizeWindow: () => ipcRenderer.invoke('window:maximize'),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+
   ping: () => ipcRenderer.invoke('keyping:ping'),
   checkVaultIntegrity: () => ipcRenderer.invoke('keyping:vaultIntegrity'),
   getHistorySettings: () => ipcRenderer.invoke('keyping:getHistorySettings'),

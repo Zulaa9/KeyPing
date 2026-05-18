@@ -36,9 +36,7 @@ import { ClipboardClearSessionManager } from './clipboard-clear-session';
 
 
 if (process.platform === 'linux') {
-  app.disableHardwareAcceleration();
-  app.commandLine.appendSwitch('ozone-platform', 'wayland');
-  app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations');
+  app.commandLine.appendSwitch('ozone-platform', 'x11');
 }
 
 let win: BrowserWindow | null = null;
@@ -116,6 +114,10 @@ function createWindow() {
     windowOptions.trafficLightPosition = { x: 18, y: 18 };
   }
 
+  if (isLinux) {
+    windowOptions.frame = false;
+  }
+
   win = new BrowserWindow(windowOptions);
   autoUpdateService.attachWindow(win);
 
@@ -157,11 +159,18 @@ function createWindow() {
   const devUrl = process.env.VITE_DEV_SERVER_URL;
   const rendererIndexPath = path.join(app.getAppPath(), 'dist', 'keyping-ui', 'browser', 'index.html');
 
+  if (isLinux) {
+    const gdkScale = parseInt(process.env['GDK_SCALE'] ?? '1', 10);
+    if (gdkScale > 1) {
+      win.webContents.once('did-finish-load', () => {
+        win?.webContents.setZoomFactor(1 / gdkScale);
+      });
+    }
+  }
+
   if (devUrl) {
-    console.log('[main] loading renderer from dev server:', devUrl);
     void win.loadURL(devUrl);
   } else {
-    console.log('[main] loading renderer from file:', rendererIndexPath);
     if (!fs.existsSync(rendererIndexPath)) {
       console.error('[main] renderer index.html not found at expected path:', rendererIndexPath);
     }
@@ -174,9 +183,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  if (app.isPackaged) {
-    Menu.setApplicationMenu(null);
-  }
+  Menu.setApplicationMenu(null);
   void autoUpdateService.initialize();
   createWindow();
   app.on('activate', () => {
@@ -615,4 +622,11 @@ ipcMain.handle('keyping:importVault', async (_evt, args: {
   const imported = await mergeVaultEntries(args.entries || []);
   return { imported, overwritten: false };
 });
+
+ipcMain.handle('window:minimize', () => { win?.minimize(); });
+ipcMain.handle('window:maximize', () => {
+  if (win?.isMaximized()) win.unmaximize();
+  else win?.maximize();
+});
+ipcMain.handle('window:close', () => { win?.close(); });
 
