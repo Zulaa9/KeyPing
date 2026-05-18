@@ -666,21 +666,6 @@ ipcMain.handle('keyping:auth:verify', async (_evt, password: string) => {
   return true;
 });
 
-// Gestión de intentos fallidos en el proceso principal (no manipulable desde el renderer).
-ipcMain.handle('keyping:auth:failedAttempt', () => {
-  recordMainFailedAttempt();
-  return {
-    failedAttempts: authAttemptState.failedAttempts,
-    nextUnlockAt: authAttemptState.nextUnlockAt
-  };
-});
-
-// Guarded: only reachable after a successful auth, so it cannot be used to bypass cooldown.
-ipcMain.handle('keyping:auth:clearAttemptState', () => {
-  if (!sessionUnlocked) return;
-  clearMainAttemptState();
-});
-
 ipcMain.handle('keyping:auth:getCooldown', () => {
   const now = Date.now();
   if (authAttemptState.nextUnlockAt > 0 && now >= authAttemptState.nextUnlockAt) {
