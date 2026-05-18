@@ -271,6 +271,41 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
   -webkit-app-region: drag;
   z-index: 10010;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.kp-linux-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.kp-wc-btn {
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: #9aa3b2;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e5e7eb;
+  }
+
+  &.kp-wc-close:hover {
+    background: #c42b1c;
+    color: #fff;
+  }
 }
 
 .kp-titlebar-buttons-line {
