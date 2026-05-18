@@ -18,13 +18,11 @@ export class MasterLockService {
   // Estado global de autenticación maestra.
   readonly state$ = new BehaviorSubject<MasterState>('locked');
 
-  private masterKey: CryptoKey | null = null;
   private inactivityTimer: any;
   private inactivityMs = 5 * 60 * 1000;
   private autoLockMinutes = 5;
 
   private readonly masterStorageKey = 'keyping.master.v1';
-  private readonly vaultStorageKey = 'keyping.vault.enc.v1';
   private readonly autoLockStorageKey = 'keyping.lock.autolock.v1';
   private readonly attemptPolicyKey = 'keyping.lock.policy.v1';
   private readonly attemptStateKey = 'keyping.lock.policy.state.v1';
@@ -51,7 +49,6 @@ export class MasterLockService {
   }
 
   lock(): void {
-    this.masterKey = null;
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = null;
     if (this.state$.value !== 'unset') {
@@ -74,19 +71,16 @@ export class MasterLockService {
     // Main process creates kp-auth.json and derives the vault key from this password.
     await window.keyping?.authSetup?.(password);
 
-    // Renderer derives its own key for the localStorage vault cache (metadata only).
+    // Renderer stores a keyed check in localStorage solely for init() state detection.
     const salt = this.randomBytes(16);
     const key = await this.deriveKey(password, this.toArrayBuffer(salt), MASTER_PBKDF2_ITER);
     const check = await this.encryptText(key, this.verificationText);
+    localStorage.setItem(this.masterStorageKey, JSON.stringify({
+      salt: this.toB64(salt), check, iterations: MASTER_PBKDF2_ITER
+    }));
+    // Remove any stale vault cache from previous versions.
+    localStorage.removeItem('keyping.vault.enc.v1');
 
-    const payload: StoredMaster = {
-      salt: this.toB64(salt),
-      check,
-      iterations: MASTER_PBKDF2_ITER
-    };
-    localStorage.setItem(this.masterStorageKey, JSON.stringify(payload));
-
-    this.masterKey = key;
     this.state$.next('unlocked');
     this.clearAttemptState();
     this.touch();
@@ -113,17 +107,8 @@ export class MasterLockService {
       return false;
     }
 
-    // Derive renderer-side key for localStorage vault cache (metadata only, not disk vault).
-    const stored = this.loadStoredMaster();
-    if (stored) {
-      try {
-        const salt = this.fromB64(stored.salt);
-        const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || MASTER_PBKDF2_ITER);
-        this.masterKey = key;
-      } catch {
-        this.masterKey = null;
-      }
-    }
+    // Remove any stale vault cache from previous versions.
+    localStorage.removeItem('keyping.vault.enc.v1');
 
     this.state$.next('unlocked');
     this.failedAttempts = 0;
@@ -132,30 +117,6 @@ export class MasterLockService {
     this.clearAttemptState();
     this.touch();
     return true;
-  }
-
-  async persistVault(data: unknown): Promise<void> {
-    if (!this.masterKey) return;
-    try {
-      const json = JSON.stringify(data ?? null);
-      const cipher = await this.encryptText(this.masterKey, json);
-      localStorage.setItem(this.vaultStorageKey, cipher);
-    } catch (err) {
-      console.warn('[master] unable to persist vault cache', err);
-    }
-  }
-
-  async loadCachedVault<T = any>(): Promise<T | null> {
-    if (!this.masterKey) return null;
-    try {
-      const cipher = localStorage.getItem(this.vaultStorageKey);
-      if (!cipher) return null;
-      const json = await this.decryptText(this.masterKey, cipher);
-      return JSON.parse(json) as T;
-    } catch (err) {
-      console.warn('[master] unable to load vault cache', err);
-      return null;
-    }
   }
 
   private loadStoredMaster(): StoredMaster | null {
@@ -215,31 +176,10 @@ export class MasterLockService {
     return this.toB64(combined);
   }
 
-  private async decryptText(key: CryptoKey, b64: string): Promise<string> {
-    const data = this.fromB64(b64);
-    const iv = data.subarray(0, 12);
-    const cipher = data.subarray(12);
-    const plainBuf = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: this.toArrayBuffer(iv) },
-      key,
-      this.toArrayBuffer(cipher)
-    );
-    return new TextDecoder().decode(plainBuf);
-  }
-
   private toB64(u8: Uint8Array): string {
     let s = '';
     u8.forEach(b => (s += String.fromCharCode(b)));
     return btoa(s);
-  }
-
-  private fromB64(b64: string): Uint8Array {
-    const s = atob(b64);
-    const u8 = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) {
-      u8[i] = s.charCodeAt(i);
-    }
-    return u8;
   }
 
   private randomBytes(len: number): Uint8Array {
@@ -293,14 +233,7 @@ export class MasterLockService {
   async rotateMaster(current: string, next: string): Promise<boolean> {
     const unlocked = await this.unlock(current);
     if (!unlocked) return false;
-
-    const cached = await this.loadCachedVault<any>();
     await this.setMaster(next);
-
-    if (cached) {
-      await this.persistVault(cached);
-    }
-
     this.lock();
     return true;
   }
