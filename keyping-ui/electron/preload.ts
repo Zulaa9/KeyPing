@@ -25,11 +25,8 @@ contextBridge.exposeInMainWorld('keyping', {
   clearPasswordHistory: (id: string) =>
     ipcRenderer.invoke('keyping:clearPasswordHistory', { id }),
 
-  checkCandidate: (pwd: string) => {
-    // Se mantiene log de trazabilidad para diagnósticos de IPC.
-    console.log('[preload] invoking keyping:check');
-    return ipcRenderer.invoke('keyping:check', { pwd });
-  },
+  checkCandidate: (pwd: string) =>
+    ipcRenderer.invoke('keyping:check', { pwd }),
 
   savePassword: (
     pwd: string,
@@ -75,7 +72,7 @@ contextBridge.exposeInMainWorld('keyping', {
 
   updatePassword: (id: string, pwd: string) =>
     ipcRenderer.invoke('keyping:update', { id, pwd }),
-  
+
   updateMeta: (
     id: string,
     label: string,
@@ -102,9 +99,14 @@ contextBridge.exposeInMainWorld('keyping', {
       iconSource,
       detectedService
     }),
-  
+
   sessionUnlock: () => ipcRenderer.invoke('keyping:session:unlock'),
   sessionLock: () => ipcRenderer.invoke('keyping:session:lock'),
+
+  // Gestión de intentos en proceso principal (bypass-proof).
+  recordFailedAttempt: () => ipcRenderer.invoke('keyping:auth:failedAttempt'),
+  clearAttemptState: () => ipcRenderer.invoke('keyping:auth:clearAttemptState'),
+  getMainCooldown: () => ipcRenderer.invoke('keyping:auth:getCooldown'),
 
   getPassword: (id: string) =>
     ipcRenderer.invoke('keyping:getPassword', { id }),

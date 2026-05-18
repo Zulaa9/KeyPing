@@ -9,6 +9,10 @@ type StoredMaster = {
   iterations: number;
 };
 
+const MIN_MASTER_LENGTH = 8;
+const MASTER_PBKDF2_ITER = 600_000; // OWASP 2023: mínimo 600k para PBKDF2-SHA256
+const MAX_AUTOLOCK_MINUTES = 30;    // Máximo 30 minutos para limitar exposición en sesión abierta
+
 @Injectable({ providedIn: 'root' })
 export class MasterLockService {
   // Estado global de autenticación maestra.
@@ -16,7 +20,7 @@ export class MasterLockService {
 
   private masterKey: CryptoKey | null = null;
   private inactivityTimer: any;
-  private inactivityMs = 5 * 60 * 1000; // default 5 minutos, configurable
+  private inactivityMs = 5 * 60 * 1000;
   private autoLockMinutes = 5;
 
   private readonly masterStorageKey = 'keyping.master.v1';
@@ -35,10 +39,11 @@ export class MasterLockService {
   private lastCooldownMs = 0;
 
   async init(): Promise<MasterState> {
-    // Inicializa configuración local (autolock y política de intentos) antes de exponer estado.
     this.loadAutoLock();
     this.loadAttemptPolicy();
     this.loadAttemptState();
+    // Sincroniza estado de cooldown con el proceso principal al arrancar.
+    await this.syncMainCooldown();
     const stored = this.loadStoredMaster();
     const nextState: MasterState = stored ? 'locked' : 'unset';
     this.state$.next(nextState);
@@ -46,7 +51,6 @@ export class MasterLockService {
   }
 
   lock(): void {
-    // Borra clave en memoria y cancela temporizador de inactividad.
     this.masterKey = null;
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = null;
@@ -57,33 +61,36 @@ export class MasterLockService {
   }
 
   touch(): void {
-    // Resetea el temporizador de autolock tras actividad del usuario.
     if (this.state$.value !== 'unlocked') return;
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = setTimeout(() => this.lock(), this.inactivityMs);
   }
 
   async setMaster(password: string): Promise<void> {
-    // Primera configuración: deriva clave, guarda verificación y marca sesión desbloqueada.
+    if (!password || password.length < MIN_MASTER_LENGTH) {
+      throw new Error(`Master password must be at least ${MIN_MASTER_LENGTH} characters`);
+    }
+
     const salt = this.randomBytes(16);
-    const key = await this.deriveKey(password, this.toArrayBuffer(salt), 150_000);
+    const key = await this.deriveKey(password, this.toArrayBuffer(salt), MASTER_PBKDF2_ITER);
     const check = await this.encryptText(key, this.verificationText);
 
     const payload: StoredMaster = {
       salt: this.toB64(salt),
       check,
-      iterations: 150_000
+      iterations: MASTER_PBKDF2_ITER
     };
     localStorage.setItem(this.masterStorageKey, JSON.stringify(payload));
 
     this.masterKey = key;
     this.state$.next('unlocked');
     window.keyping?.sessionUnlock?.();
+    await window.keyping?.clearAttemptState?.();
+    this.clearAttemptState();
     this.touch();
   }
 
   async unlock(password: string): Promise<boolean> {
-    // Valida contraseña maestra y aplica política de cooldown progresivo.
     const stored = this.loadStoredMaster();
     if (!stored) return false;
     const now = Date.now();
@@ -95,10 +102,10 @@ export class MasterLockService {
 
     try {
       const salt = this.fromB64(stored.salt);
-      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || 150_000);
+      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || MASTER_PBKDF2_ITER);
       const plain = await this.decryptText(key, stored.check);
       if (plain !== this.verificationText) {
-        this.handleFailedAttempt();
+        await this.handleFailedAttempt();
         return false;
       }
 
@@ -109,31 +116,43 @@ export class MasterLockService {
       this.nextUnlockAt = 0;
       this.lastCooldownMs = 0;
       this.clearAttemptState();
+      await window.keyping?.clearAttemptState?.();
       this.touch();
       return true;
     } catch (err) {
       console.warn('[master] unlock failed', err);
-      this.handleFailedAttempt();
+      await this.handleFailedAttempt();
       return false;
     }
   }
 
-  /** Verifica la contraseña maestra sin cambiar el estado actual ni disparar cooldown. */
+  /** Verifica la contraseña maestra sin cambiar el estado actual. Aplica el mismo cooldown que unlock(). */
   async verifyMaster(password: string): Promise<boolean> {
     const stored = this.loadStoredMaster();
     if (!stored) return false;
+
+    const now = Date.now();
+    this.expireCooldownIfElapsed(now);
+    if (now < this.nextUnlockAt) {
+      return false;
+    }
+
     try {
       const salt = this.fromB64(stored.salt);
-      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || 150_000);
+      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || MASTER_PBKDF2_ITER);
       const plain = await this.decryptText(key, stored.check);
-      return plain === this.verificationText;
+      if (plain !== this.verificationText) {
+        await this.handleFailedAttempt();
+        return false;
+      }
+      return true;
     } catch {
+      await this.handleFailedAttempt();
       return false;
     }
   }
 
   async persistVault(data: unknown): Promise<void> {
-    // Cache cifrada del vault en localStorage para acceso rápido tras unlock.
     if (!this.masterKey) return;
     try {
       const json = JSON.stringify(data ?? null);
@@ -145,7 +164,6 @@ export class MasterLockService {
   }
 
   async loadCachedVault<T = any>(): Promise<T | null> {
-    // Solo devuelve datos si existe clave maestra activa en memoria.
     if (!this.masterKey) return null;
     try {
       const cipher = localStorage.getItem(this.vaultStorageKey);
@@ -164,7 +182,7 @@ export class MasterLockService {
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (typeof parsed?.salt === 'string' && typeof parsed?.check === 'string') {
-        const rawIter = Number(parsed.iterations) || 150_000;
+        const rawIter = Number(parsed.iterations) || MASTER_PBKDF2_ITER;
         return {
           salt: parsed.salt,
           check: parsed.check,
@@ -249,14 +267,13 @@ export class MasterLockService {
   }
 
   private toArrayBuffer(u8: Uint8Array): ArrayBuffer {
-    // Copia a un ArrayBuffer real (evita SharedArrayBuffer)
     const copy = new Uint8Array(u8.byteLength);
     copy.set(new Uint8Array(u8.buffer, u8.byteOffset, u8.byteLength));
     return copy.buffer;
   }
 
   setAutoLockMinutes(minutes: number): void {
-    const clamped = Math.max(1, Math.min(60, Math.round(minutes)));
+    const clamped = Math.max(1, Math.min(MAX_AUTOLOCK_MINUTES, Math.round(minutes)));
     this.autoLockMinutes = clamped;
     this.inactivityMs = clamped * 60 * 1000;
     localStorage.setItem(this.autoLockStorageKey, JSON.stringify({ minutes: clamped }));
@@ -268,7 +285,6 @@ export class MasterLockService {
   }
 
   setAttemptPolicy(freeAttempts: number, baseDelayMs: number, growthFactor: number): void {
-    // Normaliza límites y resetea estado de intentos al cambiar política.
     this.attemptPolicy = {
       freeAttempts: Math.max(0, Math.min(10, Math.round(freeAttempts))),
       baseDelayMs: Math.max(500, Math.round(baseDelayMs)),
@@ -303,7 +319,6 @@ export class MasterLockService {
       await this.persistVault(cached);
     }
 
-    // Forzar re-autenticacion con la nueva clave maestra
     this.lock();
     return true;
   }
@@ -312,7 +327,7 @@ export class MasterLockService {
     try {
       const raw = JSON.parse(localStorage.getItem(this.autoLockStorageKey) || '{}');
       if (typeof raw?.minutes === 'number' && raw.minutes > 0) {
-        this.autoLockMinutes = Math.max(1, Math.min(60, Math.round(raw.minutes)));
+        this.autoLockMinutes = Math.max(1, Math.min(MAX_AUTOLOCK_MINUTES, Math.round(raw.minutes)));
         this.inactivityMs = this.autoLockMinutes * 60 * 1000;
       }
     } catch {
@@ -347,7 +362,6 @@ export class MasterLockService {
         this.failedAttempts = Math.max(0, Number((raw as any).failedAttempts) || 0);
         this.nextUnlockAt = Math.max(0, Number((raw as any).nextUnlockAt) || 0);
         this.lastCooldownMs = Math.max(0, Number((raw as any).lastCooldownMs) || 0);
-
         this.expireCooldownIfElapsed();
       }
     } catch {
@@ -357,22 +371,41 @@ export class MasterLockService {
     }
   }
 
-  private handleFailedAttempt(): void {
-    // A partir del umbral gratuito, el bloqueo crece de forma exponencial.
+  private async syncMainCooldown(): Promise<void> {
+    try {
+      const state = await window.keyping?.getMainCooldown?.();
+      if (state && state.nextUnlockAt > this.nextUnlockAt) {
+        this.failedAttempts = Math.max(this.failedAttempts, state.failedAttempts);
+        this.nextUnlockAt = state.nextUnlockAt;
+        this.lastCooldownMs = state.remainingMs || 0;
+        this.persistAttemptState();
+      }
+    } catch {
+      // No-op: sincronización de mejor esfuerzo.
+    }
+  }
+
+  private async handleFailedAttempt(): Promise<void> {
     this.failedAttempts++;
 
     if (this.failedAttempts <= this.attemptPolicy.freeAttempts) {
       this.nextUnlockAt = 0;
       this.lastCooldownMs = 0;
-      return;
+    } else {
+      const exponent = Math.max(0, this.failedAttempts - this.attemptPolicy.freeAttempts - 1);
+      const rawDelay = this.attemptPolicy.baseDelayMs * Math.pow(this.attemptPolicy.growthFactor, exponent);
+      const delay = Math.min(Number.MAX_SAFE_INTEGER / 2, rawDelay);
+      this.nextUnlockAt = Date.now() + delay;
+      this.lastCooldownMs = delay;
+      this.persistAttemptState();
     }
 
-    const exponent = Math.max(0, this.failedAttempts - this.attemptPolicy.freeAttempts - 1);
-    const rawDelay = this.attemptPolicy.baseDelayMs * Math.pow(this.attemptPolicy.growthFactor, exponent);
-    const delay = Math.min(Number.MAX_SAFE_INTEGER / 2, rawDelay);
-    this.nextUnlockAt = Date.now() + delay;
-    this.lastCooldownMs = delay;
-    this.persistAttemptState();
+    // Notifica al proceso principal para que también aplique el cooldown.
+    try {
+      await window.keyping?.recordFailedAttempt?.();
+    } catch {
+      // No-op: doble capa de protección; el renderer ya tiene cooldown local.
+    }
   }
 
   private persistAttemptState(): void {

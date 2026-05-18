@@ -81,6 +81,9 @@ declare global {
       ping?(): Promise<string>;
       sessionUnlock?(): Promise<void>;
       sessionLock?(): Promise<void>;
+      recordFailedAttempt?(): Promise<{ failedAttempts: number; nextUnlockAt: number }>;
+      clearAttemptState?(): Promise<void>;
+      getMainCooldown?(): Promise<{ failedAttempts: number; nextUnlockAt: number; remainingMs: number }>;
       getPassword?(id: string): Promise<string | null>;
       copyText?(text: string): Promise<boolean>;
       getPasswordHashes?(): Promise<Array<{ id: string; hash: string }>>;

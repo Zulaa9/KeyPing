@@ -26,6 +26,7 @@ import {
   getHistorySettings,
   updateHistorySettings,
   getPasswordHashes,
+  runStartupMigrations,
 } from './vault';
 
 import { findMostSimilarInVault } from './vault/similarity';
@@ -34,16 +35,47 @@ import { AutoUpdateService } from './updates/auto-update.service';
 import { execFile } from 'node:child_process';
 import { ClipboardClearSessionManager } from './clipboard-clear-session';
 
-
+// Prefiere Wayland cuando está disponible (evita keylogging X11 por otras apps).
 if (process.platform === 'linux') {
-  app.commandLine.appendSwitch('ozone-platform', 'x11');
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
 }
+
+const CLIPBOARD_TTL_MS = 20_000;
 
 let win: BrowserWindow | null = null;
 let sessionUnlocked = false;
 const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 const autoUpdateService = new AutoUpdateService(() => BrowserWindow.getAllWindows());
+
+// Estado de intentos fallidos mantenido en el proceso principal (no manipulable desde el renderer).
+const authAttemptState = {
+  failedAttempts: 0,
+  nextUnlockAt: 0,
+  lastCooldownMs: 0,
+  policy: { freeAttempts: 3, baseDelayMs: 5_000, growthFactor: 2 }
+};
+
+function recordMainFailedAttempt(): void {
+  authAttemptState.failedAttempts++;
+  if (authAttemptState.failedAttempts <= authAttemptState.policy.freeAttempts) return;
+  const exponent = Math.max(0, authAttemptState.failedAttempts - authAttemptState.policy.freeAttempts - 1);
+  const delay = Math.min(
+    Number.MAX_SAFE_INTEGER / 2,
+    authAttemptState.policy.baseDelayMs * Math.pow(authAttemptState.policy.growthFactor, exponent)
+  );
+  authAttemptState.nextUnlockAt = Date.now() + delay;
+  authAttemptState.lastCooldownMs = delay;
+}
+
+function isMainCooldownActive(): boolean {
+  const now = Date.now();
+  if (authAttemptState.nextUnlockAt > 0 && now >= authAttemptState.nextUnlockAt) {
+    authAttemptState.nextUnlockAt = 0;
+    authAttemptState.lastCooldownMs = 0;
+  }
+  return authAttemptState.nextUnlockAt > 0 && Date.now() < authAttemptState.nextUnlockAt;
+}
 
 function clearWindowsClipboardHistory(): Promise<boolean> {
   // Limpia el historial de portapapeles de Windows (Win+V) en modo de mejor esfuerzo.
@@ -123,11 +155,7 @@ function createWindow() {
 
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (isMainFrame) {
-      console.error('[main] renderer failed to load', {
-        errorCode,
-        errorDescription,
-        validatedURL
-      });
+      console.error('[main] renderer failed to load', { errorCode, errorDescription, validatedURL });
     }
   });
 
@@ -140,7 +168,6 @@ function createWindow() {
     sessionUnlocked = false;
   });
 
-  // Endurecimiento básico: bloquea navegación externa dentro de la app.
   win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
     if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
       shell.openExternal(targetUrl);
@@ -182,8 +209,9 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
+  await runStartupMigrations().catch(err => console.error('[main] startup migration failed', err));
   void autoUpdateService.initialize();
   createWindow();
   app.on('activate', () => {
@@ -218,29 +246,25 @@ const KEYBOARD_RUNS = [
 const NUM_SEQUENCES = ['0123','1234','2345','3456','4567','5678','6789','7890'];
 const YEAR_SUFFIX = /(19|20)\d{2}$/;
 
-// Mapa leet básico.
 const LEET_MAP: Record<string,string> = {
   '0':'o','1':'i','2':'z','3':'e','4':'a','5':'s','6':'g','7':'t','8':'b','9':'g',
   '@':'a','$':'s','!':'i','¡':'i','¿':'','?':'','+':'t'
 };
 
-// Normaliza para comparar patrones entre idiomas y estilos de escritura.
 function normalizeBasic(s: string): string {
   let x = (s || '')
     .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
     .replace(/[\s._\-:/\\|'",`~^°(){}\[\]]/g,'');
   x = x.replace(/[0123456789@$!¡\+\?]/g, m => LEET_MAP[m] ?? m);
   x = x.replace(/(.)\1{2,}/g, '$1$1');
   return x;
 }
 
-// Construye el diccionario normalizado una sola vez al arrancar.
 const COMMON_WORDS: Set<string> = (() => {
   const set = new Set<string>();
   for (const w of RAW_COMMON_WORDS) {
     const n = normalizeBasic(w);
-    // Omite tokens muy cortos para evitar ruido.
     if (n && n.length >= 3) {
       set.add(n);
     }
@@ -260,12 +284,10 @@ function classMask(s: string): number {
 }
 
 function hasCommonWord(nrm: string): string | null {
-  // Coincidencia exacta: siempre cuenta.
   if (COMMON_WORDS.has(nrm)) return nrm;
 
   for (const w of COMMON_WORDS) {
     if (!w) continue;
-    // solo buscamos dentro si la palabra comun tiene cierto tamano
     if (w.length >= 4 && nrm.includes(w)) {
       return w;
     }
@@ -281,20 +303,14 @@ function hasSequence(nrm: string): string | null {
 }
 
 function looksIncremental(orig: string): boolean {
-  // Detecta sufijos incrementales típicos (123, 2024, !1) sin penalizar contraseñas largas aleatorias.
   if (YEAR_SUFFIX.test(orig)) return true;
 
   const m = orig.match(/^(.*?)([!.?_\-])?(\d{1,4})$/);
   if (!m) return false;
 
   const prefix = m[1] || '';
-  const suffixDigits = m[3] || '';
-
-  // Solo marcamos como incremental si el prefijo es relativamente corto (p.ej. "password", "token", "abc")
-  // para evitar falsos positivos en contraseñas largas y aleatorias que simplemente acaban en un número.
   if (prefix.length <= 12) return true;
 
-  // Prefijo largo => asumimos aleatorio, no penalizamos
   return false;
 }
 
@@ -304,10 +320,8 @@ async function checkPasswordBetter(pwd: string) {
   const nrm = normalizeBasic(pwd);
   const orig = pwd || '';
 
-
   if (!orig) return { level, reasons };
 
-  // 1) Reglas clásicas (diccionario, longitud, variedad).
   const hit = hasCommonWord(nrm);
   if (hit) { level = 'danger'; reasons.push(`common word: "${hit}"`); }
 
@@ -337,21 +351,16 @@ async function checkPasswordBetter(pwd: string) {
     reasons.push('trivial base with small variation');
   }
 
-  // 2) Similitud con histórico (modo equilibrado).
   try {
     const best = await findMostSimilarInVault(orig);
     if (best) {
       const score = Math.round(best.score);
-      const noteSnippet = best.entry.label
-        ? ` (${best.entry.label})`
-        : '';
+      const noteSnippet = best.entry.label ? ` (${best.entry.label})` : '';
 
       if (score >= 80) {
-        // Muy similar => riesgo alto.
         level = 'danger';
         reasons.push(`similar to previous password${noteSnippet} (~${score}% match)`);
       } else if (score >= 60) {
-        // Similaridad intermedia => advertencia.
         if (level === 'ok') level = 'warn';
         reasons.push(`somewhat similar to previous password${noteSnippet} (~${score}% match)`);
       }
@@ -365,37 +374,39 @@ async function checkPasswordBetter(pwd: string) {
 
 /* -------------------- Puente IPC --------------------- */
 
-// Verificación rápida de conectividad IPC.
 ipcMain.handle('keyping:ping', async () => {
   console.log('[main] ping');
-  return `pong ${process.versions.electron}`;
+  return 'pong';
 });
 
 ipcMain.handle('keyping:vaultIntegrity', async () => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   return await checkVaultIntegrity();
 });
 
 ipcMain.handle('keyping:getHistorySettings', async () => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   return await getHistorySettings();
 });
 
 ipcMain.handle('keyping:updateHistorySettings', async (_evt, maxHistoryPerEntry: number) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   return await updateHistorySettings(maxHistoryPerEntry);
 });
 
 ipcMain.handle('keyping:compactVault', async (_evt, args?: { keepOnlyCurrent?: boolean; maxHistoryPerEntry?: number }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   return await compactVault({
     keepOnlyCurrent: !!args?.keepOnlyCurrent,
     maxHistoryPerEntry: args?.maxHistoryPerEntry
   });
 });
 
-// Comprobador principal (asíncrono por cálculo de similitud).
 ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
+  if (!sessionUnlocked) return { level: 'ok', reasons: [] };
   return await checkPasswordBetter(args?.pwd ?? '');
 });
 
-// Guarda una nueva entrada en el vault.
 ipcMain.handle('keyping:save', async (_evt, args: {
   pwd: string;
   label?: string;
@@ -427,9 +438,8 @@ ipcMain.handle('keyping:save', async (_evt, args: {
   return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
 });
 
-
-// Lista solo entradas activas.
 ipcMain.handle('keyping:list', async () => {
+  if (!sessionUnlocked) return [];
   const entries = await getVaultEntries();
   return entries
     .filter(e => e.active !== false)
@@ -440,7 +450,6 @@ ipcMain.handle('keyping:list', async () => {
     });
 });
 
-// Copia contraseña al portapapeles y programa limpieza diferida.
 ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
   if (!sessionUnlocked) return false;
 
@@ -452,15 +461,17 @@ ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
   }
 
   clipboard.writeText(secret);
-  clipboardSessionManager.startSession(secret, 20_000);
+  clipboardSessionManager.startSession(secret, CLIPBOARD_TTL_MS);
 
   return true;
 });
 
 ipcMain.handle('keyping:copyText', (_evt, text: string) => {
+  if (!sessionUnlocked) return false;
   if (typeof text !== 'string' || !text) return false;
+  if (text.length > 10_000) return false;
   clipboard.writeText(text);
-  clipboardSessionManager.startSession(text, 20_000);
+  clipboardSessionManager.startSession(text, CLIPBOARD_TTL_MS);
   return true;
 });
 
@@ -469,16 +480,12 @@ ipcMain.handle('keyping:getPasswordHashes', async () => {
   return await getPasswordHashes();
 });
 
-
-
-// Borrado lógico (sin eliminar físicamente del historial).
 ipcMain.handle('keyping:delete', async (_evt, args: { id: string }) => {
   if (!sessionUnlocked) throw new Error('Session locked');
   await softDeleteEntry(args.id);
   return true;
 });
 
-// Edita contraseña: crea versión nueva y desactiva la anterior.
 ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string }) => {
   if (!sessionUnlocked) throw new Error('Session locked');
   const updated = await replacePasswordForEntry(args.id, args.pwd);
@@ -487,7 +494,6 @@ ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string })
   const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService } = updated;
   return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
 });
-
 
 ipcMain.handle('keyping:updateMeta', async (_evt, args: {
   id: string;
@@ -526,26 +532,64 @@ const mapHistoryEntry = (e: any) => {
 };
 
 ipcMain.handle('keyping:getPasswordHistory', async (_evt, args: { id: string }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   const history = await getPasswordHistory(args.id);
   return history.map(mapHistoryEntry);
 });
 
 ipcMain.handle('keyping:restorePasswordVersion', async (_evt, args: { id: string }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   const restored = await restorePasswordVersion(args.id);
   if (!restored) throw new Error('Version not found');
   return mapHistoryEntry(restored);
 });
 
 ipcMain.handle('keyping:deletePasswordVersion', async (_evt, args: { id: string }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   return await deleteHistoryVersion(args.id);
 });
 
 ipcMain.handle('keyping:clearPasswordHistory', async (_evt, args: { id: string }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   return await deleteHistoryForEntry(args.id);
 });
 
-ipcMain.handle('keyping:session:unlock', () => { sessionUnlocked = true; });
+// El unlock verifica el cooldown en el proceso principal además de en el renderer.
+ipcMain.handle('keyping:session:unlock', () => {
+  if (isMainCooldownActive()) {
+    throw new Error('Cooldown active');
+  }
+  sessionUnlocked = true;
+});
 ipcMain.handle('keyping:session:lock', () => { sessionUnlocked = false; });
+
+// Gestión de intentos fallidos en el proceso principal (no manipulable desde el renderer).
+ipcMain.handle('keyping:auth:failedAttempt', () => {
+  recordMainFailedAttempt();
+  return {
+    failedAttempts: authAttemptState.failedAttempts,
+    nextUnlockAt: authAttemptState.nextUnlockAt
+  };
+});
+
+ipcMain.handle('keyping:auth:clearAttemptState', () => {
+  authAttemptState.failedAttempts = 0;
+  authAttemptState.nextUnlockAt = 0;
+  authAttemptState.lastCooldownMs = 0;
+});
+
+ipcMain.handle('keyping:auth:getCooldown', () => {
+  const now = Date.now();
+  if (authAttemptState.nextUnlockAt > 0 && now >= authAttemptState.nextUnlockAt) {
+    authAttemptState.nextUnlockAt = 0;
+    authAttemptState.lastCooldownMs = 0;
+  }
+  return {
+    failedAttempts: authAttemptState.failedAttempts,
+    nextUnlockAt: authAttemptState.nextUnlockAt,
+    remainingMs: Math.max(0, authAttemptState.nextUnlockAt - now)
+  };
+});
 
 ipcMain.handle('keyping:getPassword', async (_evt, args: { id: string }) => {
   if (!sessionUnlocked) return null;
@@ -556,14 +600,12 @@ ipcMain.handle('keyping:openExternal', async (_evt, rawUrl: string) => {
   try {
     let urlToOpen = (rawUrl || '').trim();
 
-    // Si no tiene protocolo, le añadimos https:// al principio
     if (!/^https?:\/\//i.test(urlToOpen)) {
       urlToOpen = 'https://' + urlToOpen;
     }
 
     const u = new URL(urlToOpen);
 
-    // Solo permitimos http/https por seguridad
     if (u.protocol === 'http:' || u.protocol === 'https:') {
       await shell.openExternal(u.toString());
       return true;
@@ -576,6 +618,8 @@ ipcMain.handle('keyping:openExternal', async (_evt, rawUrl: string) => {
 });
 
 ipcMain.handle('keyping:exportVault', async (_evt, args?: { mode?: 'native' | 'master'; password?: string; includeHistory?: boolean }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
+
   const mode = args?.mode || 'master';
   const includeHistory = args?.includeHistory !== false;
 
@@ -595,6 +639,7 @@ ipcMain.handle('keyping:exportVault', async (_evt, args?: { mode?: 'native' | 'm
 });
 
 ipcMain.handle('keyping:parseImport', async (_evt, raw: string, password?: string) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
   return await parseImportPayload(raw, password);
 });
 
@@ -606,6 +651,8 @@ ipcMain.handle('keyping:importVault', async (_evt, args: {
   password?: string;
   masterPayload?: any;
 }) => {
+  if (!sessionUnlocked) throw new Error('Session locked');
+
   if (args.mode === 'overwrite') {
     const enc = args.enc || (args.encrypted ? 'native' : 'plain');
     let imported = 0;
@@ -629,4 +676,3 @@ ipcMain.handle('window:maximize', () => {
   else win?.maximize();
 });
 ipcMain.handle('window:close', () => { win?.close(); });
-
