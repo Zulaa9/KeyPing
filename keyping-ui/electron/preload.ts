@@ -100,12 +100,11 @@ contextBridge.exposeInMainWorld('keyping', {
       detectedService
     }),
 
-  sessionUnlock: () => ipcRenderer.invoke('keyping:session:unlock'),
+  // Auth: password verified in main process, session key derived there.
+  authUnlock: (password: string) => ipcRenderer.invoke('keyping:auth:unlock', password),
+  authSetup: (password: string) => ipcRenderer.invoke('keyping:auth:setup', password),
   sessionLock: () => ipcRenderer.invoke('keyping:session:lock'),
 
-  // Gestión de intentos en proceso principal (bypass-proof).
-  recordFailedAttempt: () => ipcRenderer.invoke('keyping:auth:failedAttempt'),
-  clearAttemptState: () => ipcRenderer.invoke('keyping:auth:clearAttemptState'),
   getMainCooldown: () => ipcRenderer.invoke('keyping:auth:getCooldown'),
 
   getPassword: (id: string) =>

@@ -71,6 +71,10 @@ export class MasterLockService {
       throw new Error(`Master password must be at least ${MIN_MASTER_LENGTH} characters`);
     }
 
+    // Main process creates kp-auth.json and derives the vault key from this password.
+    await window.keyping?.authSetup?.(password);
+
+    // Renderer derives its own key for the localStorage vault cache (metadata only).
     const salt = this.randomBytes(16);
     const key = await this.deriveKey(password, this.toArrayBuffer(salt), MASTER_PBKDF2_ITER);
     const check = await this.encryptText(key, this.verificationText);
@@ -84,15 +88,11 @@ export class MasterLockService {
 
     this.masterKey = key;
     this.state$.next('unlocked');
-    window.keyping?.sessionUnlock?.();
-    await window.keyping?.clearAttemptState?.();
     this.clearAttemptState();
     this.touch();
   }
 
   async unlock(password: string): Promise<boolean> {
-    const stored = this.loadStoredMaster();
-    if (!stored) return false;
     const now = Date.now();
     this.expireCooldownIfElapsed(now);
     if (now < this.nextUnlockAt) {
@@ -100,30 +100,38 @@ export class MasterLockService {
       return false;
     }
 
+    // Main process verifies the password and derives the vault encryption key.
+    let mainResult = false;
     try {
-      const salt = this.fromB64(stored.salt);
-      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || MASTER_PBKDF2_ITER);
-      const plain = await this.decryptText(key, stored.check);
-      if (plain !== this.verificationText) {
-        await this.handleFailedAttempt();
-        return false;
-      }
-
-      this.masterKey = key;
-      this.state$.next('unlocked');
-      window.keyping?.sessionUnlock?.();
-      this.failedAttempts = 0;
-      this.nextUnlockAt = 0;
-      this.lastCooldownMs = 0;
-      this.clearAttemptState();
-      await window.keyping?.clearAttemptState?.();
-      this.touch();
-      return true;
+      mainResult = !!(await window.keyping?.authUnlock?.(password));
     } catch (err) {
-      console.warn('[master] unlock failed', err);
-      await this.handleFailedAttempt();
+      console.warn('[master] authUnlock IPC error', err);
+    }
+
+    if (!mainResult) {
+      this.handleFailedAttempt();
       return false;
     }
+
+    // Derive renderer-side key for localStorage vault cache (metadata only, not disk vault).
+    const stored = this.loadStoredMaster();
+    if (stored) {
+      try {
+        const salt = this.fromB64(stored.salt);
+        const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || MASTER_PBKDF2_ITER);
+        this.masterKey = key;
+      } catch {
+        this.masterKey = null;
+      }
+    }
+
+    this.state$.next('unlocked');
+    this.failedAttempts = 0;
+    this.nextUnlockAt = 0;
+    this.lastCooldownMs = 0;
+    this.clearAttemptState();
+    this.touch();
+    return true;
   }
 
   /** Verifica la contraseña maestra sin cambiar el estado actual. Aplica el mismo cooldown que unlock(). */
@@ -142,12 +150,12 @@ export class MasterLockService {
       const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || MASTER_PBKDF2_ITER);
       const plain = await this.decryptText(key, stored.check);
       if (plain !== this.verificationText) {
-        await this.handleFailedAttempt();
+        this.handleFailedAttempt();
         return false;
       }
       return true;
     } catch {
-      await this.handleFailedAttempt();
+      this.handleFailedAttempt();
       return false;
     }
   }
@@ -385,7 +393,7 @@ export class MasterLockService {
     }
   }
 
-  private async handleFailedAttempt(): Promise<void> {
+  private handleFailedAttempt(): void {
     this.failedAttempts++;
 
     if (this.failedAttempts <= this.attemptPolicy.freeAttempts) {
@@ -398,13 +406,6 @@ export class MasterLockService {
       this.nextUnlockAt = Date.now() + delay;
       this.lastCooldownMs = delay;
       this.persistAttemptState();
-    }
-
-    // Notifica al proceso principal para que también aplique el cooldown.
-    try {
-      await window.keyping?.recordFailedAttempt?.();
-    } catch {
-      // No-op: doble capa de protección; el renderer ya tiene cooldown local.
     }
   }
 
