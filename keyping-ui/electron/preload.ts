@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('keyping', {
   closeWindow: () => ipcRenderer.invoke('window:close'),
 
   ping: () => ipcRenderer.invoke('keyping:ping'),
+  hasVault: () => ipcRenderer.invoke('keyping:hasVault'),
   checkVaultIntegrity: () => ipcRenderer.invoke('keyping:vaultIntegrity'),
   getHistorySettings: () => ipcRenderer.invoke('keyping:getHistorySettings'),
   updateHistorySettings: (maxHistoryPerEntry: number) =>

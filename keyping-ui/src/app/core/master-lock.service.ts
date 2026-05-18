@@ -40,10 +40,19 @@ export class MasterLockService {
     this.loadAutoLock();
     this.loadAttemptPolicy();
     this.loadAttemptState();
-    // Sincroniza estado de cooldown con el proceso principal al arrancar.
     await this.syncMainCooldown();
+
+    // Main process is the source of truth for vault existence.
+    // localStorage may be empty (cleared, fresh OS profile, or first launch after upgrade)
+    // while kp-auth.json already exists on disk — in that case show the lock screen,
+    // not the create-vault screen, to avoid a silent Unauthorized error on authSetup.
+    let vaultExists = false;
+    try {
+      vaultExists = !!(await window.keyping?.hasVault?.());
+    } catch { /* no-op: treat as no vault */ }
+
     const stored = this.loadStoredMaster();
-    const nextState: MasterState = stored ? 'locked' : 'unset';
+    const nextState: MasterState = (stored || vaultExists) ? 'locked' : 'unset';
     this.state$.next(nextState);
     return nextState;
   }

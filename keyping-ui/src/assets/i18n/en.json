@@ -19,6 +19,7 @@
   "app.lock.invalid": "Incorrect password",
   "app.lock.minLength": "Use at least 8 characters",
   "app.lock.mismatch": "Passwords do not match",
+  "app.lock.setupFailed": "Could not create the vault. Please try again.",
   "app.lock.cooldown": "{{seconds}}s to retry",
   "onboarding.eyebrow": "Quick tour",
   "onboarding.welcomeTitle": "Welcome to KeyPing",
