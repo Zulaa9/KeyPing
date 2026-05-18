@@ -650,6 +650,22 @@ ipcMain.handle('keyping:session:lock', () => {
   clearSessionKey();
 });
 
+// Re-verifies the master password without altering session state.
+// Used by sensitive operations (e.g., vault export) that require explicit re-confirmation.
+ipcMain.handle('keyping:auth:verify', async (_evt, password: string) => {
+  if (typeof password !== 'string' || !password || password.length > 1024) return false;
+  if (!sessionUnlocked) return false;
+  if (isMainCooldownActive()) return false;
+
+  const key = await verifyPasswordAndDeriveKey(password);
+  if (!key) {
+    recordMainFailedAttempt();
+    return false;
+  }
+  key.fill(0);
+  return true;
+});
+
 // Gestión de intentos fallidos en el proceso principal (no manipulable desde el renderer).
 ipcMain.handle('keyping:auth:failedAttempt', () => {
   recordMainFailedAttempt();

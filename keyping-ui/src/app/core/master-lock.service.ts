@@ -134,32 +134,6 @@ export class MasterLockService {
     return true;
   }
 
-  /** Verifica la contraseña maestra sin cambiar el estado actual. Aplica el mismo cooldown que unlock(). */
-  async verifyMaster(password: string): Promise<boolean> {
-    const stored = this.loadStoredMaster();
-    if (!stored) return false;
-
-    const now = Date.now();
-    this.expireCooldownIfElapsed(now);
-    if (now < this.nextUnlockAt) {
-      return false;
-    }
-
-    try {
-      const salt = this.fromB64(stored.salt);
-      const key = await this.deriveKey(password, this.toArrayBuffer(salt), stored.iterations || MASTER_PBKDF2_ITER);
-      const plain = await this.decryptText(key, stored.check);
-      if (plain !== this.verificationText) {
-        this.handleFailedAttempt();
-        return false;
-      }
-      return true;
-    } catch {
-      this.handleFailedAttempt();
-      return false;
-    }
-  }
-
   async persistVault(data: unknown): Promise<void> {
     if (!this.masterKey) return;
     try {

@@ -103,6 +103,7 @@ contextBridge.exposeInMainWorld('keyping', {
   // Auth: password verified in main process, session key derived there.
   authUnlock: (password: string) => ipcRenderer.invoke('keyping:auth:unlock', password),
   authSetup: (password: string) => ipcRenderer.invoke('keyping:auth:setup', password),
+  authVerify: (password: string) => ipcRenderer.invoke('keyping:auth:verify', password),
   sessionLock: () => ipcRenderer.invoke('keyping:session:lock'),
 
   getMainCooldown: () => ipcRenderer.invoke('keyping:auth:getCooldown'),

@@ -81,6 +81,7 @@ declare global {
       ping?(): Promise<string>;
       authUnlock?(password: string): Promise<boolean>;
       authSetup?(password: string): Promise<boolean>;
+      authVerify?(password: string): Promise<boolean>;
       sessionLock?(): Promise<void>;
       getMainCooldown?(): Promise<{ failedAttempts: number; nextUnlockAt: number; remainingMs: number }>;
       getPassword?(id: string): Promise<string | null>;

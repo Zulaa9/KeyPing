@@ -292,7 +292,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.exportModal.error = this.t('settings.export.modal.errorRequired');
       return;
     }
-    const ok = await this.master.verifyMaster(this.exportModal.password.trim());
+    const ok = !!(await window.keyping?.authVerify?.(this.exportModal.password.trim()));
     if (!ok) {
       this.exportModal.error = this.t('settings.export.modal.errorInvalid');
       return;
