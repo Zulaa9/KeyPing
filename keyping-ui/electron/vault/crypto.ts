@@ -11,6 +11,8 @@ const HMAC_KEY_FILE = 'kp-hash.key';
 const LEGACY_PBKDF2_ITER = 120_000;
 const AUTH_PBKDF2_ITER = 600_000; // OWASP 2023
 const KEY_LEN = 32;
+const MIN_AUTH_ITER = 100_000;
+const MAX_AUTH_ITER = 2_000_000;
 const VERIFY_TEXT = 'keyping-master-check';
 
 // In-memory session key. Set after successful auth, cleared on lock.
@@ -52,7 +54,14 @@ function getHmacKeyPath(): string {
 async function loadAuthFile(): Promise<AuthFileData | null> {
   try {
     const raw = await fs.readFile(getAuthFilePath(), 'utf8');
-    return JSON.parse(raw) as AuthFileData;
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed?.salt !== 'string' ||
+      typeof parsed?.check !== 'string' ||
+      typeof parsed?.iterations !== 'number'
+    ) return null;
+    const iterations = Math.max(MIN_AUTH_ITER, Math.min(MAX_AUTH_ITER, Math.round(parsed.iterations)));
+    return { salt: parsed.salt, check: parsed.check, iterations };
   } catch {
     return null;
   }
