@@ -73,6 +73,23 @@ async function saveAuthFile(data: AuthFileData): Promise<void> {
   await fs.writeFile(file, JSON.stringify(data), { encoding: 'utf8', mode: 0o600 });
 }
 
+// Rollback helpers for atomic password rotation — read/write raw auth JSON and copy session key.
+export async function readAuthFileRaw(): Promise<string | null> {
+  try { return await fs.readFile(getAuthFilePath(), 'utf8'); } catch { return null; }
+}
+
+export async function writeAuthFileRaw(raw: string): Promise<void> {
+  const file = getAuthFilePath();
+  await fs.writeFile(file, raw, { encoding: 'utf8', mode: 0o600 });
+}
+
+export function copySessionKey(): Buffer | null {
+  if (!sessionKey) return null;
+  const copy = Buffer.allocUnsafe(sessionKey.length);
+  sessionKey.copy(copy);
+  return copy;
+}
+
 export async function hasAuthFile(): Promise<boolean> {
   try {
     await fs.access(getAuthFilePath());

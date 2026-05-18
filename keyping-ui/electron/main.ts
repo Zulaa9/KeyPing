@@ -37,6 +37,9 @@ import {
   clearSessionKey,
   deriveLegacyMasterKey,
   removeLegacyKeyFile,
+  readAuthFileRaw,
+  writeAuthFileRaw,
+  copySessionKey,
 } from './vault/crypto';
 
 import { findMostSimilarInVault } from './vault/similarity';
@@ -632,9 +635,22 @@ ipcMain.handle('keyping:auth:setup', async (_evt, password: string) => {
   }
 
   if (sessionUnlocked) {
+    // Rotation: snapshot old auth + session key so we can roll back if saveVault fails.
     const vault = await loadVault();
+    const oldAuthRaw = await readAuthFileRaw();
+    const oldKey = copySessionKey();
+
     await setupMasterPassword(password);
-    await saveVault(vault);
+    try {
+      await saveVault(vault);
+    } catch (err) {
+      // Restore old auth file and session key — vault file is unchanged (saveVault uses tmp→rename).
+      if (oldAuthRaw !== null) await writeAuthFileRaw(oldAuthRaw).catch(() => {});
+      if (oldKey) { setSessionKey(oldKey); oldKey.fill(0); }
+      else clearSessionKey();
+      throw err;
+    }
+    if (oldKey) oldKey.fill(0);
   } else {
     await setupMasterPassword(password);
   }
