@@ -393,6 +393,8 @@ ipcMain.handle('keyping:ping', async () => {
   return 'pong';
 });
 
+ipcMain.handle('keyping:hasVault', () => hasAuthFile());
+
 ipcMain.handle('keyping:vaultIntegrity', async () => {
   if (!sessionUnlocked) throw new Error('Session locked');
   return await checkVaultIntegrity();

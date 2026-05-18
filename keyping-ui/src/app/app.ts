@@ -232,9 +232,14 @@ export class AppComponent implements OnInit, OnDestroy {
       this.masterError = { key: 'app.lock.mismatch' };
       return;
     }
-    await this.master.setMaster(this.masterPassword);
-    this.masterPassword = '';
-    this.masterPasswordConfirm = '';
+    try {
+      await this.master.setMaster(this.masterPassword);
+      this.masterPassword = '';
+      this.masterPasswordConfirm = '';
+    } catch (err) {
+      console.error('[app] setMaster failed', err);
+      this.masterError = { key: 'app.lock.setupFailed' };
+    }
   }
 
   @HostListener('document:mousemove')
