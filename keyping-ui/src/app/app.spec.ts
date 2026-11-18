@@ -1,10 +1,15 @@
+import { installFakeKeyping, uninstallFakeKeyping, testProviders } from '../testing/fake-keyping';
 import { TestBed } from '@angular/core/testing';
 import { AppComponent } from './app';
 
 describe('AppComponent', () => {
+  beforeEach(() => installFakeKeyping());
+  afterEach(() => uninstallFakeKeyping());
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
+      providers: testProviders,
     }).compileComponents();
   });
 
