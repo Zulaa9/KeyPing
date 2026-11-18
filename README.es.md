@@ -4,8 +4,8 @@
 
 **KeyPing es un gestor de contrasenas de escritorio centrado en privacidad, enfocado en detectar contrasenas debiles, reutilizadas y riesgosas, manteniendo todos los datos en local y offline.**
 
-[![Release](https://img.shields.io/github/v/release/Unax-Zulaika-Fuente/KeyPing?label=release)](https://github.com/Unax-Zulaika-Fuente/KeyPing/releases)
-[![Plataforma](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-0f172a)](https://github.com/Unax-Zulaika-Fuente/KeyPing/releases)
+[![Release](https://img.shields.io/github/v/release/Zulaa9/KeyPing?label=release)](https://github.com/Zulaa9/KeyPing/releases)
+[![Plataforma](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-0f172a)](https://github.com/Zulaa9/KeyPing/releases)
 [![Stack](https://img.shields.io/badge/stack-Angular%20%2B%20Electron-2563eb)](./keyping-ui)
 [![Licencia](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -88,7 +88,7 @@ La app valida estructura de boveda y detecta anomalias/corrupcion de timestamps.
 
 Descarga binarios desde GitHub Releases:
 
-- Releases: https://github.com/Unax-Zulaika-Fuente/KeyPing/releases
+- Releases: https://github.com/Zulaa9/KeyPing/releases
 - Windows: instalador `.exe` (NSIS)
 - Linux: `AppImage`
 - macOS: `.dmg`
@@ -185,5 +185,5 @@ MIT. Consulta [LICENSE](./LICENSE).
 
 Unax Zulaika Fuente
 
-- GitHub: https://github.com/Unax-Zulaika-Fuente
-- Proyecto: https://github.com/Unax-Zulaika-Fuente/KeyPing
+- GitHub: https://github.com/Zulaa9
+- Proyecto: https://github.com/Zulaa9/KeyPing

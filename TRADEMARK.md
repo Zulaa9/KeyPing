@@ -11,4 +11,4 @@ This trademark policy does not limit your rights under the MIT License
 to use, modify, or distribute the source code.
 
 For branding permissions, contact:
-https://github.com/Unax-Zulaika-Fuente
+https://github.com/Zulaa9

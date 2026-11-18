@@ -4,8 +4,8 @@
 
 **KeyPing is a privacy-first desktop password manager focused on detecting weak, reused, and risky passwords while keeping all data fully local and offline.**
 
-[![Release](https://img.shields.io/github/v/release/Unax-Zulaika-Fuente/KeyPing?label=release)](https://github.com/Unax-Zulaika-Fuente/KeyPing/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-0f172a)](https://github.com/Unax-Zulaika-Fuente/KeyPing/releases)
+[![Release](https://img.shields.io/github/v/release/Zulaa9/KeyPing?label=release)](https://github.com/Zulaa9/KeyPing/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-0f172a)](https://github.com/Zulaa9/KeyPing/releases)
 [![Stack](https://img.shields.io/badge/stack-Angular%20%2B%20Electron-2563eb)](./keyping-ui)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -88,7 +88,7 @@ The app validates vault structure and detects corruption/timestamp anomalies.
 
 Download binaries from GitHub Releases:
 
-- Releases: https://github.com/Unax-Zulaika-Fuente/KeyPing/releases
+- Releases: https://github.com/Zulaa9/KeyPing/releases
 - Windows: `.exe` installer (NSIS)
 - Linux: `AppImage`
 - macOS: `.dmg`
@@ -186,5 +186,5 @@ MIT. See [LICENSE](./LICENSE).
 **Unax Zulaika Fuente (Zulaa9)**  
 Software Systems Engineer  
 
-- GitHub: https://github.com/Unax-Zulaika-Fuente
-- Project: https://github.com/Unax-Zulaika-Fuente/KeyPing
+- GitHub: https://github.com/Zulaa9
+- Project: https://github.com/Zulaa9/KeyPing

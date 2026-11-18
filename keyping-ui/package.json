@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Unax-Zulaika-Fuente/KeyPing.git"
+    "url": "https://github.com/Zulaa9/KeyPing.git"
   },
   "main": "dist-electron/main.js",
   "scripts": {
@@ -38,7 +38,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "Unax-Zulaika-Fuente",
+        "owner": "Zulaa9",
         "repo": "KeyPing"
       }
     ],
