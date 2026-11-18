@@ -1,7 +1,7 @@
 ﻿<div class="update-popup-backdrop" *ngIf="visible">
   <div class="update-popup" [ngClass]="'status-' + state.status">
     <div class="update-copy">
-      <p class="eyebrow">{{ 'updates.popup.title' | t }}</p>
+      <p class="eyebrow">{{ (state.status === 'error' ? 'updates.popup.titleError' : 'updates.popup.title') | t }}</p>
 
       <p class="message" *ngIf="state.status === 'available'">
         {{ 'updates.popup.available' | t:{ version: state.availableVersion || '?' } }}

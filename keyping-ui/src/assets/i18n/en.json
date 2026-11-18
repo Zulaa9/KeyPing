@@ -521,5 +521,6 @@
   "settings.integrity.issue.decrypt-failed": "The file cannot be decrypted with the current key.",
   "settings.integrity.issue.invalid-json": "The decrypted content is damaged.",
   "settings.integrity.issue.invalid-structure": "The vault structure is not valid.",
-  "settings.integrity.issue.implausible-timestamps": "{{count}} entries have impossible dates (the clock may be wrong)."
+  "settings.integrity.issue.implausible-timestamps": "{{count}} entries have impossible dates (the clock may be wrong).",
+  "updates.popup.titleError": "Updates"
 }

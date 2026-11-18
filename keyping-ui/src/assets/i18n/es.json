@@ -521,5 +521,6 @@
   "settings.integrity.issue.decrypt-failed": "El archivo no se puede descifrar con la clave actual.",
   "settings.integrity.issue.invalid-json": "El contenido descifrado está dañado.",
   "settings.integrity.issue.invalid-structure": "La estructura de la bóveda no es válida.",
-  "settings.integrity.issue.implausible-timestamps": "{{count}} entradas tienen fechas imposibles (posible reloj desajustado)."
+  "settings.integrity.issue.implausible-timestamps": "{{count}} entradas tienen fechas imposibles (posible reloj desajustado).",
+  "updates.popup.titleError": "Actualizaciones"
 }

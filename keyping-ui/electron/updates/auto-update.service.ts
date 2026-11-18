@@ -345,7 +345,8 @@ export class AutoUpdateService {
   private errorCode(error: unknown): UpdateErrorCode {
     const message = error instanceof Error && error.message ? error.message : String(error || '');
     const lower = message.toLowerCase();
-    if (/err_internet_disconnected|econnrefused|etimedout|econnreset|fetch failed|err_network|err_connection/.test(lower)) return 'network';
+    // Sin red, proxy o portal cautivo (certificado no válido): en el arranque no se molesta al usuario.
+    if (/err_internet_disconnected|econnrefused|etimedout|econnreset|fetch failed|err_network|err_connection|err_cert_|err_ssl_|err_proxy|err_tunnel|err_name_not_resolved|err_address_unreachable|err_timed_out/.test(lower)) return 'network';
     if (/enotfound|name not resolved|404|cannot find latest/.test(lower)) return 'server';
     if (/403|401|forbidden|unauthorized/.test(lower)) return 'permissions';
     return 'generic';
