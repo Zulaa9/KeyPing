@@ -14,7 +14,6 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
-import { execFile } from 'node:child_process';
 import {
   addPasswordToVault,
   getVaultEntries,
@@ -73,6 +72,7 @@ import { safeExternalHref } from './url-utils';
 import { checkPasswordBetter } from './password-check';
 import { AutoUpdateService } from './updates/auto-update.service';
 import { ClipboardClearSessionManager } from './clipboard-clear-session';
+import { writeSecretToWindowsClipboard } from './windows-clipboard';
 
 // En la app instalada no se permite abrir un puerto de depuración remota: otro programa del
 // equipo podría lanzar KeyPing así y leer la sesión desbloqueada. (Los fuses ya bloquean
@@ -163,42 +163,9 @@ function idArg(args: unknown): string {
   return asId((args as { id?: unknown } | undefined)?.id);
 }
 
-function clearWindowsClipboardHistory(): Promise<boolean> {
-  // Limpia el historial de portapapeles de Windows (Win+V) en modo de mejor esfuerzo.
-  if (!isWindows) return Promise.resolve(false);
-
-  const psScript = `
-    try {
-      Add-Type -AssemblyName System.Runtime.WindowsRuntime -ErrorAction Stop
-      $null = [Windows.ApplicationModel.DataTransfer.Clipboard, Windows.ApplicationModel.DataTransfer, ContentType=WindowsRuntime]
-      $ok = [Windows.ApplicationModel.DataTransfer.Clipboard]::ClearHistory()
-      if ($ok) { exit 0 } else { exit 1 }
-    } catch {
-      exit 2
-    }
-  `;
-
-  return new Promise(resolve => {
-    execFile(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
-      { windowsHide: true, timeout: 4000 },
-      err => {
-        if (err) {
-          console.warn('[main] windows clipboard history clear failed');
-          resolve(false);
-          return;
-        }
-        resolve(true);
-      }
-    );
-  });
-}
-
 const clipboardSessionManager = new ClipboardClearSessionManager({
   readClipboardText: () => clipboard.readText(),
   clearClipboard: () => clipboard.clear(),
-  clearWindowsClipboardHistory: isWindows ? clearWindowsClipboardHistory : undefined,
   schedule: (fn, ttlMs) => setTimeout(fn, ttlMs),
   cancel: handle => clearTimeout(handle),
   warn: message => console.warn(message)
@@ -663,18 +630,33 @@ handle('keyping:list', async () => {
   return entries.filter(e => e.active !== false).map(e => toPublic(e));
 }, { unlocked: true, whenLocked: () => [] });
 
+// Las copias se encadenan: el proceso auxiliar de Windows tarda unos instantes y dos copias
+// seguidas no deben terminar en orden inverso.
+let clipboardQueue: Promise<unknown> = Promise.resolve();
+
+function copySensitiveText(text: string): Promise<void> {
+  const run = clipboardQueue.then(async () => {
+    const excluded = isWindows && await writeSecretToWindowsClipboard(text);
+    if (!excluded) {
+      if (isWindows) console.warn('[main] clipboard exclusion unavailable, using plain copy');
+      await clipboard.writeText(text);
+    }
+    clipboardSessionManager.startSession(text, CLIPBOARD_TTL_MS);
+  });
+  clipboardQueue = run.catch(() => undefined);
+  return run;
+}
+
 handle('keyping:copy', async (args: unknown) => {
   const secret = await getPasswordPlain(idArg(args));
   if (!secret) return false;
-  await clipboard.writeText(secret);
-  clipboardSessionManager.startSession(secret, CLIPBOARD_TTL_MS);
+  await copySensitiveText(secret);
   return true;
 }, { unlocked: true, whenLocked: () => false });
 
 handle('keyping:copyText', async (text: unknown) => {
   if (typeof text !== 'string' || !text || text.length > 10_000) return false;
-  await clipboard.writeText(text);
-  clipboardSessionManager.startSession(text, CLIPBOARD_TTL_MS);
+  await copySensitiveText(text);
   return true;
 }, { unlocked: true, whenLocked: () => false });
 

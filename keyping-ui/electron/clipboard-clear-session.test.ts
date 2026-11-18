@@ -37,17 +37,12 @@ test('clears clipboard when current content still matches copied secret', async 
   const timers = createFakeTimers();
   let clipboardValue = 'secret-A';
   let clearCount = 0;
-  let historyClearCount = 0;
 
   const manager = new ClipboardClearSessionManager({
     readClipboardText: () => clipboardValue,
     clearClipboard: () => {
       clearCount++;
       clipboardValue = '';
-    },
-    clearWindowsClipboardHistory: async () => {
-      historyClearCount++;
-      return true;
     },
     schedule: timers.schedule,
     cancel: timers.cancel
@@ -58,7 +53,6 @@ test('clears clipboard when current content still matches copied secret', async 
   await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 1);
-  assert.equal(historyClearCount, 1);
   assert.equal(clipboardValue, '');
   assert.equal(manager.getActiveSession(), null);
 });
@@ -67,17 +61,12 @@ test('does not clear clipboard when user copied other content later', async () =
   const timers = createFakeTimers();
   let clipboardValue = 'secret-A';
   let clearCount = 0;
-  let historyClearCount = 0;
 
   const manager = new ClipboardClearSessionManager({
     readClipboardText: () => clipboardValue,
     clearClipboard: () => {
       clearCount++;
       clipboardValue = '';
-    },
-    clearWindowsClipboardHistory: async () => {
-      historyClearCount++;
-      return true;
     },
     schedule: timers.schedule,
     cancel: timers.cancel
@@ -89,7 +78,6 @@ test('does not clear clipboard when user copied other content later', async () =
   await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 0);
-  assert.equal(historyClearCount, 0);
   assert.equal(clipboardValue, 'user-text');
   assert.equal(manager.getActiveSession(), null);
 });
@@ -98,17 +86,12 @@ test('invalidates previous operation when a new KeyPing copy starts', async () =
   const timers = createFakeTimers();
   let clipboardValue = 'secret-A';
   let clearCount = 0;
-  let historyClearCount = 0;
 
   const manager = new ClipboardClearSessionManager({
     readClipboardText: () => clipboardValue,
     clearClipboard: () => {
       clearCount++;
       clipboardValue = '';
-    },
-    clearWindowsClipboardHistory: async () => {
-      historyClearCount++;
-      return true;
     },
     schedule: timers.schedule,
     cancel: timers.cancel
@@ -125,14 +108,12 @@ test('invalidates previous operation when a new KeyPing copy starts', async () =
   await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 0);
-  assert.equal(historyClearCount, 0);
   assert.equal(clipboardValue, 'secret-B');
 
   timers.run(secondTimerId);
   await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 1);
-  assert.equal(historyClearCount, 1);
   assert.equal(clipboardValue, '');
   assert.equal(manager.getActiveSession(), null);
 });
@@ -163,4 +144,27 @@ test('handles missing active operation safely and cancels timers on dispose', as
   assert.equal(clearCount, 0);
   assert.equal(clipboardValue, 'secret-A');
   assert.equal(manager.getActiveSession(), null);
+});
+
+test('clearNowIfOwned leaves content copied by other apps untouched', async () => {
+  const timers = createFakeTimers();
+  let clipboardValue = 'secret-A';
+  let clearCount = 0;
+
+  const manager = new ClipboardClearSessionManager({
+    readClipboardText: () => clipboardValue,
+    clearClipboard: () => {
+      clearCount++;
+      clipboardValue = '';
+    },
+    schedule: timers.schedule,
+    cancel: timers.cancel
+  });
+
+  manager.startSession('secret-A', 20_000);
+  clipboardValue = 'user-text';
+
+  assert.equal(await manager.clearNowIfOwned(), false);
+  assert.equal(clearCount, 0);
+  assert.equal(clipboardValue, 'user-text');
 });

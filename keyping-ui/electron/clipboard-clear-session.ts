@@ -5,7 +5,6 @@ export type ClipboardClearDeps = {
   // Desde Electron 44 la API de portapapeles es asíncrona; se aceptan ambas formas.
   readClipboardText: () => string | Promise<string>;
   clearClipboard: () => void | Promise<void>;
-  clearWindowsClipboardHistory?: () => Promise<boolean>;
   schedule: (fn: () => void, ttlMs: number) => ClipboardTimerHandle;
   cancel: (handle: ClipboardTimerHandle) => void;
   now?: () => number;
@@ -80,9 +79,6 @@ export class ClipboardClearSessionManager {
       // Si mientras se leía empezó otra copia, esa sesión manda.
       if (this.active || current !== active.value) return false;
       await this.deps.clearClipboard();
-      if (this.deps.clearWindowsClipboardHistory) {
-        await this.deps.clearWindowsClipboardHistory();
-      }
       return true;
     } catch (err) {
       this.deps.warn?.('[main] clipboard immediate clear failed', err);
@@ -110,9 +106,6 @@ export class ClipboardClearSessionManager {
       if (this.disposed || !this.active || this.active.id !== id) return;
 
       await this.deps.clearClipboard();
-      if (this.deps.clearWindowsClipboardHistory) {
-        await this.deps.clearWindowsClipboardHistory();
-      }
     } catch (err) {
       this.deps.warn?.('[main] clipboard guarded clear failed', err);
     } finally {
