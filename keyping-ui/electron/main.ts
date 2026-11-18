@@ -1,8 +1,20 @@
 // Punto de entrada del proceso principal (Electron).
-import { app, BrowserWindow, BrowserWindowConstructorOptions, ipcMain, Menu, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  BrowserWindowConstructorOptions,
+  clipboard,
+  ipcMain,
+  IpcMainInvokeEvent,
+  Menu,
+  powerMonitor,
+  session,
+  shell
+} from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RAW_COMMON_WORDS } from './common-words';
+import { pathToFileURL } from 'url';
+import { execFile } from 'node:child_process';
 import {
   addPasswordToVault,
   getVaultEntries,
@@ -15,8 +27,6 @@ import {
   parseImportPayload,
   overwriteVaultWithEntries,
   mergeVaultEntries,
-  importVaultFromEncrypted,
-  importVaultFromMasterEncrypted,
   checkVaultIntegrity,
   getPasswordHistory,
   restorePasswordVersion,
@@ -27,25 +37,41 @@ import {
   updateHistorySettings,
   getPasswordHashes,
   runStartupMigrations,
+  validateSecret,
+  EntryMetaInput,
+  ImportEntry,
 } from './vault';
-import { loadVaultWithKey, loadVault, saveVault } from './vault/file';
+import {
+  loadVault,
+  loadVaultWithKey,
+  saveVault,
+  vaultFileExists,
+  writePendingVault,
+  promotePendingVault,
+  discardPendingVault,
+  recoverPendingVault,
+  VaultUnreadableError,
+} from './vault/file';
 import {
   hasAuthFile,
   setupMasterPassword,
   verifyPasswordAndDeriveKey,
   setSessionKey,
   clearSessionKey,
+  hasSessionKey,
   deriveLegacyMasterKey,
+  hasLegacyKeyFile,
   removeLegacyKeyFile,
-  readAuthFileRaw,
-  writeAuthFileRaw,
-  copySessionKey,
+  deriveNewAuth,
+  commitAuth,
+  verifyLegacyRendererCheck,
 } from './vault/crypto';
-
-import { findMostSimilarInVault } from './vault/similarity';
-import { clipboard } from 'electron';
+import { withVaultLock } from './vault/fsutil';
+import { dataDir } from './vault/paths';
+import { AttemptGuard } from './auth-attempts';
+import { safeExternalHref } from './url-utils';
+import { checkPasswordBetter } from './password-check';
 import { AutoUpdateService } from './updates/auto-update.service';
-import { execFile } from 'node:child_process';
 import { ClipboardClearSessionManager } from './clipboard-clear-session';
 
 // Prefiere Wayland cuando está disponible (evita keylogging X11 por otras apps).
@@ -53,41 +79,73 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
 }
 
+// Solo en desarrollo o pruebas: permite aislar los datos en un directorio temporal y no tocar
+// nunca la bóveda real del equipo (npm run dev, Playwright).
+if (!app.isPackaged && process.env.KEYPING_USER_DATA_DIR) {
+  app.setPath('userData', path.resolve(process.env.KEYPING_USER_DATA_DIR));
+}
+
 const CLIPBOARD_TTL_MS = 20_000;
+const MAX_ID_LENGTH = 128;
+const MAX_IMPORT_TEXT = 25 * 1024 * 1024;
+// Una instalación empaquetada nunca carga un servidor de desarrollo, aunque exista la variable.
+const DEV_SERVER_URL = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL : undefined;
 
 let win: BrowserWindow | null = null;
 let sessionUnlocked = false;
 const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
-const autoUpdateService = new AutoUpdateService(() => BrowserWindow.getAllWindows());
+const attempts = new AttemptGuard();
 
-// Estado de intentos fallidos mantenido en el proceso principal (no manipulable desde el renderer).
-const authAttemptState = {
-  failedAttempts: 0,
-  nextUnlockAt: 0,
-  lastCooldownMs: 0,
-  policy: { freeAttempts: 3, baseDelayMs: 5_000, growthFactor: 2 }
-};
-
-function recordMainFailedAttempt(): void {
-  authAttemptState.failedAttempts++;
-  if (authAttemptState.failedAttempts <= authAttemptState.policy.freeAttempts) return;
-  const exponent = Math.max(0, authAttemptState.failedAttempts - authAttemptState.policy.freeAttempts - 1);
-  const delay = Math.min(
-    Number.MAX_SAFE_INTEGER / 2,
-    authAttemptState.policy.baseDelayMs * Math.pow(authAttemptState.policy.growthFactor, exponent)
-  );
-  authAttemptState.nextUnlockAt = Date.now() + delay;
-  authAttemptState.lastCooldownMs = delay;
+function rendererIndexPath(): string {
+  return path.join(app.getAppPath(), 'dist', 'keyping-ui', 'browser', 'index.html');
 }
 
-function isMainCooldownActive(): boolean {
-  const now = Date.now();
-  if (authAttemptState.nextUnlockAt > 0 && now >= authAttemptState.nextUnlockAt) {
-    authAttemptState.nextUnlockAt = 0;
-    authAttemptState.lastCooldownMs = 0;
+function isTrustedRendererUrl(url: string): boolean {
+  if (!url) return false;
+  if (DEV_SERVER_URL) {
+    try {
+      return new URL(url).origin === new URL(DEV_SERVER_URL).origin;
+    } catch {
+      return false;
+    }
   }
-  return authAttemptState.nextUnlockAt > 0 && Date.now() < authAttemptState.nextUnlockAt;
+  const base = pathToFileURL(path.dirname(rendererIndexPath()) + path.sep).href;
+  return url.startsWith(base);
+}
+
+// Solo la ventana principal de KeyPing, cargada desde los archivos de la app, puede usar el IPC.
+function isTrustedSender(event: IpcMainInvokeEvent): boolean {
+  if (!win || win.isDestroyed() || event.sender !== win.webContents) return false;
+  const frame = event.senderFrame;
+  if (!frame || frame !== win.webContents.mainFrame) return false;
+  return isTrustedRendererUrl(frame.url);
+}
+
+function isUnlocked(): boolean {
+  return sessionUnlocked && hasSessionKey();
+}
+
+type HandleOptions = { unlocked?: boolean; whenLocked?: () => unknown };
+
+function handle(channel: string, fn: (...args: any[]) => unknown, opts: HandleOptions = {}): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    if (!isTrustedSender(event)) throw new Error('Untrusted sender');
+    if (opts.unlocked && !isUnlocked()) {
+      if (opts.whenLocked) return opts.whenLocked();
+      throw new Error('Session locked');
+    }
+    return fn(...args);
+  });
+}
+
+function asId(value: unknown): string {
+  if (typeof value !== 'string' || !value || value.length > MAX_ID_LENGTH) throw new Error('Invalid id');
+  return value;
+}
+
+function idArg(args: unknown): string {
+  return asId((args as { id?: unknown } | undefined)?.id);
 }
 
 function clearWindowsClipboardHistory(): Promise<boolean> {
@@ -112,7 +170,7 @@ function clearWindowsClipboardHistory(): Promise<boolean> {
       { windowsHide: true, timeout: 4000 },
       err => {
         if (err) {
-          console.warn('[main] windows clipboard history clear failed', err.message);
+          console.warn('[main] windows clipboard history clear failed');
           resolve(false);
           return;
         }
@@ -128,8 +186,22 @@ const clipboardSessionManager = new ClipboardClearSessionManager({
   clearWindowsClipboardHistory: isWindows ? clearWindowsClipboardHistory : undefined,
   schedule: (fn, ttlMs) => setTimeout(fn, ttlMs),
   cancel: handle => clearTimeout(handle),
-  warn: (message, err) => console.warn(message, err)
+  warn: message => console.warn(message)
 });
+
+const autoUpdateService = new AutoUpdateService(() => BrowserWindow.getAllWindows(), isTrustedSender);
+
+/** Bloquea la sesión en el proceso principal: borra la clave y el portapapeles propio. */
+function lockSession(notifyRenderer: boolean): void {
+  const wasUnlocked = sessionUnlocked;
+  sessionUnlocked = false;
+  clearSessionKey();
+  pendingImport = null;
+  void clipboardSessionManager.clearNowIfOwned();
+  if (notifyRenderer && wasUnlocked && win && !win.isDestroyed()) {
+    win.webContents.send('keyping:session:locked');
+  }
+}
 
 function createWindow() {
   const isLinux = process.platform === 'linux';
@@ -142,7 +214,12 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      webSecurity: true,
+      // Sin DevTools en la app publicada: nadie con acceso a la ventana puede inspeccionar secretos.
+      devTools: !app.isPackaged,
+      // El corrector de Chromium descarga diccionarios de Internet en Linux y analizaría lo que se escribe.
+      spellcheck: false
     }
   };
 
@@ -166,40 +243,33 @@ function createWindow() {
   win = new BrowserWindow(windowOptions);
   autoUpdateService.attachWindow(win);
 
-  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, _validatedURL, isMainFrame) => {
     if (isMainFrame) {
-      console.error('[main] renderer failed to load', { errorCode, errorDescription, validatedURL });
+      console.error('[main] renderer failed to load', { errorCode, errorDescription });
     }
   });
 
   win.webContents.on('render-process-gone', (_event, details) => {
-    console.error('[main] render process gone', details);
-    sessionUnlocked = false;
-    clearSessionKey();
+    console.error('[main] render process gone', details.reason);
+    lockSession(false);
   });
 
   win.webContents.on('did-navigate', () => {
-    sessionUnlocked = false;
-    clearSessionKey();
+    lockSession(false);
   });
 
   win.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
-    if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
-      shell.openExternal(targetUrl);
-    }
+    const href = safeExternalHref(targetUrl);
+    if (href) void shell.openExternal(href);
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e, targetUrl) => {
-    if (!targetUrl.startsWith('file://')) {
-      e.preventDefault();
-      if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
-        void shell.openExternal(targetUrl);
-      }
-    }
+    if (isTrustedRendererUrl(targetUrl)) return;
+    e.preventDefault();
+    const href = safeExternalHref(targetUrl);
+    if (href && /^https?:/i.test(targetUrl)) void shell.openExternal(href);
   });
-
-  const devUrl = process.env.VITE_DEV_SERVER_URL;
-  const rendererIndexPath = path.join(app.getAppPath(), 'dist', 'keyping-ui', 'browser', 'index.html');
+  win.webContents.on('will-attach-webview', e => e.preventDefault());
 
   if (isLinux) {
     const gdkScale = parseInt(process.env['GDK_SCALE'] ?? '1', 10);
@@ -210,575 +280,517 @@ function createWindow() {
     }
   }
 
-  if (devUrl) {
-    void win.loadURL(devUrl);
+  if (DEV_SERVER_URL) {
+    void win.loadURL(DEV_SERVER_URL);
   } else {
-    if (!fs.existsSync(rendererIndexPath)) {
-      console.error('[main] renderer index.html not found at expected path:', rendererIndexPath);
+    const indexPath = rendererIndexPath();
+    if (!fs.existsSync(indexPath)) {
+      console.error('[main] renderer index.html not found at expected path:', indexPath);
     }
-    void win.loadFile(rendererIndexPath);
+    void win.loadFile(indexPath);
   }
 
   if (!isLinux) {
     win.once('ready-to-show', () => win?.show());
   }
+
+  win.on('closed', () => {
+    win = null;
+  });
 }
 
-app.whenReady().then(async () => {
-  Menu.setApplicationMenu(null);
-  void autoUpdateService.initialize();
-  createWindow();
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Una sola instancia: dos procesos escribiendo la misma bóveda a la vez podrían pisarse.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
   });
-});
+
+  app.whenReady().then(async () => {
+    Menu.setApplicationMenu(null);
+
+    // La app no necesita cámara, micrófono, notificaciones ni geolocalización.
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+      callback(permission === 'clipboard-sanitized-write');
+    });
+    session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'clipboard-sanitized-write');
+
+    await attempts.load();
+
+    // Suspender o bloquear la sesión del sistema bloquea también KeyPing.
+    powerMonitor.on('suspend', () => lockSession(true));
+    powerMonitor.on('lock-screen', () => lockSession(true));
+
+    void autoUpdateService.initialize();
+    createWindow();
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
+  void clipboardSessionManager.clearNowIfOwned();
   clipboardSessionManager.dispose();
+  lockSession(false);
 });
 
-/* ----------------------------------------------------------------
-   Detector multilingüe de patrones (versión inicial)
-   - normaliza mayúsculas/minúsculas, diacríticos y leet
-   - detecta palabras comunes (EN/ES/FR/DE/PT/IT)
-   - detecta secuencias numéricas y recorridos de teclado
-   - detecta repeticiones y sufijos incrementales
-   - valida longitud y variedad de caracteres
------------------------------------------------------------------- */
+/* -------------------- Auth --------------------- */
 
-type Level = 'ok' | 'warn' | 'danger';
+type AuthResult =
+  | { ok: true; warning?: 'vault-unreadable' }
+  | { ok: false; reason: 'invalid' | 'cooldown' | 'auth-missing' | 'vault-unreadable' | 'error'; remainingMs?: number; dataDir?: string };
 
-const KEYBOARD_RUNS = [
-  'qwerty','asdf','zxcv','qwert','wasd',
-  'azerty','qsdf','wxcv','azer'
-];
+type LegacyCheck = { salt?: unknown; check?: unknown; iterations?: unknown } | null | undefined;
 
-const NUM_SEQUENCES = ['0123','1234','2345','3456','4567','5678','6789','7890'];
-const YEAR_SUFFIX = /(19|20)\d{2}$/;
-
-const LEET_MAP: Record<string,string> = {
-  '0':'o','1':'i','2':'z','3':'e','4':'a','5':'s','6':'g','7':'t','8':'b','9':'g',
-  '@':'a','$':'s','!':'i','¡':'i','¿':'','?':'','+':'t'
-};
-
-function normalizeBasic(s: string): string {
-  let x = (s || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[\s._\-:/\\|'",`~^°(){}\[\]]/g,'');
-  x = x.replace(/[0123456789@$!¡\+\?]/g, m => LEET_MAP[m] ?? m);
-  x = x.replace(/(.)\1{2,}/g, '$1$1');
-  return x;
+function validPassword(password: unknown, minLength = 1): password is string {
+  return typeof password === 'string' && password.length >= minLength && password.length <= 1024;
 }
 
-const COMMON_WORDS: Set<string> = (() => {
-  const set = new Set<string>();
-  for (const w of RAW_COMMON_WORDS) {
-    const n = normalizeBasic(w);
-    if (n && n.length >= 3) {
-      set.add(n);
+function failAttempt(): AuthResult {
+  attempts.recordFailure();
+  const remainingMs = attempts.remainingMs();
+  return remainingMs > 0 ? { ok: false, reason: 'cooldown', remainingMs } : { ok: false, reason: 'invalid' };
+}
+
+/**
+ * Tras verificar la contraseña: completa un cambio de contraseña interrumpido y repara bóvedas
+ * que quedaron cifradas con la clave heredada por un corte durante la migración de la 1.1.x.
+ */
+async function postUnlockRecovery(key: Buffer): Promise<void> {
+  await withVaultLock(async () => {
+    await recoverPendingVault(key);
+    if (!(await vaultFileExists())) return;
+    try {
+      await loadVaultWithKey(key);
+      if (await hasLegacyKeyFile()) await removeLegacyKeyFile();
+      return;
+    } catch (err) {
+      if (!(err instanceof VaultUnreadableError) || err.reason !== 'decrypt-failed') return;
     }
-  }
-  console.log('[main] loaded common words:', set.size);
-  return set;
-})();
-
-
-function classMask(s: string): number {
-  let m = 0;
-  if (/[a-z]/.test(s)) m |= 1;
-  if (/[A-Z]/.test(s)) m |= 2;
-  if (/\d/.test(s))   m |= 4;
-  if (/[^A-Za-z0-9]/.test(s)) m |= 8;
-  return m;
-}
-
-function hasCommonWord(nrm: string): string | null {
-  if (COMMON_WORDS.has(nrm)) return nrm;
-
-  for (const w of COMMON_WORDS) {
-    if (!w) continue;
-    if (w.length >= 4 && nrm.includes(w)) {
-      return w;
+    const legacyKey = await deriveLegacyMasterKey();
+    if (!legacyKey) return;
+    try {
+      const legacyVault = await loadVaultWithKey(legacyKey);
+      await writePendingVault(legacyVault, key);
+      await promotePendingVault();
+      await removeLegacyKeyFile();
+      console.warn('[main] recovered vault still encrypted with the legacy key');
+    } catch {
+      /* no-op: el estado de integridad informará del problema */
+    } finally {
+      legacyKey.fill(0);
     }
-  }
-  return null;
-}
-
-function hasSequence(nrm: string): string | null {
-  if (NUM_SEQUENCES.some(seq => nrm.includes(seq))) return 'numeric sequence';
-  if (KEYBOARD_RUNS.some(run => nrm.includes(run))) return 'keyboard run';
-  if (/([a-z])\1{2,}/.test(nrm) || /(\d)\1{2,}/.test(nrm)) return 'repeated chars';
-  return null;
-}
-
-function looksIncremental(orig: string): boolean {
-  if (YEAR_SUFFIX.test(orig)) return true;
-
-  const m = orig.match(/^(.*?)([!.?_\-])?(\d{1,4})$/);
-  if (!m) return false;
-
-  const prefix = m[1] || '';
-  if (prefix.length <= 12) return true;
-
-  return false;
-}
-
-async function checkPasswordBetter(pwd: string) {
-  const reasons: string[] = [];
-  let level: Level = 'ok';
-  const nrm = normalizeBasic(pwd);
-  const orig = pwd || '';
-
-  if (!orig) return { level, reasons };
-
-  const hit = hasCommonWord(nrm);
-  if (hit) { level = 'danger'; reasons.push(`common word: "${hit}"`); }
-
-  const seq = hasSequence(nrm);
-  if (seq) { level = level === 'danger' ? 'danger' : 'warn'; reasons.push(seq); }
-
-  if (looksIncremental(orig)) {
-    level = level === 'danger' ? 'danger' : 'warn';
-    reasons.push('incremental suffix (e.g., !1, 2024)');
-  }
-
-  const len = orig.length;
-  const cm = classMask(orig);
-  const classCount = ((cm & 1)?1:0)+((cm & 2)?1:0)+((cm & 4)?1:0)+((cm & 8)?1:0);
-
-  if (len < 10) {
-    level = level === 'danger' ? 'danger' : 'warn';
-    reasons.push('short length (<10)');
-  }
-  if (classCount < 3) {
-    level = level === 'danger' ? 'danger' : 'warn';
-    reasons.push('low character variety');
-  }
-
-  if (/^(password|pass|contrasena|senha|passwort|motdepasse|admin)[^a-z]*\d{0,4}$/i.test(orig)) {
-    level = 'danger';
-    reasons.push('trivial base with small variation');
-  }
-
-  try {
-    const best = await findMostSimilarInVault(orig);
-    if (best) {
-      const score = Math.round(best.score);
-      const noteSnippet = best.entry.label ? ` (${best.entry.label})` : '';
-
-      if (score >= 80) {
-        level = 'danger';
-        reasons.push(`similar to previous password${noteSnippet} (~${score}% match)`);
-      } else if (score >= 60) {
-        if (level === 'ok') level = 'warn';
-        reasons.push(`somewhat similar to previous password${noteSnippet} (~${score}% match)`);
-      }
-    }
-  } catch (err) {
-    console.error('[main] similarity check error:', err);
-  }
-
-  return { level, reasons };
-}
-
-/* -------------------- Puente IPC --------------------- */
-
-ipcMain.handle('keyping:ping', async () => {
-  console.log('[main] ping');
-  return 'pong';
-});
-
-ipcMain.handle('keyping:hasVault', () => hasAuthFile());
-
-ipcMain.handle('keyping:vaultIntegrity', async () => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  return await checkVaultIntegrity();
-});
-
-ipcMain.handle('keyping:getHistorySettings', async () => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  return await getHistorySettings();
-});
-
-ipcMain.handle('keyping:updateHistorySettings', async (_evt, maxHistoryPerEntry: number) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  return await updateHistorySettings(maxHistoryPerEntry);
-});
-
-ipcMain.handle('keyping:compactVault', async (_evt, args?: { keepOnlyCurrent?: boolean; maxHistoryPerEntry?: number }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  return await compactVault({
-    keepOnlyCurrent: !!args?.keepOnlyCurrent,
-    maxHistoryPerEntry: args?.maxHistoryPerEntry
   });
-});
-
-ipcMain.handle('keyping:check', async (_evt, args: { pwd: string }) => {
-  if (!sessionUnlocked) return { level: 'ok', reasons: [] };
-  return await checkPasswordBetter(args?.pwd ?? '');
-});
-
-ipcMain.handle('keyping:save', async (_evt, args: {
-  pwd: string;
-  label?: string;
-  loginUrl?: string;
-  passwordChangeUrl?: string;
-  username?: string;
-  email?: string;
-  folder?: string;
-  twoFactorEnabled?: boolean;
-  iconName?: string;
-  iconSource?: 'auto' | 'manual';
-  detectedService?: string;
-}) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  const entry = await addPasswordToVault(
-    args.pwd,
-    args.label,
-    args.loginUrl,
-    args.passwordChangeUrl,
-    args.username,
-    args.email,
-    args.folder,
-    args.twoFactorEnabled,
-    args.iconName,
-    args.iconSource,
-    args.detectedService
-  );
-  const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService } = entry;
-  return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
-});
-
-ipcMain.handle('keyping:list', async () => {
-  if (!sessionUnlocked) return [];
-  const entries = await getVaultEntries();
-  return entries
-    .filter(e => e.active !== false)
-    .map(e => {
-      const { id, createdAt, updatedAt, length, classMask, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService } = e;
-      const label = e.label;
-      return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
-    });
-});
-
-ipcMain.handle('keyping:copy', async (_evt, args: { id: string }) => {
-  if (!sessionUnlocked) return false;
-
-  const secret = await getPasswordPlain(args.id);
-
-  if (!secret) {
-    console.warn('[main] no password in vault for id', args.id);
-    return false;
-  }
-
-  clipboard.writeText(secret);
-  clipboardSessionManager.startSession(secret, CLIPBOARD_TTL_MS);
-
-  return true;
-});
-
-ipcMain.handle('keyping:copyText', (_evt, text: string) => {
-  if (!sessionUnlocked) return false;
-  if (typeof text !== 'string' || !text) return false;
-  if (text.length > 10_000) return false;
-  clipboard.writeText(text);
-  clipboardSessionManager.startSession(text, CLIPBOARD_TTL_MS);
-  return true;
-});
-
-ipcMain.handle('keyping:getPasswordHashes', async () => {
-  if (!sessionUnlocked) return [];
-  return await getPasswordHashes();
-});
-
-ipcMain.handle('keyping:delete', async (_evt, args: { id: string }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  await softDeleteEntry(args.id);
-  return true;
-});
-
-ipcMain.handle('keyping:update', async (_evt, args: { id: string; pwd: string }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  const updated = await replacePasswordForEntry(args.id, args.pwd);
-  if (!updated) throw new Error('Entry not found');
-
-  const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService } = updated;
-  return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
-});
-
-ipcMain.handle('keyping:updateMeta', async (_evt, args: {
-  id: string;
-  label?: string;
-  loginUrl?: string;
-  passwordChangeUrl?: string;
-  username?: string;
-  email?: string;
-  folder?: string;
-  twoFactorEnabled?: boolean;
-  iconName?: string;
-  iconSource?: 'auto' | 'manual';
-  detectedService?: string;
-}) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  const entry = await updateEntryMeta(
-    args.id,
-    args.label,
-    args.loginUrl,
-    args.passwordChangeUrl,
-    args.username,
-    args.email,
-    args.folder,
-    args.twoFactorEnabled,
-    args.iconName,
-    args.iconSource,
-    args.detectedService
-  );
-  const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService } = entry;
-  return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService };
-});
-
-const mapHistoryEntry = (e: any) => {
-  const { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService, active, previousId } = e;
-  return { id, createdAt, updatedAt, length, classMask, label, loginUrl, passwordChangeUrl, username, email, folder, twoFactorEnabled, iconName, iconSource, detectedService, active, previousId };
-};
-
-ipcMain.handle('keyping:getPasswordHistory', async (_evt, args: { id: string }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  const history = await getPasswordHistory(args.id);
-  return history.map(mapHistoryEntry);
-});
-
-ipcMain.handle('keyping:restorePasswordVersion', async (_evt, args: { id: string }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  const restored = await restorePasswordVersion(args.id);
-  if (!restored) throw new Error('Version not found');
-  return mapHistoryEntry(restored);
-});
-
-ipcMain.handle('keyping:deletePasswordVersion', async (_evt, args: { id: string }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  return await deleteHistoryVersion(args.id);
-});
-
-ipcMain.handle('keyping:clearPasswordHistory', async (_evt, args: { id: string }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  return await deleteHistoryForEntry(args.id);
-});
-
-// Migrates vault from legacy kp-master.key scheme to password-derived key scheme.
-async function migrateFromLegacyKey(password: string): Promise<void> {
-  const oldKey = await deriveLegacyMasterKey();
-  if (!oldKey) {
-    // No legacy key and no auth file: fresh install via authUnlock path (shouldn't happen
-    // in normal flow, but handle gracefully by just setting up auth with the given password).
-    await setupMasterPassword(password);
-    return;
-  }
-
-  const oldVault = await loadVaultWithKey(oldKey);
-  oldKey.fill(0);
-
-  await setupMasterPassword(password);
-
-  if (oldVault.entries.length > 0) {
-    await saveVault(oldVault);
-  }
-
-  await removeLegacyKeyFile();
 }
 
-function clearMainAttemptState(): void {
-  authAttemptState.failedAttempts = 0;
-  authAttemptState.nextUnlockAt = 0;
-  authAttemptState.lastCooldownMs = 0;
+/**
+ * Migración desde el esquema heredado (kp-master.key, KeyPing <= 1.0.x) en dos fases:
+ * vault pendiente con la clave nueva -> kp-auth.json -> promoción -> borrado de la clave heredada.
+ * Un corte en cualquier punto deja un estado del que el siguiente desbloqueo se recupera solo.
+ */
+async function migrateFromLegacyKey(password: string, legacyCheck: LegacyCheck): Promise<AuthResult> {
+  const verdict = verifyLegacyRendererCheck(password, legacyCheck);
+  if (verdict === false) return failAttempt();
+
+  return withVaultLock(async (): Promise<AuthResult> => {
+    const vaultExists = await vaultFileExists();
+    const legacyKey = await deriveLegacyMasterKey();
+
+    if (!legacyKey) {
+      if (vaultExists) {
+        // Hay bóveda pero ninguna forma de abrirla: no se crea una contraseña nueva encima.
+        return { ok: false, reason: 'auth-missing', dataDir: dataDir() };
+      }
+      await setupMasterPassword(password);
+      return { ok: true };
+    }
+
+    let legacyVault;
+    try {
+      legacyVault = await loadVaultWithKey(legacyKey);
+    } catch {
+      return { ok: false, reason: 'vault-unreadable', dataDir: dataDir() };
+    } finally {
+      legacyKey.fill(0);
+    }
+
+    const { auth, key } = deriveNewAuth(password);
+    try {
+      if (vaultExists) await writePendingVault(legacyVault, key);
+      await commitAuth(auth);
+    } catch (err) {
+      await discardPendingVault();
+      key.fill(0);
+      throw err;
+    }
+    setSessionKey(key);
+    key.fill(0);
+    if (vaultExists) await promotePendingVault();
+    await removeLegacyKeyFile();
+    return { ok: true };
+  });
+}
+
+async function vaultReadableWarning(): Promise<AuthResult> {
+  try {
+    await loadVault();
+    return { ok: true };
+  } catch {
+    return { ok: true, warning: 'vault-unreadable' };
+  }
+}
+
+async function finishUnlock(): Promise<AuthResult> {
+  sessionUnlocked = true;
+  await attempts.reset();
+  await runStartupMigrations().catch(err => console.error('[main] startup migration failed', err?.message));
+  return vaultReadableWarning();
 }
 
 // Verifies the master password in the main process and unlocks the session.
 // Handles first-launch migration from the legacy random-key scheme automatically.
-ipcMain.handle('keyping:auth:unlock', async (_evt, password: string) => {
-  if (typeof password !== 'string' || !password || password.length > 1024) return false;
-  if (isMainCooldownActive()) return false;
+handle('keyping:auth:unlock', async (password: unknown, legacyCheck?: LegacyCheck): Promise<AuthResult> => {
+  if (!validPassword(password)) return { ok: false, reason: 'invalid' };
+  if (attempts.isCoolingDown()) return { ok: false, reason: 'cooldown', remainingMs: attempts.remainingMs() };
 
-  const authExists = await hasAuthFile();
-
-  if (authExists) {
-    const key = await verifyPasswordAndDeriveKey(password);
-    if (!key) {
-      recordMainFailedAttempt();
-      return false;
+  try {
+    if (await hasAuthFile()) {
+      const key = await verifyPasswordAndDeriveKey(password);
+      if (!key) return failAttempt();
+      try {
+        await postUnlockRecovery(key);
+      } catch (err: any) {
+        console.error('[main] post-unlock recovery failed', err?.message);
+      }
+      setSessionKey(key);
+      key.fill(0);
+    } else {
+      const res = await migrateFromLegacyKey(password, legacyCheck);
+      if (!res.ok) return res;
     }
-    setSessionKey(key);
-    key.fill(0);
-  } else {
-    await migrateFromLegacyKey(password);
+  } catch (err: any) {
+    console.error('[main] unlock failed', err?.message);
+    return { ok: false, reason: 'error' };
   }
 
-  sessionUnlocked = true;
-  clearMainAttemptState();
-  await runStartupMigrations().catch(err => console.error('[main] startup migration failed', err));
-  return true;
+  return finishUnlock();
 });
 
-// Sets up a new master password (initial setup or password rotation).
-// When called while a session is active, re-encrypts the vault with the new key.
-// When called without a session, only allowed if no auth file exists yet (fresh install).
-ipcMain.handle('keyping:auth:setup', async (_evt, password: string) => {
-  if (typeof password !== 'string' || password.length < 8 || password.length > 1024) {
-    throw new Error('Invalid password length');
+// Initial setup only. Refuses when a vault or legacy key already exists (prevents takeover and
+// prevents creating a new master password over a vault that could no longer be opened).
+handle('keyping:auth:setup', async (password: unknown): Promise<AuthResult> => {
+  if (!validPassword(password, 8)) throw new Error('Invalid password length');
+  if (isUnlocked() || await hasAuthFile()) throw new Error('Unauthorized');
+  if (await hasLegacyKeyFile()) {
+    // Instalación 1.0.x sin datos en localStorage: se migra con la contraseña elegida.
+    const res = await migrateFromLegacyKey(password, null);
+    if (!res.ok) return res;
+    return finishUnlock();
   }
+  if (await vaultFileExists()) return { ok: false, reason: 'auth-missing', dataDir: dataDir() };
 
-  if (!sessionUnlocked && await hasAuthFile()) {
-    throw new Error('Unauthorized');
-  }
-
-  if (sessionUnlocked) {
-    // Rotation: snapshot old auth + session key so we can roll back if saveVault fails.
-    const vault = await loadVault();
-    const oldAuthRaw = await readAuthFileRaw();
-    const oldKey = copySessionKey();
-
-    await setupMasterPassword(password);
-    try {
-      await saveVault(vault);
-    } catch (err) {
-      // Restore old auth file and session key — vault file is unchanged (saveVault uses tmp→rename).
-      if (oldAuthRaw !== null) await writeAuthFileRaw(oldAuthRaw).catch(() => {});
-      if (oldKey) { setSessionKey(oldKey); oldKey.fill(0); }
-      else clearSessionKey();
-      throw err;
-    }
-    if (oldKey) oldKey.fill(0);
-  } else {
-    await setupMasterPassword(password);
-  }
-
-  sessionUnlocked = true;
-  clearMainAttemptState();
-  await runStartupMigrations().catch(err => console.error('[main] startup migration failed', err));
-  return true;
+  await setupMasterPassword(password);
+  return finishUnlock();
 });
 
-ipcMain.handle('keyping:session:lock', () => {
-  sessionUnlocked = false;
-  clearSessionKey();
+/**
+ * Cambio de contraseña maestra en dos fases. Verifica la actual en el proceso principal.
+ * Si algo falla antes de guardar kp-auth.json, nada cambia; si falla después, el siguiente
+ * desbloqueo con la contraseña nueva completa el cambio (recoverPendingVault).
+ */
+handle('keyping:auth:change', async (current: unknown, next: unknown): Promise<AuthResult> => {
+  if (!validPassword(current) || !validPassword(next, 8)) return { ok: false, reason: 'invalid' };
+  if (attempts.isCoolingDown()) return { ok: false, reason: 'cooldown', remainingMs: attempts.remainingMs() };
+  const currentKey = await verifyPasswordAndDeriveKey(current);
+  if (!currentKey) return failAttempt();
+  currentKey.fill(0);
+  await attempts.reset();
+
+  try {
+    await withVaultLock(async () => {
+      const exists = await vaultFileExists();
+      const vault = exists ? await loadVault() : null; // ilegible -> aborta sin tocar nada
+      const { auth, key } = deriveNewAuth(next);
+      try {
+        if (vault) await writePendingVault(vault, key);
+        await commitAuth(auth);
+      } catch (err) {
+        await discardPendingVault();
+        key.fill(0);
+        throw err;
+      }
+      setSessionKey(key);
+      key.fill(0);
+      if (vault) {
+        try {
+          await promotePendingVault();
+        } catch {
+          await saveVault(vault);
+          await discardPendingVault();
+        }
+      }
+    });
+  } catch (err: any) {
+    console.error('[main] master password change failed', err?.message);
+    return { ok: false, reason: err instanceof VaultUnreadableError ? 'vault-unreadable' : 'error' };
+  }
+  return { ok: true };
+});
+
+handle('keyping:session:lock', () => {
+  lockSession(false);
 });
 
 // Re-verifies the master password without altering session state.
 // Used by sensitive operations (e.g., vault export) that require explicit re-confirmation.
-ipcMain.handle('keyping:auth:verify', async (_evt, password: string) => {
-  if (typeof password !== 'string' || !password || password.length > 1024) return false;
-  if (!sessionUnlocked) return false;
-  if (isMainCooldownActive()) return false;
+handle('keyping:auth:verify', async (password: unknown) => {
+  if (!validPassword(password)) return false;
+  if (attempts.isCoolingDown()) return false;
 
   const key = await verifyPasswordAndDeriveKey(password);
   if (!key) {
-    recordMainFailedAttempt();
+    attempts.recordFailure();
     return false;
   }
   key.fill(0);
   return true;
-});
+}, { unlocked: true, whenLocked: () => false });
 
-ipcMain.handle('keyping:auth:getCooldown', () => {
-  const now = Date.now();
-  if (authAttemptState.nextUnlockAt > 0 && now >= authAttemptState.nextUnlockAt) {
-    authAttemptState.nextUnlockAt = 0;
-    authAttemptState.lastCooldownMs = 0;
+handle('keyping:auth:getCooldown', () => attempts.snapshot());
+
+handle('keyping:auth:setPolicy', async (policy: unknown) => attempts.setPolicy(policy), { unlocked: true });
+
+/* -------------------- Vault --------------------- */
+
+const PUBLIC_FIELDS = [
+  'id', 'createdAt', 'updatedAt', 'length', 'classMask', 'label', 'loginUrl', 'passwordChangeUrl',
+  'username', 'email', 'folder', 'twoFactorEnabled', 'iconName', 'iconSource', 'detectedService'
+] as const;
+
+// Lo único que sale hacia el renderer de una entrada: nunca `secret`, `hash` ni `normalized`.
+function toPublic(e: any, withHistoryFields = false): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of PUBLIC_FIELDS) out[k] = e[k];
+  if (withHistoryFields) {
+    out['active'] = e.active;
+    out['previousId'] = e.previousId;
   }
+  return out;
+}
+
+function metaFrom(args: any): EntryMetaInput {
+  const a = args && typeof args === 'object' ? args : {};
   return {
-    failedAttempts: authAttemptState.failedAttempts,
-    nextUnlockAt: authAttemptState.nextUnlockAt,
-    remainingMs: Math.max(0, authAttemptState.nextUnlockAt - now)
+    label: a.label,
+    loginUrl: a.loginUrl,
+    passwordChangeUrl: a.passwordChangeUrl,
+    username: a.username,
+    email: a.email,
+    folder: a.folder,
+    twoFactorEnabled: a.twoFactorEnabled,
+    iconName: a.iconName,
+    iconSource: a.iconSource,
+    detectedService: a.detectedService
   };
-});
+}
 
-ipcMain.handle('keyping:getPassword', async (_evt, args: { id: string }) => {
-  if (!sessionUnlocked) return null;
-  return await getPasswordPlain(args.id);
-});
+handle('keyping:ping', () => 'pong');
 
-ipcMain.handle('keyping:openExternal', async (_evt, rawUrl: string) => {
+// Hay datos que proteger: auth actual, clave heredada (1.0.x) o un vault sin auth.
+handle('keyping:hasVault', async () =>
+  (await hasAuthFile()) || (await hasLegacyKeyFile()) || (await vaultFileExists())
+);
+
+handle('keyping:vaultIntegrity', () => checkVaultIntegrity(), { unlocked: true });
+
+handle('keyping:getHistorySettings', () => getHistorySettings(), { unlocked: true });
+
+handle('keyping:updateHistorySettings', (maxHistoryPerEntry: unknown) =>
+  updateHistorySettings(Number(maxHistoryPerEntry)), { unlocked: true });
+
+handle('keyping:compactVault', (args?: { keepOnlyCurrent?: unknown; maxHistoryPerEntry?: unknown }) =>
+  compactVault({
+    keepOnlyCurrent: args?.keepOnlyCurrent === true,
+    maxHistoryPerEntry: typeof args?.maxHistoryPerEntry === 'number' ? args.maxHistoryPerEntry : undefined
+  }), { unlocked: true });
+
+handle('keyping:check', (args: { pwd?: unknown }) => {
+  const pwd = typeof args?.pwd === 'string' ? args.pwd : '';
+  return checkPasswordBetter(pwd);
+}, { unlocked: true, whenLocked: () => ({ level: 'ok', reasons: [], codes: [] }) });
+
+handle('keyping:save', async (args: any) => {
+  const entry = await addPasswordToVault(validateSecret(args?.pwd), metaFrom(args));
+  return toPublic(entry);
+}, { unlocked: true });
+
+handle('keyping:list', async () => {
+  const entries = await getVaultEntries();
+  return entries.filter(e => e.active !== false).map(e => toPublic(e));
+}, { unlocked: true, whenLocked: () => [] });
+
+handle('keyping:copy', async (args: unknown) => {
+  const secret = await getPasswordPlain(idArg(args));
+  if (!secret) return false;
+  clipboard.writeText(secret);
+  clipboardSessionManager.startSession(secret, CLIPBOARD_TTL_MS);
+  return true;
+}, { unlocked: true, whenLocked: () => false });
+
+handle('keyping:copyText', (text: unknown) => {
+  if (typeof text !== 'string' || !text || text.length > 10_000) return false;
+  clipboard.writeText(text);
+  clipboardSessionManager.startSession(text, CLIPBOARD_TTL_MS);
+  return true;
+}, { unlocked: true, whenLocked: () => false });
+
+handle('keyping:getPasswordHashes', () => getPasswordHashes(), { unlocked: true, whenLocked: () => [] });
+
+handle('keyping:delete', async (args: unknown) => {
+  await softDeleteEntry(idArg(args));
+  return true;
+}, { unlocked: true });
+
+handle('keyping:update', async (args: any) => {
+  const updated = await replacePasswordForEntry(idArg(args), validateSecret(args?.pwd));
+  if (!updated) throw new Error('Entry not found');
+  return toPublic(updated);
+}, { unlocked: true });
+
+handle('keyping:updateMeta', async (args: any) => {
+  const entry = await updateEntryMeta(idArg(args), metaFrom(args));
+  return toPublic(entry);
+}, { unlocked: true });
+
+handle('keyping:getPasswordHistory', async (args: unknown) => {
+  const history = await getPasswordHistory(idArg(args));
+  return history.map(e => toPublic(e, true));
+}, { unlocked: true });
+
+handle('keyping:restorePasswordVersion', async (args: unknown) => {
+  const restored = await restorePasswordVersion(idArg(args));
+  if (!restored) throw new Error('Version not found');
+  return toPublic(restored, true);
+}, { unlocked: true });
+
+handle('keyping:deletePasswordVersion', (args: unknown) => deleteHistoryVersion(idArg(args)), { unlocked: true });
+
+handle('keyping:clearPasswordHistory', (args: unknown) => deleteHistoryForEntry(idArg(args)), { unlocked: true });
+
+handle('keyping:getPassword', (args: unknown) => getPasswordPlain(idArg(args)), { unlocked: true, whenLocked: () => null });
+
+handle('keyping:openExternal', async (rawUrl: unknown) => {
+  const href = safeExternalHref(rawUrl);
+  if (!href) return false;
   try {
-    let urlToOpen = (rawUrl || '').trim();
-
-    if (!/^https?:\/\//i.test(urlToOpen)) {
-      urlToOpen = 'https://' + urlToOpen;
-    }
-
-    const u = new URL(urlToOpen);
-
-    if (u.protocol === 'http:' || u.protocol === 'https:') {
-      await shell.openExternal(u.toString());
-      return true;
-    }
-  } catch (err) {
-    console.error('[main] invalid external url', rawUrl, err);
+    await shell.openExternal(href);
+    return true;
+  } catch {
+    console.error('[main] unable to open external url');
+    return false;
   }
-
-  return false;
 });
 
-ipcMain.handle('keyping:exportVault', async (_evt, args?: { mode?: 'native' | 'master'; password?: string; includeHistory?: boolean }) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-
-  const mode = args?.mode || 'master';
+handle('keyping:exportVault', async (args?: { mode?: unknown; password?: unknown; includeHistory?: unknown }) => {
+  const mode = args?.mode === 'native' ? 'native' : 'master';
   const includeHistory = args?.includeHistory !== false;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 
   if (mode === 'native') {
     const buf = await exportEncryptedVault(includeHistory);
-    const filename = `keyping-vault-${new Date().toISOString().replace(/[:.]/g, '-')}.keyping`;
-    return { base64: buf.toString('base64'), filename, format: 'keyping-export-v1', enc: 'native' };
+    return { base64: buf.toString('base64'), filename: `keyping-vault-${stamp}.keyping`, format: 'keyping-export-v1', enc: 'native' };
   }
 
-  if (!args?.password) {
-    throw new Error('Password required for export');
+  if (!validPassword(args?.password)) throw new Error('Password required for export');
+  const payload = await exportVaultWithPassword(args!.password as string, includeHistory);
+  return { payload, filename: `keyping-vault-${stamp}.kpenc`, format: payload.format, enc: payload.enc };
+}, { unlocked: true });
+
+// Las entradas descifradas de un archivo de importación se quedan en el proceso principal.
+// Al renderer solo llegan los metadatos para la vista previa; al confirmar, envía qué índices
+// quiere y el proceso principal hace la importación con los secretos que ya tiene.
+type PendingImport = { entries: ImportEntry[]; source: 'encrypted' | 'plain' | 'master'; at: number };
+let pendingImport: PendingImport | null = null;
+const PENDING_IMPORT_TTL_MS = 30 * 60 * 1000;
+
+function takePendingImport(): PendingImport {
+  if (!pendingImport || Date.now() - pendingImport.at > PENDING_IMPORT_TTL_MS) {
+    pendingImport = null;
+    throw new Error('import-expired');
   }
+  return pendingImport;
+}
 
-  const payload = await exportVaultWithPassword(args.password, includeHistory);
-  const filename = `keyping-vault-${new Date().toISOString().replace(/[:.]/g, '-')}.kpenc`;
-  return { payload, filename, format: payload.format, enc: payload.enc };
-});
+function previewEntry(e: ImportEntry): Record<string, unknown> {
+  const { secret, password, pwd, hash, normalized, ...rest } = e as any;
+  void secret; void password; void pwd; void hash; void normalized;
+  return rest;
+}
 
-ipcMain.handle('keyping:parseImport', async (_evt, raw: string, password?: string) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
-  return await parseImportPayload(raw, password);
-});
+handle('keyping:parseImport', async (raw: unknown, password?: unknown) => {
+  if (typeof raw !== 'string' || raw.length > MAX_IMPORT_TEXT) throw new Error('invalid-import-file');
+  const parsed = await parseImportPayload(raw, validPassword(password) ? password : undefined);
+  pendingImport = parsed.requiresPassword ? null : { entries: parsed.entries, source: parsed.source, at: Date.now() };
+  return {
+    source: parsed.source,
+    requiresPassword: parsed.requiresPassword,
+    entries: parsed.entries.map(previewEntry)
+  };
+}, { unlocked: true });
 
-ipcMain.handle('keyping:importVault', async (_evt, args: {
-  mode: 'overwrite' | 'merge';
-  entries: any[];
-  encrypted?: string;
-  enc?: 'native' | 'master' | 'plain';
-  password?: string;
-  masterPayload?: any;
-}) => {
-  if (!sessionUnlocked) throw new Error('Session locked');
+handle('keyping:importVault', async (args: any) => {
+  const mode = args?.mode === 'overwrite' ? 'overwrite' : args?.mode === 'merge' ? 'merge' : null;
+  if (!mode) throw new Error('invalid-import-mode');
+  const pending = takePendingImport();
 
-  if (args.mode === 'overwrite') {
-    const enc = args.enc || (args.encrypted ? 'native' : 'plain');
-    let imported = 0;
-    if (enc === 'master' && args.masterPayload && args.password) {
-      imported = await importVaultFromMasterEncrypted(args.masterPayload, args.password);
-    } else if (args.encrypted) {
-      imported = await importVaultFromEncrypted(args.encrypted);
-    } else {
-      imported = await overwriteVaultWithEntries(args.entries || []);
-    }
+  if (mode === 'overwrite') {
+    const imported = await overwriteVaultWithEntries(pending.entries);
+    pendingImport = null;
     return { imported, overwritten: true };
   }
 
-  const imported = await mergeVaultEntries(args.entries || []);
+  const selection: unknown[] = Array.isArray(args?.selection) ? args.selection : [];
+  const byId = new Map<string, ImportEntry>();
+  for (const e of pending.entries) if (typeof e.id === 'string') byId.set(e.id, e);
+  const now = Date.now();
+  const toMerge: ImportEntry[] = [];
+  const used = new Set<number>();
+  for (const sel of selection) {
+    const idx = Number((sel as any)?.idx);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= pending.entries.length || used.has(idx)) continue;
+    used.add(idx);
+    const head = { ...pending.entries[idx] };
+    const label = (sel as any)?.label;
+    if (typeof label === 'string') head.label = label.slice(0, 512);
+    head.updatedAt = now;
+    toMerge.push(head);
+    // Versiones anteriores de esa entrada (historial) dentro del mismo archivo.
+    const seen = new Set<string>(head.id ? [head.id] : []);
+    let prev = typeof head.previousId === 'string' ? byId.get(head.previousId) : undefined;
+    while (prev && !(prev.id && seen.has(prev.id))) {
+      if (prev.id) seen.add(prev.id);
+      toMerge.push(prev);
+      prev = typeof prev.previousId === 'string' ? byId.get(prev.previousId) : undefined;
+    }
+  }
+  const imported = await mergeVaultEntries(toMerge);
+  pendingImport = null;
   return { imported, overwritten: false };
-});
+}, { unlocked: true });
 
-ipcMain.handle('window:minimize', () => { win?.minimize(); });
-ipcMain.handle('window:maximize', () => {
+handle('window:minimize', () => { win?.minimize(); });
+handle('window:maximize', () => {
   if (win?.isMaximized()) win.unmaximize();
   else win?.maximize();
 });
-ipcMain.handle('window:close', () => { win?.close(); });
+handle('window:close', () => { win?.close(); });

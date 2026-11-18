@@ -102,8 +102,17 @@ contextBridge.exposeInMainWorld('keyping', {
     }),
 
   // Auth: password verified in main process, session key derived there.
-  authUnlock: (password: string) => ipcRenderer.invoke('keyping:auth:unlock', password),
+  authUnlock: (password: string, legacyCheck?: { salt: string; check: string; iterations: number } | null) =>
+    ipcRenderer.invoke('keyping:auth:unlock', password, legacyCheck ?? null),
   authSetup: (password: string) => ipcRenderer.invoke('keyping:auth:setup', password),
+  authChange: (current: string, next: string) => ipcRenderer.invoke('keyping:auth:change', current, next),
+  setAttemptPolicy: (policy: { freeAttempts: number; baseDelayMs: number; growthFactor: number }) =>
+    ipcRenderer.invoke('keyping:auth:setPolicy', policy),
+  onSessionLocked: (listener: () => void): (() => void) => {
+    const wrapped = () => listener();
+    ipcRenderer.on('keyping:session:locked', wrapped);
+    return () => ipcRenderer.removeListener('keyping:session:locked', wrapped);
+  },
   authVerify: (password: string) => ipcRenderer.invoke('keyping:auth:verify', password),
   sessionLock: () => ipcRenderer.invoke('keyping:session:lock'),
 
@@ -121,8 +130,9 @@ contextBridge.exposeInMainWorld('keyping', {
   parseImport: (raw: string, password?: string) =>
     ipcRenderer.invoke('keyping:parseImport', raw, password),
 
-  importVault: (mode: 'overwrite' | 'merge', entries: any[], encrypted?: string, enc?: 'native' | 'master' | 'plain', password?: string, masterPayload?: any) =>
-    ipcRenderer.invoke('keyping:importVault', { mode, entries, encrypted, enc, password, masterPayload }),
+  // Importa lo último analizado con parseImport (los secretos nunca pasan por el renderer).
+  importVault: (mode: 'overwrite' | 'merge', selection?: { idx: number; label?: string }[]) =>
+    ipcRenderer.invoke('keyping:importVault', { mode, selection: selection ?? [] }),
 
   getUpdateState: (): Promise<UpdateState> =>
     ipcRenderer.invoke('keyping:update:getState'),

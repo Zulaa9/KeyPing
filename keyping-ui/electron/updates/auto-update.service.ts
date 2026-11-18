@@ -1,8 +1,8 @@
-﻿import { app, BrowserWindow, ipcMain } from 'electron';
+﻿import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import { UpdatePreferences, UpdateState } from './types';
+import { UpdateErrorCode, UpdatePreferences, UpdateState } from './types';
 
 const UPDATE_EVENT_CHANNEL = 'keyping:update:state';
 const SETTINGS_FILE = 'update-settings.json';
@@ -31,8 +31,14 @@ export class AutoUpdateService {
   private isInitialized = false;
   private isChecking = false;
   private lastCheckAt = 0;
+  // Durante la comprobación automática al arrancar, un fallo de red (p. ej. sin conexión)
+  // no se muestra como error: la app funciona sin red y no debe molestar en cada inicio.
+  private quietNetworkErrors = false;
 
-  constructor(getWindows: () => BrowserWindow[]) {
+  constructor(
+    getWindows: () => BrowserWindow[],
+    private readonly isTrustedSender: (event: IpcMainInvokeEvent) => boolean = () => true
+  ) {
     this.getWindows = getWindows;
   }
 
@@ -94,9 +100,11 @@ export class AutoUpdateService {
     }
 
     this.isChecking = true;
+    this.quietNetworkErrors = trigger === 'startup';
     this.updateState({
       status: 'checking',
       errorMessage: undefined,
+      errorCode: undefined,
       checkedAt: now,
       progressPercent: undefined,
       transferredBytes: undefined,
@@ -109,11 +117,13 @@ export class AutoUpdateService {
       this.updateState({
         status: 'error',
         errorMessage: this.formatError(error),
+        errorCode: this.errorCode(error),
         checkedAt: Date.now()
       });
     } finally {
       this.lastCheckAt = Date.now();
       this.isChecking = false;
+      this.quietNetworkErrors = false;
     }
 
     return this.getState();
@@ -131,6 +141,7 @@ export class AutoUpdateService {
     this.updateState({
       status: 'downloading',
       errorMessage: undefined,
+      errorCode: undefined,
       progressPercent: 0,
       transferredBytes: 0
     });
@@ -140,7 +151,8 @@ export class AutoUpdateService {
     } catch (error) {
       this.updateState({
         status: 'error',
-        errorMessage: this.formatError(error)
+        errorMessage: this.formatError(error),
+        errorCode: this.errorCode(error)
       });
     }
 
@@ -167,12 +179,20 @@ export class AutoUpdateService {
     this.updateState({
       status: 'idle',
       errorMessage: undefined,
+      errorCode: undefined,
       progressPercent: undefined,
       transferredBytes: undefined,
       totalBytes: undefined
     });
 
     return this.getState();
+  }
+
+  private handle(channel: string, fn: (...args: any[]) => unknown): void {
+    ipcMain.handle(channel, async (event, ...args) => {
+      if (!this.isTrustedSender(event)) throw new Error('Untrusted sender');
+      return fn(...args);
+    });
   }
 
   private canUseUpdater(): boolean {
@@ -191,6 +211,7 @@ export class AutoUpdateService {
       this.updateState({
         status: 'checking',
         errorMessage: undefined,
+      errorCode: undefined,
         checkedAt: Date.now()
       });
     });
@@ -200,6 +221,7 @@ export class AutoUpdateService {
         status: 'available',
         availableVersion: info.version,
         errorMessage: undefined,
+      errorCode: undefined,
         progressPercent: undefined,
         transferredBytes: undefined,
         totalBytes: undefined,
@@ -225,6 +247,7 @@ export class AutoUpdateService {
         transferredBytes: undefined,
         totalBytes: undefined,
         errorMessage: undefined,
+      errorCode: undefined,
         checkedAt: Date.now()
       });
     });
@@ -237,6 +260,7 @@ export class AutoUpdateService {
         transferredBytes: undefined,
         totalBytes: undefined,
         errorMessage: undefined,
+      errorCode: undefined,
         checkedAt: Date.now()
       });
     });
@@ -245,21 +269,22 @@ export class AutoUpdateService {
       this.updateState({
         status: 'error',
         errorMessage: this.formatError(error),
+        errorCode: this.errorCode(error),
         checkedAt: Date.now()
       });
     });
   }
 
   private registerIpcHandlers(): void {
-    ipcMain.handle('keyping:update:getState', async () => this.getState());
-    ipcMain.handle('keyping:update:getPreferences', async () => this.getPreferences());
-    ipcMain.handle('keyping:update:setPreferences', async (_event, input: SetPreferencesInput) => {
+    this.handle('keyping:update:getState', async () => this.getState());
+    this.handle('keyping:update:getPreferences', async () => this.getPreferences());
+    this.handle('keyping:update:setPreferences', async (input: SetPreferencesInput) => {
       return this.setPreferences(input ?? {});
     });
-    ipcMain.handle('keyping:update:check', async () => this.checkForUpdates('manual'));
-    ipcMain.handle('keyping:update:download', async () => this.downloadUpdate());
-    ipcMain.handle('keyping:update:install', async () => this.installUpdateAndRestart());
-    ipcMain.handle('keyping:update:postpone', async () => this.postponeUpdate());
+    this.handle('keyping:update:check', async () => this.checkForUpdates('manual'));
+    this.handle('keyping:update:download', async () => this.downloadUpdate());
+    this.handle('keyping:update:install', async () => this.installUpdateAndRestart());
+    this.handle('keyping:update:postpone', async () => this.postponeUpdate());
   }
 
   private async loadPreferences(): Promise<UpdatePreferences> {
@@ -290,6 +315,13 @@ export class AutoUpdateService {
   }
 
   private updateState(next: Partial<UpdateState>): void {
+    if (
+      this.quietNetworkErrors &&
+      next.status === 'error' &&
+      (next.errorCode === 'network' || next.errorCode === 'server')
+    ) {
+      next = { ...next, status: 'idle', errorMessage: undefined, errorCode: undefined };
+    }
     this.state = {
       ...this.state,
       ...next,
@@ -308,6 +340,15 @@ export class AutoUpdateService {
   private sendState(window: BrowserWindow): void {
     if (window.isDestroyed()) return;
     window.webContents.send(UPDATE_EVENT_CHANNEL, this.getState());
+  }
+
+  private errorCode(error: unknown): UpdateErrorCode {
+    const message = error instanceof Error && error.message ? error.message : String(error || '');
+    const lower = message.toLowerCase();
+    if (/err_internet_disconnected|econnrefused|etimedout|econnreset|fetch failed|err_network|err_connection/.test(lower)) return 'network';
+    if (/enotfound|name not resolved|404|cannot find latest/.test(lower)) return 'server';
+    if (/403|401|forbidden|unauthorized/.test(lower)) return 'permissions';
+    return 'generic';
   }
 
   private formatError(error: unknown): string {

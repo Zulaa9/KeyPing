@@ -66,6 +66,27 @@ export class ClipboardClearSessionManager {
     this.invalidateActive();
   }
 
+  /**
+   * Limpia ya el portapapeles si todavía contiene lo último que copió KeyPing
+   * (al bloquear, suspender o cerrar la app). No toca contenido copiado por otras apps.
+   */
+  async clearNowIfOwned(): Promise<boolean> {
+    const active = this.active;
+    if (!active) return false;
+    this.invalidateActive();
+    try {
+      if (this.deps.readClipboardText() !== active.value) return false;
+      this.deps.clearClipboard();
+      if (this.deps.clearWindowsClipboardHistory) {
+        await this.deps.clearWindowsClipboardHistory();
+      }
+      return true;
+    } catch (err) {
+      this.deps.warn?.('[main] clipboard immediate clear failed', err);
+      return false;
+    }
+  }
+
   getActiveSession(): ClipboardClearSession | null {
     if (!this.active) return null;
     const { timer: _timer, ...session } = this.active;

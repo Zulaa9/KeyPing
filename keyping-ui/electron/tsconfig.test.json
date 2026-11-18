@@ -4,7 +4,7 @@
     "outDir": "../dist-electron-tests"
   },
   "include": [
-    "./clipboard-clear-session.ts",
-    "./clipboard-clear-session.test.ts"
-  ]
+    "./**/*.ts"
+  ],
+  "exclude": []
 }

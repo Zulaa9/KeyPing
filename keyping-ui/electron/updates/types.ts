@@ -8,6 +8,8 @@ export type UpdateStatus =
   | 'upToDate'
   | 'error';
 
+export type UpdateErrorCode = 'network' | 'server' | 'permissions' | 'generic';
+
 export type UpdateState = {
   // Estado serializable que se envía por IPC a la UI.
   status: UpdateStatus;
@@ -17,6 +19,8 @@ export type UpdateState = {
   transferredBytes?: number;
   totalBytes?: number;
   errorMessage?: string;
+  // Categoría estable del error para traducirla en el renderer (es/en).
+  errorCode?: UpdateErrorCode;
   checkedAt?: number;
 };
 

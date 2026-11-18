@@ -21,7 +21,7 @@
     "build": "npm run build:angular && npm run electron:build && electron-builder && npm run generate:checksums",
     "build:linux": "npm run build:angular && npm run electron:build && electron-builder --linux && bash scripts/generate-checksums.sh",
     "test": "ng test",
-    "test:electron": "tsc -p electron/tsconfig.test.json && node --test dist-electron-tests/clipboard-clear-session.test.js",
+    "test:electron": "tsc -p electron/tsconfig.test.json && node --test \"dist-electron-tests/**/*.test.js\"",
     "watch": "ng build --watch --configuration development",
     "postinstall": "electron-builder install-app-deps"
   },
