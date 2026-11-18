@@ -281,7 +281,8 @@ export class AutoUpdateService {
     this.handle('keyping:update:setPreferences', async (input: SetPreferencesInput) => {
       return this.setPreferences(input ?? {});
     });
-    this.handle('keyping:update:check', async () => this.checkForUpdates('manual'));
+    // Las comprobaciones automáticas del renderer (manual = false) no muestran errores de red.
+    this.handle('keyping:update:check', async (manual?: unknown) => this.checkForUpdates(manual === false ? 'startup' : 'manual'));
     this.handle('keyping:update:download', async () => this.downloadUpdate());
     this.handle('keyping:update:install', async () => this.installUpdateAndRestart());
     this.handle('keyping:update:postpone', async () => this.postponeUpdate());

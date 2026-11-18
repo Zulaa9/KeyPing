@@ -77,7 +77,7 @@ declare global {
       getUpdateState?(): Promise<UpdateState>;
       getUpdatePreferences?(): Promise<UpdatePreferences>;
       setUpdatePreferences?(preferences: Partial<UpdatePreferences>): Promise<UpdatePreferences>;
-      checkForUpdates?(): Promise<UpdateState>;
+      checkForUpdates?(manual?: boolean): Promise<UpdateState>;
       downloadUpdate?(): Promise<UpdateState>;
       installUpdateAndRestart?(): Promise<boolean>;
       postponeUpdate?(): Promise<UpdateState>;

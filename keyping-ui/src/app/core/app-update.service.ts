@@ -7,7 +7,7 @@ type KeypingUpdateApi = {
   getUpdateState(): Promise<UpdateState>;
   getUpdatePreferences(): Promise<UpdatePreferences>;
   setUpdatePreferences(input: Partial<UpdatePreferences>): Promise<UpdatePreferences>;
-  checkForUpdates(): Promise<UpdateState>;
+  checkForUpdates(manual?: boolean): Promise<UpdateState>;
   downloadUpdate(): Promise<UpdateState>;
   installUpdateAndRestart(): Promise<boolean>;
   postponeUpdate(): Promise<UpdateState>;
@@ -107,7 +107,7 @@ export class AppUpdateService {
       this.wasManualCheckRequested = true;
     }
 
-    const state = await api.checkForUpdates();
+    const state = await api.checkForUpdates(manual);
     this.setState(state);
     return state;
   }

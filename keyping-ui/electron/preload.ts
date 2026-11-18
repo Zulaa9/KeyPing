@@ -143,8 +143,8 @@ contextBridge.exposeInMainWorld('keyping', {
   setUpdatePreferences: (preferences: Partial<UpdatePreferences>): Promise<UpdatePreferences> =>
     ipcRenderer.invoke('keyping:update:setPreferences', preferences),
 
-  checkForUpdates: (): Promise<UpdateState> =>
-    ipcRenderer.invoke('keyping:update:check'),
+  checkForUpdates: (manual: boolean = true): Promise<UpdateState> =>
+    ipcRenderer.invoke('keyping:update:check', manual !== false),
 
   downloadUpdate: (): Promise<UpdateState> =>
     ipcRenderer.invoke('keyping:update:download'),
