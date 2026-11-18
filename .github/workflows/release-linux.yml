@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag del release que se va a compilar (por ejemplo, v1.2.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -11,15 +17,20 @@ permissions:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
+      # node --test necesita Node 21 o superior para resolver el patrón de los tests.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         working-directory: keyping-ui
@@ -49,9 +60,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ github.ref_name }}"
           gh release upload "$TAG" keyping-ui/dist/build/KeyPing-*.AppImage --clobber
           gh release upload "$TAG" keyping-ui/dist/build/latest-linux.yml --clobber
-          if [ -f "keyping-ui/dist/build/SHA256SUMS.txt" ]; then
-            gh release upload "$TAG" keyping-ui/dist/build/SHA256SUMS.txt --clobber
-          fi
+
+          # Conserva las sumas ya publicadas (instalador de Windows) y añade las de Linux.
+          SUMS_DIR="$(mktemp -d)"
+          gh release download "$TAG" --pattern SHA256SUMS.txt --dir "$SUMS_DIR" || touch "$SUMS_DIR/SHA256SUMS.txt"
+          cat "$SUMS_DIR/SHA256SUMS.txt" keyping-ui/dist/build/SHA256SUMS.txt | sort -u -k2,2 > "$SUMS_DIR/merged.txt"
+          mv "$SUMS_DIR/merged.txt" "$SUMS_DIR/SHA256SUMS.txt"
+          gh release upload "$TAG" "$SUMS_DIR/SHA256SUMS.txt" --clobber
