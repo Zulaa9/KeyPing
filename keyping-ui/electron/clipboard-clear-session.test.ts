@@ -55,7 +55,7 @@ test('clears clipboard when current content still matches copied secret', async 
 
   manager.startSession('secret-A', 20_000);
   timers.run(timers.latestId());
-  await Promise.resolve();
+  await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 1);
   assert.equal(historyClearCount, 1);
@@ -86,7 +86,7 @@ test('does not clear clipboard when user copied other content later', async () =
   manager.startSession('secret-A', 20_000);
   clipboardValue = 'user-text';
   timers.run(timers.latestId());
-  await Promise.resolve();
+  await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 0);
   assert.equal(historyClearCount, 0);
@@ -122,14 +122,14 @@ test('invalidates previous operation when a new KeyPing copy starts', async () =
   const secondTimerId = timers.latestId();
 
   timers.run(firstTimerId);
-  await Promise.resolve();
+  await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 0);
   assert.equal(historyClearCount, 0);
   assert.equal(clipboardValue, 'secret-B');
 
   timers.run(secondTimerId);
-  await Promise.resolve();
+  await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 1);
   assert.equal(historyClearCount, 1);
@@ -158,7 +158,7 @@ test('handles missing active operation safely and cancels timers on dispose', as
   manager.dispose();
 
   timers.run(timerId);
-  await Promise.resolve();
+  await new Promise(r => setImmediate(r)); // la limpieza ahora espera lecturas asíncronas
 
   assert.equal(clearCount, 0);
   assert.equal(clipboardValue, 'secret-A');

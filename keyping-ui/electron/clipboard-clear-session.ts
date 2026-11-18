@@ -2,8 +2,9 @@ export type ClipboardTimerHandle = ReturnType<typeof setTimeout>;
 
 export type ClipboardClearDeps = {
   // Dependencias inyectables para facilitar pruebas y desacoplar de Electron directo.
-  readClipboardText: () => string;
-  clearClipboard: () => void;
+  // Desde Electron 44 la API de portapapeles es asíncrona; se aceptan ambas formas.
+  readClipboardText: () => string | Promise<string>;
+  clearClipboard: () => void | Promise<void>;
   clearWindowsClipboardHistory?: () => Promise<boolean>;
   schedule: (fn: () => void, ttlMs: number) => ClipboardTimerHandle;
   cancel: (handle: ClipboardTimerHandle) => void;
@@ -75,8 +76,10 @@ export class ClipboardClearSessionManager {
     if (!active) return false;
     this.invalidateActive();
     try {
-      if (this.deps.readClipboardText() !== active.value) return false;
-      this.deps.clearClipboard();
+      const current = await this.deps.readClipboardText();
+      // Si mientras se leía empezó otra copia, esa sesión manda.
+      if (this.active || current !== active.value) return false;
+      await this.deps.clearClipboard();
       if (this.deps.clearWindowsClipboardHistory) {
         await this.deps.clearWindowsClipboardHistory();
       }
@@ -98,13 +101,15 @@ export class ClipboardClearSessionManager {
     if (!this.active || this.active.id !== id) return;
 
     try {
-      const current = this.deps.readClipboardText();
+      const current = await this.deps.readClipboardText();
       if (current !== expectedValue) {
         // Si el usuario copió algo distinto después, no tocamos su portapapeles.
         return;
       }
+      // Una copia nueva mientras se leía invalida esta sesión.
+      if (this.disposed || !this.active || this.active.id !== id) return;
 
-      this.deps.clearClipboard();
+      await this.deps.clearClipboard();
       if (this.deps.clearWindowsClipboardHistory) {
         await this.deps.clearWindowsClipboardHistory();
       }

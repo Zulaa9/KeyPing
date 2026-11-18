@@ -647,14 +647,14 @@ handle('keyping:list', async () => {
 handle('keyping:copy', async (args: unknown) => {
   const secret = await getPasswordPlain(idArg(args));
   if (!secret) return false;
-  clipboard.writeText(secret);
+  await clipboard.writeText(secret);
   clipboardSessionManager.startSession(secret, CLIPBOARD_TTL_MS);
   return true;
 }, { unlocked: true, whenLocked: () => false });
 
-handle('keyping:copyText', (text: unknown) => {
+handle('keyping:copyText', async (text: unknown) => {
   if (typeof text !== 'string' || !text || text.length > 10_000) return false;
-  clipboard.writeText(text);
+  await clipboard.writeText(text);
   clipboardSessionManager.startSession(text, CLIPBOARD_TTL_MS);
   return true;
 }, { unlocked: true, whenLocked: () => false });

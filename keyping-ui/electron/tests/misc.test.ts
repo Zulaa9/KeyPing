@@ -118,3 +118,30 @@ test('clipboard is cleared immediately on lock only if it still holds the copied
   assert.equal(clears, 1);
   assert.equal(await mgr.clearNowIfOwned(), false);
 });
+
+test('async clipboard API: a copy started while reading is not wiped', async () => {
+  let clip = '';
+  let release: (() => void) | null = null;
+  const timers: (() => void)[] = [];
+  const mgr = new ClipboardClearSessionManager({
+    readClipboardText: () => new Promise<string>(r => { const v = clip; release = () => r(v); }),
+    clearClipboard: async () => { clip = ''; },
+    schedule: fn => { timers.push(fn); return setTimeout(() => {}, 0); },
+    cancel: h => clearTimeout(h)
+  });
+  clip = 'secret-a';
+  mgr.startSession('secret-a', 20_000);
+  timers[0]();                       // vence la sesión A: empieza a leer
+  clip = 'secret-b';
+  mgr.startSession('secret-b', 20_000); // el usuario copia otra contraseña mientras tanto
+  release!();                          // la lectura devuelve el valor antiguo 'secret-a'
+  await new Promise(r => setImmediate(r));
+  assert.equal(clip, 'secret-b');
+  assert.equal(mgr.getActiveSession()?.value, 'secret-b');
+
+  // Vencimiento normal con API asíncrona.
+  timers[1]();
+  release!();
+  await new Promise(r => setImmediate(r));
+  assert.equal(clip, '');
+});
