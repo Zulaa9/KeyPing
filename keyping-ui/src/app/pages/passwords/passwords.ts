@@ -14,7 +14,9 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { MasterLockService } from '../../core/master-lock.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
-import { SERVICE_ICON_ASSETS } from '../../core/icons/icon-registry';
+import { SERVICE_ICON_ASSETS, SERVICE_ICON_REGISTRY } from '../../core/icons/icon-registry';
+import { generatePassword } from '../../core/password-generator';
+import { checkEntryUrl } from '../../core/url-utils';
 import { resolveEntryIcon } from '../../core/icons/service-icon.resolver';
 
 type StrengthFilter = 'all' | 'strong' | 'medium' | 'weak';
@@ -51,6 +53,10 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   strengthFilter: StrengthFilter = 'all';
   onlyNoTwoFactor = false;
   onlyDuplicates = false;
+  onlyNoChangeUrl = false;
+  loadError = false;
+  detailError: string | null = null;
+  private searchIndex = new Map<string, { key: string; text: string }>();
   dateFilterMode: 'any' | 'created' | 'updated' = 'any';
   dateFrom = '';
   dateTo = '';
@@ -152,8 +158,18 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   async loadEntries(): Promise<void> {
     this.loading = true;
     const previouslySelectedId = this.selected?.id;
+    this.loadError = false;
     try {
-      this.entries = await this.es.listPasswords();
+      try {
+        this.entries = await this.es.listPasswords();
+      } catch {
+        // Bóveda ilegible o sesión cerrada: se informa en vez de mostrar una lista vacía o la demo.
+        this.loadError = true;
+        this.entries = [];
+        this.showDemo = false;
+        this.selected = null;
+        return;
+      }
       this.passwordCountSvc.setLocalCount(this.entries.length);
       this.showDemo = this.entries.length === 0 && this.isDemoAllowed();
       this.syncOrderingState();
@@ -219,6 +235,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
 
   get hasActiveFilters(): boolean {
     return (
+      this.onlyNoChangeUrl ||
       this.strengthFilter !== 'all' ||
       this.onlyNoTwoFactor ||
       this.onlyDuplicates ||
@@ -239,6 +256,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
       if (this.strengthFilter !== 'all' && this.strengthLabel(e) !== this.strengthFilter) return false;
       if (this.onlyNoTwoFactor && e.twoFactorEnabled) return false;
       if (this.onlyDuplicates && !this.duplicateIds.has(e.id)) return false;
+      if (this.onlyNoChangeUrl && e.passwordChangeUrl) return false;
       if (!this.matchesDateRange(e, fromTs, toTs)) return false;
       return true;
     });
@@ -248,6 +266,7 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     this.strengthFilter = 'all';
     this.onlyNoTwoFactor = false;
     this.onlyDuplicates = false;
+    this.onlyNoChangeUrl = false;
     this.dateFilterMode = 'any';
     this.clearDateFilter();
   }
@@ -310,26 +329,90 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   }
 
   private matchesSearch(entry: PasswordMeta, term: string): boolean {
-    const normalizedTerm = term.trim().toLowerCase();
+    const normalizedTerm = PasswordsComponent.normalizeSearch(term);
+    if (!normalizedTerm) return true;
     if (this.matchesTwitterAlias(normalizedTerm)) {
       return this.isTwitterEntry(entry);
     }
+    // Varias palabras: todas deben aparecer (p. ej. "google trabajo").
+    const haystack = this.searchHaystack(entry);
+    return normalizedTerm.split(' ').every(word => haystack.includes(word));
+  }
 
-    const folderRaw = (entry.folder || '').toLowerCase();
-    const folderName = this.folderDisplayName(entry.folder || '').toLowerCase();
+  /** Minúsculas, sin tildes y sin espacios repetidos: "Contraseña" encuentra "contrasena". */
+  static normalizeSearch(value: string): string {
+    return (value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Texto indexado por entrada (nombre, usuario, email, enlaces, dominios, servicio y carpeta).
+  // Se cachea por versión de la entrada para que buscar entre miles siga siendo inmediato.
+  private searchHaystack(entry: PasswordMeta): string {
+    const key = `${entry.updatedAt ?? ''}|${entry.label ?? ''}|${entry.folder ?? ''}|${entry.loginUrl ?? ''}|${entry.passwordChangeUrl ?? ''}`;
+    const cached = this.searchIndex.get(entry.id);
+    if (cached && cached.key === key) return cached.text;
+
+    const hosts: string[] = [];
+    for (const url of [entry.loginUrl, entry.passwordChangeUrl]) {
+      const res = checkEntryUrl(url);
+      if (res.ok) {
+        hosts.push(res.host, res.host.replace(/^www\./, ''));
+        try { hosts.push(decodeURIComponent(res.host)); } catch { /* no-op */ }
+      }
+    }
+    const serviceId = entry.detectedService || resolveEntryIcon(entry).serviceId;
+    const service = SERVICE_ICON_REGISTRY.find(s => s.id === serviceId);
 
     const fields: (string | undefined)[] = [
       entry.label,
-      (entry as any).username,
-      (entry as any).email,
+      entry.username,
+      entry.email,
       entry.loginUrl,
       entry.passwordChangeUrl,
-      folderRaw,
-      folderName
+      ...hosts,
+      service && serviceId !== 'generic' ? service.displayName : undefined,
+      entry.folder,
+      this.folderDisplayName(entry.folder || '')
     ];
-
-    return fields.some(f => f && f.toLowerCase().includes(term));
+    const text = PasswordsComponent.normalizeSearch(fields.filter(Boolean).join(' \u0000 '));
+    this.searchIndex.set(entry.id, { key, text });
+    return text;
   }
+
+  /** Enter en el buscador abre el primer resultado; Escape limpia la búsqueda. */
+  onSearchKeydown(ev: KeyboardEvent): void {
+    if (ev.key === 'Escape') {
+      this.searchTerm = '';
+      return;
+    }
+    if (ev.key !== 'Enter') return;
+    const first = this.groupedEntries.find(g => g.items.length)?.items[0];
+    if (first) {
+      ev.preventDefault();
+      void this.onSelect(first);
+    }
+  }
+
+  /** Acceso directo desde la lista: abre el enlace para cambiar la contraseña sin pasar por el detalle. */
+  async openChangeUrl(entry: PasswordMeta, ev?: Event): Promise<void> {
+    ev?.stopPropagation();
+    ev?.preventDefault();
+    if (this.showDemo || !entry.passwordChangeUrl) return;
+    await this.openUrl(entry.passwordChangeUrl);
+  }
+
+  /** Rellena la nueva contraseña con una generada de forma segura y la muestra para revisarla. */
+  generateForEdit(): void {
+    if (!this.selected || this.showDemo) return;
+    this.editPwd = generatePassword();
+    this.editPwdVisible = true;
+  }
+
+  editPwdVisible = false;
 
   private matchesTwitterAlias(term: string): boolean {
     if (!term) return false;
@@ -643,6 +726,8 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     if (this.showDemo) return;
     if (!this.selected) return;
     this.editingDetail = true;
+    this.detailError = null;
+    this.editPwdVisible = false;
 
     this.editLabel = this.selected.label || '';
     this.editPwd = '';
@@ -666,52 +751,66 @@ export class PasswordsComponent implements OnInit, OnDestroy {
     let currentId = oldId;
     const oldFolder = this.normalizeFolder(this.selected.folder);
 
-    // 1) Si se ha escrito una nueva contraseña → updatePassword
-    if (this.editPwd) {
-      let currentPlain = this.revealed[oldId];
-      if (!currentPlain) {
-        try {
-          const candidate = await this.es.getPassword(oldId);
-          if (candidate) currentPlain = candidate;
-        } catch (err) {
-          console.error('[renderer] compare password failed', err);
+    this.detailError = null;
+
+    // Valida los enlaces antes de guardar nada (evita guardar la contraseña y fallar en los metadatos).
+    for (const url of [this.editLoginUrl, this.editPasswordChangeUrl]) {
+      if (url && url.trim()) {
+        const res = checkEntryUrl(url);
+        if (!res.ok) {
+          this.detailError = this.t('passwords.error.invalidUrl');
+          return;
         }
-      }
-
-      if (currentPlain !== this.editPwd) {
-        const updated = await this.es.updatePassword(oldId, this.editPwd);
-        const newId = updated.id;
-
-        // si la contraseña estaba revelada, movemos el estado al nuevo id
-        if (this.revealed[oldId]) {
-          this.revealed[newId] = this.editPwd;
-          delete this.revealed[oldId];
-        }
-
-        currentId = newId;
       }
     }
 
-    const iconMeta = this.resolveIconMetaForEdit();
+    let updatedMeta: PasswordMeta;
+    try {
+      // 1) Nueva contraseña → nueva versión (el proceso principal no crea versión si es idéntica,
+      //    así que no hace falta traer la actual en claro para comparar).
+      if (this.editPwd) {
+        const updated = await this.es.updatePassword(oldId, this.editPwd);
+        const newId = updated.id;
+        if (newId !== oldId && this.revealed[oldId]) {
+          this.revealed[newId] = this.editPwd;
+          delete this.revealed[oldId];
+        }
+        currentId = newId;
+      }
 
-    // 2) Actualizar metadata (nombre / URLs) sobre el id actual (nuevo si ha cambiado)
-    const updatedMeta = await this.es.updateMeta(
-      currentId,
-      this.editLabel || '',
-      this.editLoginUrl || '',
-      this.editPasswordChangeUrl || '',
-      this.editUsername || '',
-      this.editEmail || '',
-      this.editFolder || '',
-      this.editTwoFactorEnabled,
-      iconMeta.iconName,
-      iconMeta.iconSource,
-      iconMeta.detectedService
-    );
+      const iconMeta = this.resolveIconMetaForEdit();
+
+      // 2) Actualizar metadata (nombre / URLs) sobre el id actual (nuevo si ha cambiado)
+      updatedMeta = await this.es.updateMeta(
+        currentId,
+        this.editLabel || '',
+        this.editLoginUrl || '',
+        this.editPasswordChangeUrl || '',
+        this.editUsername || '',
+        this.editEmail || '',
+        this.editFolder || '',
+        this.editTwoFactorEnabled,
+        iconMeta.iconName,
+        iconMeta.iconSource,
+        iconMeta.detectedService
+      );
+    } catch (err) {
+      console.error('[renderer] save entry failed');
+      this.detailError = this.t(String((err as any)?.message || '').includes('invalid-url')
+        ? 'passwords.error.invalidUrl'
+        : 'passwords.error.saveFailed');
+      if (currentId !== oldId) {
+        // La contraseña sí se guardó: refrescamos para no mostrar datos desfasados.
+        await this.loadEntries();
+        this.selected = this.entries.find(e => e.id === currentId) || this.selected;
+      }
+      return;
+    }
 
     // 3) Cerrar modo edicion pero mantener el panel abierto en la entrada actualizada
     this.editingDetail = false;
     this.editPwd = '';
+    this.editPwdVisible = false;
 
     const newFolder = this.normalizeFolder(updatedMeta.folder);
 
@@ -756,6 +855,8 @@ export class PasswordsComponent implements OnInit, OnDestroy {
   cancelDetailEdit(): void {
     this.editingDetail = false;
     this.editPwd = '';
+    this.editPwdVisible = false;
+    this.detailError = null;
   }
 
   closeDetail(): void {

@@ -7,6 +7,8 @@ import { PasswordCountService } from '../../core/password-count.service';
 import { TranslatePipe } from '../../core/translate.pipe';
 import { I18nService } from '../../core/i18n.service';
 import { resolveEntryIcon } from '../../core/icons/service-icon.resolver';
+import { generatePassword } from '../../core/password-generator';
+import { checkEntryUrl } from '../../core/url-utils';
 
 // Mensaje de alerta mostrado tras evaluar la fortaleza de la contraseña candidata.
 type AlertMsg = { level: CheckResult['level']; title: string; message: string };
@@ -29,6 +31,11 @@ export class AddPasswordComponent {
   folder = '';
   twoFactorEnabled = false;
   passwordError = false;
+  showPwd = false;
+  saving = false;
+  loginUrlError = false;
+  changeUrlError = false;
+  saveError: string | null = null;
   alert?: AlertMsg;
   private timer?: any;
 
@@ -53,13 +60,16 @@ export class AddPasswordComponent {
       return;
     }
     const res = await this.es.checkCandidate(this.pwd);
+    const reasons = res.codes?.length
+      ? res.codes.map(c => this.t(`check.reason.${c.code}`, c.params))
+      : res.reasons;
     const title =
       res.level === 'danger'
         ? this.t('add.alert.danger')
         : res.level === 'warn'
           ? this.t('add.alert.warn')
           : this.t('add.alert.ok');
-    const message = res.reasons.length ? res.reasons.join(', ') : this.t('common.noIssues');
+    const message = reasons.length ? reasons.join(' · ') : this.t('common.noIssues');
     this.alert = { level: res.level, title, message };
   }
 
@@ -78,12 +88,29 @@ export class AddPasswordComponent {
   }
 
   // Guarda la entrada resolviendo icono/servicio y refresca los contadores globales.
+  onGenerate(): void {
+    this.pwd = generatePassword();
+    this.showPwd = true;
+    this.onPasswordInput();
+  }
+
+  // Valida los enlaces (http/https, sin credenciales). Vacío es válido.
+  validateUrls(): boolean {
+    const bad = (v: string) => !!v.trim() && !checkEntryUrl(v).ok;
+    this.loginUrlError = bad(this.loginUrl);
+    this.changeUrlError = bad(this.passwordChangeUrl);
+    return !this.loginUrlError && !this.changeUrlError;
+  }
+
   async onSave(): Promise<void> {
+    if (this.saving) return;
+    this.saveError = null;
     if (!this.pwd) {
       this.passwordError = true;
       return;
     }
     this.passwordError = false;
+    if (!this.validateUrls()) return;
 
     const resolvedIcon = resolveEntryIcon({
       label: this.label,
@@ -93,7 +120,9 @@ export class AddPasswordComponent {
       email: this.email
     });
 
-    await this.es.savePassword(
+    this.saving = true;
+    try {
+      await this.es.savePassword(
       this.pwd,
       this.label || undefined,
       this.loginUrl || undefined,
@@ -105,7 +134,16 @@ export class AddPasswordComponent {
       resolvedIcon.iconName,
       'auto',
       resolvedIcon.serviceId
-    );
+      );
+    } catch (err) {
+      console.error('[add] save failed');
+      this.saveError = this.t(String((err as any)?.message || '').includes('invalid-url')
+        ? 'passwords.error.invalidUrl'
+        : 'passwords.error.saveFailed');
+      return;
+    } finally {
+      this.saving = false;
+    }
 
     // Recalcula el total mostrado en el dashboard y cabecera tras el alta.
     await this.passwordCountSvc.refreshFromDisk();

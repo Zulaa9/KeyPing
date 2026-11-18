@@ -2,6 +2,7 @@ import { Component, ElementRef, HostListener, OnDestroy, AfterViewInit, ViewChil
 import { FormsModule } from '@angular/forms';
 import { NgIf, NgStyle } from '@angular/common';
 import { TranslatePipe } from '../../core/translate.pipe';
+import { generatePassword } from '../../core/password-generator';
 
 @Component({
   selector: 'kp-password-generator',
@@ -104,12 +105,13 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
     }
     const text = this.generatedPassword;
     if (!text) return;
-    if (navigator?.clipboard?.writeText) {
-      // Solo usa la API moderna de portapapeles; sin ruta heredada.
-      navigator.clipboard
-        .writeText(text)
-        .then(() => this.setCopyFeedback())
-        .catch(err => console.error('[renderer] copy generated failed', err));
+    // Copia por el proceso principal para que el portapapeles se limpie solo a los 20 s,
+    // igual que al copiar una contraseña guardada.
+    const viaMain = window.keyping?.copyText?.(text);
+    if (viaMain) {
+      viaMain
+        .then(ok => { if (ok) this.setCopyFeedback(); })
+        .catch(() => console.error('[renderer] copy generated failed'));
     }
   }
 
@@ -184,38 +186,12 @@ export class PasswordGeneratorComponent implements AfterViewInit, OnDestroy {
   }
 
   private makePassword(): string {
-    // Garantiza al menos un carácter por pool activo antes de completar aleatoriamente.
-    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lower = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const symbols = '!@#$%^&*()-_=+[]{};:,.?';
-
-    const pools: string[] = [];
-    if (this.useUpper) pools.push(upper);
-    if (this.useLower) pools.push(lower);
-    if (this.useNumbers) pools.push(numbers);
-    if (this.useSymbols) pools.push(symbols);
-
-    if (pools.length === 0) {
-      pools.push(lower);
-    }
-
-    const all = pools.join('');
-    const chars: string[] = [];
-
-    for (const pool of pools) {
-      chars.push(pool[Math.floor(Math.random() * pool.length)]);
-    }
-
-    while (chars.length < this.genLength) {
-      chars.push(all[Math.floor(Math.random() * all.length)]);
-    }
-
-    for (let i = chars.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [chars[i], chars[j]] = [chars[j], chars[i]];
-    }
-
-    return chars.slice(0, this.genLength).join('');
+    return generatePassword({
+      length: this.genLength,
+      upper: this.useUpper,
+      lower: this.useLower,
+      numbers: this.useNumbers,
+      symbols: this.useSymbols
+    });
   }
 }
