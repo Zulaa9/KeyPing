@@ -116,6 +116,10 @@ Verificar checksums:
 sha256sum -c SHA256SUMS.txt
 ```
 
+### Actualizaciones automáticas firmadas
+
+Desde la 1.3.0 los metadatos de actualización (`latest.yml`, `latest-linux.yml`) van firmados con una clave Ed25519 cuya parte pública está dentro de la app. KeyPing se niega a descargar o instalar una actualización cuya versión, nombres de archivo, tamaños o sumas SHA-512 no estén cubiertos por una firma válida, de modo que un archivo manipulado en una release no puede instalarse automáticamente. Para quien publica: [docs/RELEASE.md](docs/RELEASE.md).
+
 ## Arquitectura
 
 - **Frontend**: Angular (componentes standalone)

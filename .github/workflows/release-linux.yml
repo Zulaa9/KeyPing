@@ -56,12 +56,20 @@ jobs:
         working-directory: keyping-ui
         run: bash scripts/generate-checksums.sh
 
+      # Metadatos sin firmar: se descargan, se firman en local y se suben a la release a mano.
+      - name: Keep unsigned update metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-linux-unsigned
+          path: keyping-ui/dist/build/latest-linux.yml
+          retention-days: 14
+
       - name: Upload assets to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "$TAG" keyping-ui/dist/build/KeyPing-*.AppImage --clobber
-          gh release upload "$TAG" keyping-ui/dist/build/latest-linux.yml --clobber
+          # latest-linux.yml NO se sube aquí: hay que firmarlo fuera de GitHub (docs/RELEASE.md).
 
           # Conserva las sumas ya publicadas (instalador de Windows) y añade las de Linux.
           SUMS_DIR="$(mktemp -d)"

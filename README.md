@@ -116,6 +116,10 @@ Verify checksums:
 sha256sum -c SHA256SUMS.txt
 ```
 
+### Signed auto-updates
+
+Since 1.3.0 the update metadata (`latest.yml`, `latest-linux.yml`) is signed with an Ed25519 key whose public half is built into the app. KeyPing refuses to download or install an update whose version, file names, sizes or SHA-512 hashes are not covered by a valid signature, so a tampered release asset cannot be installed automatically. Maintainers: see [docs/RELEASE.md](docs/RELEASE.md).
+
 ## Architecture
 
 - **Frontend**: Angular (standalone components)
