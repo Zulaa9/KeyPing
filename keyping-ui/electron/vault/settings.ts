@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
-import * as path from 'path';
-import { app } from 'electron';
+import { dataFile } from './paths';
+import { atomicWriteFile } from './fsutil';
 
 // Ajustes persistidos del módulo vault (p. ej. límite de historial por entrada).
 const SETTINGS_FILE = 'keyping-settings.json';
@@ -11,11 +11,11 @@ type StoredSettings = {
 };
 
 function settingsPath(): string {
-  return path.join(app.getPath('userData'), SETTINGS_FILE);
+  return dataFile(SETTINGS_FILE);
 }
 
 function clampHistory(value: number): number {
-  const v = Math.round(value);
+  const v = Number.isFinite(value) ? Math.round(value) : DEFAULT_MAX_HISTORY;
   return Math.min(200, Math.max(1, v));
 }
 
@@ -39,8 +39,6 @@ export async function saveSettings(partial: StoredSettings): Promise<Required<St
   const next: Required<StoredSettings> = {
     maxHistoryPerEntry: clampHistory(partial.maxHistoryPerEntry ?? current.maxHistoryPerEntry)
   };
-  const file = settingsPath();
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify(next), { encoding: 'utf8', mode: 0o600 });
+  await atomicWriteFile(settingsPath(), JSON.stringify(next));
   return next;
 }

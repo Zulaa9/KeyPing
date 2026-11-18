@@ -1,7 +1,8 @@
 import { promises as fs } from 'fs';
-import * as path from 'path';
-import { app } from 'electron';
-import { encryptVault, decryptVault, decryptVaultWithKey } from './crypto';
+import { randomUUID } from 'crypto';
+import { encryptVault, decryptVault, decryptWithKey, encryptWithKey } from './crypto';
+import { dataFile } from './paths';
+import { atomicWriteFile, atomicRename, cleanupStaleTemps, fileExists } from './fsutil';
 import {
   VaultData,
   VaultEntry,
@@ -11,8 +12,33 @@ import {
 } from './types';
 
 // Persistencia física del vault cifrado y chequeos de integridad.
-function vaultPath(): string {
-  return path.join(app.getPath('userData'), 'keyping-vault.kp');
+export const VAULT_FILE = 'keyping-vault.kp';
+
+export function vaultPath(): string {
+  return dataFile(VAULT_FILE);
+}
+
+// Copia cifrada con la clave nueva durante un cambio de contraseña o una migración heredada.
+// Solo se promueve a vault principal cuando kp-auth.json ya refleja esa clave (commit en dos fases).
+export function pendingVaultPath(): string {
+  return dataFile(`${VAULT_FILE}.pending`);
+}
+
+/**
+ * El vault existe pero no se puede leer (clave incorrecta, archivo truncado o corrupto).
+ * Se lanza en lugar de devolver un vault vacío: antes, cualquier guardado posterior
+ * sobrescribía la bóveda real con una lista vacía.
+ */
+export class VaultUnreadableError extends Error {
+  readonly code = 'VAULT_UNREADABLE';
+  constructor(readonly reason: 'too-short' | 'decrypt-failed' | 'invalid-json' | 'invalid-structure' | 'read-error') {
+    super(`Vault unreadable (${reason})`);
+    this.name = 'VaultUnreadableError';
+  }
+}
+
+export async function vaultFileExists(): Promise<boolean> {
+  return fileExists(vaultPath());
 }
 
 const MIN_TIMESTAMP_MS = new Date('2010-01-01').getTime();
@@ -20,13 +46,19 @@ const MAX_FUTURE_DRIFT_MS = 365 * 24 * 60 * 60 * 1000; // tolerancia de 1 ano
 
 function migrate(data: any): VaultData {
   // Migraciones de esquema al cargar para mantener compatibilidad hacia atrás.
-  const entries: VaultEntry[] = Array.isArray(data?.entries) ? data.entries : [];
+  const entries: VaultEntry[] = Array.isArray(data?.entries)
+    ? data.entries.filter((e: any) => e && typeof e === 'object' && !Array.isArray(e))
+    : [];
 
   for (const e of entries) {
     // Migracion antigua: note -> label
     if (!e.label && (e as any).note) {
       e.label = (e as any).note;
       delete (e as any).note;
+    }
+    if (typeof e.id !== 'string' || !e.id) {
+      // Nunca descartar una entrada por no tener id: se le asigna uno estable a partir de ahora.
+      e.id = randomUUID();
     }
     if (typeof e.active === 'undefined') {
       e.active = true;
@@ -53,44 +85,101 @@ function computeStatus(issues: VaultIntegrityIssue[]): VaultIntegrityStatus {
   return hasError ? 'error' : 'warn';
 }
 
-export async function loadVault(): Promise<VaultData> {
-  const file = vaultPath();
+function parseVaultJson(json: string): VaultData {
+  let raw: any;
   try {
-    const buf = await fs.readFile(file);
-    const json = await decryptVault(buf);
-    const raw = JSON.parse(json);
-    return migrate(raw);
-  } catch (err: any) {
-    if (err.code === 'ENOENT') return { entries: [] };
-    console.error('[vault] load error:', err);
-    return { entries: [] };
+    raw = JSON.parse(json);
+  } catch {
+    throw new VaultUnreadableError('invalid-json');
   }
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.entries)) {
+    throw new VaultUnreadableError('invalid-structure');
+  }
+  const data = migrate(raw);
+  if (typeof raw.hashVersion === 'string') data.hashVersion = raw.hashVersion;
+  return data;
+}
+
+async function readVaultFile(): Promise<Buffer | null> {
+  try {
+    return await fs.readFile(vaultPath());
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') return null;
+    throw new VaultUnreadableError('read-error');
+  }
+}
+
+/** Lee el vault con la clave de sesión. Devuelve vacío SOLO si el archivo no existe. */
+export async function loadVault(): Promise<VaultData> {
+  const buf = await readVaultFile();
+  if (!buf) return { entries: [] };
+  if (buf.byteLength < 28) throw new VaultUnreadableError('too-short');
+  let json: string;
+  try {
+    json = await decryptVault(buf);
+  } catch (err: any) {
+    if (err?.message === 'No active session') throw err;
+    throw new VaultUnreadableError('decrypt-failed');
+  }
+  return parseVaultJson(json);
 }
 
 export async function saveVault(data: VaultData): Promise<void> {
-  const file = vaultPath();
   const json = JSON.stringify(data);
   const encrypted = await encryptVault(json);
-  const tmp = `${file}.tmp`;
-
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(tmp, encrypted, { mode: 0o600 });
-  await fs.rename(tmp, file);
+  await atomicWriteFile(vaultPath(), encrypted);
 }
 
-// Load vault using an explicit key — migration path from legacy kp-master.key scheme.
+/** Lee el vault con una clave explícita (migración heredada / recuperación). Estricto: lanza si no puede. */
 export async function loadVaultWithKey(key: Buffer): Promise<VaultData> {
-  const file = vaultPath();
+  const buf = await readVaultFile();
+  if (!buf) return { entries: [] };
+  if (buf.byteLength < 28) throw new VaultUnreadableError('too-short');
+  let json: string;
   try {
-    const buf = await fs.readFile(file);
-    if (buf.byteLength < 28) return { entries: [] };
-    const json = await decryptVaultWithKey(buf, key);
-    const raw = JSON.parse(json);
-    return migrate(raw);
-  } catch (err: any) {
-    if (err.code === 'ENOENT') return { entries: [] };
-    return { entries: [] };
+    json = decryptWithKey(buf, key);
+  } catch {
+    throw new VaultUnreadableError('decrypt-failed');
   }
+  return parseVaultJson(json);
+}
+
+/** Fase 1 del commit en dos fases: escribe el vault cifrado con `key` en el archivo pendiente. */
+export async function writePendingVault(data: VaultData, key: Buffer): Promise<void> {
+  await atomicWriteFile(pendingVaultPath(), encryptWithKey(JSON.stringify(data), key));
+}
+
+/** Fase 3: promueve el archivo pendiente a vault principal. */
+export async function promotePendingVault(): Promise<void> {
+  await atomicRename(pendingVaultPath(), vaultPath());
+}
+
+export async function discardPendingVault(): Promise<void> {
+  await fs.unlink(pendingVaultPath()).catch(() => {});
+}
+
+/**
+ * Recupera un cambio de contraseña o migración interrumpidos.
+ * Si existe un vault pendiente descifrable con la clave ya verificada, el auth nuevo llegó
+ * a disco y solo faltaba el renombrado: se completa. Si no, el auth nuevo nunca se guardó y
+ * el pendiente es inservible: se descarta. Idempotente.
+ */
+export async function recoverPendingVault(key: Buffer): Promise<'none' | 'promoted' | 'discarded'> {
+  await cleanupStaleTemps(vaultPath());
+  let buf: Buffer;
+  try {
+    buf = await fs.readFile(pendingVaultPath());
+  } catch {
+    return 'none';
+  }
+  try {
+    parseVaultJson(decryptWithKey(buf, key));
+  } catch {
+    await discardPendingVault();
+    return 'discarded';
+  }
+  await promotePendingVault();
+  return 'promoted';
 }
 
 export async function resetVault(): Promise<void> {
