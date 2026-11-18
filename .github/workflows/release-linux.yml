@@ -23,7 +23,11 @@ jobs:
 
       - name: Install dependencies
         working-directory: keyping-ui
-        run: npm install
+        run: npm ci
+
+      - name: Run main-process tests
+        working-directory: keyping-ui
+        run: npm run test:electron
 
       - name: Build AppImage
         working-directory: keyping-ui
