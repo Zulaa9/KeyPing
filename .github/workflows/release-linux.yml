@@ -25,6 +25,11 @@ jobs:
         working-directory: keyping-ui
         run: npm ci
 
+      # Electron descarga su binario al primer uso: varios tests a la vez chocarían entre sí.
+      - name: Download Electron binary
+        working-directory: keyping-ui
+        run: node -e "require('electron')"
+
       - name: Run main-process tests
         working-directory: keyping-ui
         run: npm run test:electron
