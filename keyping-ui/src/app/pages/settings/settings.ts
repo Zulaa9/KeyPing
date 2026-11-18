@@ -145,7 +145,15 @@ export class SettingsComponent implements OnInit, OnDestroy {
 
     const ok = await this.master.rotateMaster(current, next);
     if (!ok) {
-      this.masterMessage = { type: 'error', key: 'settings.master.error.invalid' };
+      const reason = this.master.lastAuthError?.reason;
+      this.masterMessage = {
+        type: 'error',
+        key: reason === 'cooldown'
+          ? 'settings.master.error.cooldown'
+          : reason === 'invalid'
+            ? 'settings.master.error.invalid'
+            : 'settings.master.error.failed'
+      };
       return;
     }
 
@@ -353,14 +361,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.mergePreview = this.importEntries.slice(0, 50).map((raw, idx) => ({
-        idx,
-        label: raw?.label || (raw as any)?.name || (raw as any)?.title || `Entrada ${idx + 1}`,
-        username: raw?.username || (raw as any)?.user,
-        email: raw?.email,
-        selected: true,
-        reason: this.classifyImportEntry(raw)
-      }));
+      this.mergePreview = this.buildMergePreview();
 
       if (this.importMode === 'overwrite') {
         this.importMessage = this.t('settings.import.msg.readyOverwrite');
@@ -373,8 +374,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.importState = count ? 'success' : 'info';
       }
     } catch (err) {
-      console.error('[settings] import parse error', err);
-      this.importMessage = this.t('settings.import.msg.readError');
+      console.error('[settings] import parse failed');
+      this.importMessage = this.t(this.importErrorKey(err, 'settings.import.msg.readError'));
       this.mergePreview = [];
       this.importEntries = [];
       this.importEncrypted = undefined;
@@ -395,14 +396,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       const parsed = await this.es.parseImport(this.rawImportText, this.importPassword);
       this.importEntries = parsed.entries || [];
       this.importSource = parsed.source;
-      this.mergePreview = this.importEntries.slice(0, 50).map((raw, idx) => ({
-        idx,
-        label: raw?.label || (raw as any)?.name || (raw as any)?.title || `Entrada ${idx + 1}`,
-        username: raw?.username || (raw as any)?.user,
-        email: raw?.email,
-        selected: true,
-        reason: this.classifyImportEntry(raw)
-      }));
+      this.mergePreview = this.buildMergePreview();
 
       const count = this.mergePreview.length;
       this.importMessage = count
@@ -410,8 +404,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
         : this.t('settings.import.msg.emptyFile');
       this.importState = count ? 'success' : 'info';
     } catch (err) {
-      console.error('[settings] import unlock error', err);
-      this.importMessage = this.t('settings.import.msg.unlockError');
+      console.error('[settings] import unlock failed');
+      this.importMessage = this.t(this.importErrorKey(err, 'settings.import.msg.unlockError'));
       this.importState = 'error';
     }
   }
@@ -560,6 +554,25 @@ export class SettingsComponent implements OnInit, OnDestroy {
     return new Blob([bytes], { type });
   }
 
+  // Vista previa de TODAS las entradas actuales del archivo (antes solo las 50 primeras, y la
+  // fusión importaba únicamente esas). Las versiones antiguas del historial no se listan como
+  // entradas sueltas: viajan con su entrada al importar.
+  private buildMergePreview(): MergePreviewItem[] {
+    const items: MergePreviewItem[] = [];
+    this.importEntries.forEach((raw, idx) => {
+      if ((raw as any)?.active === false) return;
+      items.push({
+        idx,
+        label: raw?.label || (raw as any)?.name || (raw as any)?.title || `${this.t('settings.import.entryFallback')} ${items.length + 1}`,
+        username: raw?.username || (raw as any)?.user,
+        email: raw?.email,
+        selected: true,
+        reason: this.classifyImportEntry(raw)
+      });
+    });
+    return items;
+  }
+
   private async runImport(mode: 'overwrite' | 'merge'): Promise<void> {
     if (this.importing) return;
     this.importing = true;
@@ -576,42 +589,25 @@ export class SettingsComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const selectedEntries =
-        mode === 'merge'
-          ? this.mergePreview
-              .map((item, idx) => {
-                if (!item.selected) return null;
-                const entry = { ...this.importEntries[idx] };
-                const baseLabel = entry.label || entry.username || entry.email || this.t('settings.import.entryFallback');
-                entry.label = baseLabel;
-                if (item.reason === 'conflict') {
-                  entry.label = `${baseLabel} - ${this.t('settings.import.conflictSuffix')}`;
-                } else if (item.reason === 'existing') {
-                  entry.label = `${baseLabel} - ${this.t('settings.import.duplicateSuffix')}`;
-                }
-                return entry;
-              })
-              .filter((e): e is VaultImportEntry => !!e)
-          : this.importEntries;
+      // Solo se envía qué entradas importar (índice y nombre final); los secretos ya están en el
+      // proceso principal desde el análisis del archivo y nunca vuelven a pasar por aquí.
+      const selection: { idx: number; label?: string }[] = [];
+      if (mode === 'merge') {
+        for (const item of this.mergePreview) {
+          if (!item.selected) continue;
+          const entry = this.importEntries[item.idx] || {};
+          const baseLabel = entry.label || entry.username || entry.email || this.t('settings.import.entryFallback');
+          let label = baseLabel;
+          if (item.reason === 'conflict') {
+            label = `${baseLabel} - ${this.t('settings.import.conflictSuffix')}`;
+          } else if (item.reason === 'existing') {
+            label = `${baseLabel} - ${this.t('settings.import.duplicateSuffix')}`;
+          }
+          selection.push({ idx: item.idx, label });
+        }
+      }
 
-      // Homogeneiza timestamps de import para que las vistas ordenen de forma estable.
-      const now = Date.now();
-      const stampedEntries = selectedEntries.map(entry => ({
-        ...entry,
-        updatedAt: now,
-        createdAt: (entry as any).createdAt ?? now
-      }));
-
-      const enc = this.importSource === 'encrypted' ? 'native' : this.importSource || 'plain';
-
-      const res = await this.es.importVault(
-        mode,
-        stampedEntries,
-        this.importEncrypted,
-        enc,
-        this.importPassword,
-        this.importSource === 'master' ? this.safeParse(this.rawImportText || '{}') : undefined
-      );
+      const res = await this.es.importVault(mode, selection);
       this.importState = 'success';
       this.importMessage =
         mode === 'overwrite'
@@ -620,9 +616,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
       await this.passwordCountSvc.refreshFromDisk();
       await this.loadCurrentVaultIds();
     } catch (err) {
-      console.error('[settings] import error', err);
+      console.error('[settings] import failed');
       this.importState = 'error';
-      this.importMessage = this.t('settings.import.msg.fail');
+      this.importMessage = this.t(this.importErrorKey(err, 'settings.import.msg.fail'));
     } finally {
       this.importing = false;
     }
@@ -649,6 +645,15 @@ export class SettingsComponent implements OnInit, OnDestroy {
     const mode = this.confirmModal.mode;
     this.closeConfirmModal();
     this.runImport(mode);
+  }
+
+  private importErrorKey(err: unknown, fallback: string): string {
+    const msg = String((err as any)?.message || '');
+    if (msg.includes('import-native-key-mismatch')) return 'settings.import.msg.nativeKeyMismatch';
+    if (msg.includes('import-wrong-password')) return 'settings.import.msg.unlockError';
+    if (msg.includes('import-too-large')) return 'settings.import.msg.tooLarge';
+    if (msg.includes('invalid-import-file')) return 'settings.import.msg.invalidFile';
+    return fallback;
   }
 
   private safeParse(text: string): any {
