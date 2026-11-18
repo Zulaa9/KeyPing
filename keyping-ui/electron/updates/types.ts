@@ -8,7 +8,7 @@ export type UpdateStatus =
   | 'upToDate'
   | 'error';
 
-export type UpdateErrorCode = 'network' | 'server' | 'permissions' | 'generic';
+export type UpdateErrorCode = 'network' | 'server' | 'permissions' | 'signature' | 'generic';
 
 export type UpdateState = {
   // Estado serializable que se envía por IPC a la UI.

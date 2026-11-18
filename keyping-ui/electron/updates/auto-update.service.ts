@@ -3,6 +3,8 @@ import { autoUpdater } from 'electron-updater';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { UpdateErrorCode, UpdatePreferences, UpdateState } from './types';
+import { UPDATE_PUBLIC_KEYS } from './update-public-keys';
+import { canonicalUpdateMessage, SignableUpdateInfo, TrustedKeys, verifyUpdateSignature } from './update-signature';
 
 const UPDATE_EVENT_CHANNEL = 'keyping:update:state';
 const SETTINGS_FILE = 'update-settings.json';
@@ -34,10 +36,15 @@ export class AutoUpdateService {
   // Durante la comprobación automática al arrancar, un fallo de red (p. ej. sin conexión)
   // no se muestra como error: la app funciona sin red y no debe molestar en cada inicio.
   private quietNetworkErrors = false;
+  // Mensaje canónico de la última actualización con firma válida. Solo esa versión, con esos
+  // mismos archivos y sumas, puede descargarse e instalarse (fail-closed).
+  private verifiedMessage: string | undefined;
+  private downloadVerified = false;
 
   constructor(
     getWindows: () => BrowserWindow[],
-    private readonly isTrustedSender: (event: IpcMainInvokeEvent) => boolean = () => true
+    private readonly isTrustedSender: (event: IpcMainInvokeEvent) => boolean = () => true,
+    private readonly trustedKeys: TrustedKeys = UPDATE_PUBLIC_KEYS
   ) {
     this.getWindows = getWindows;
   }
@@ -138,6 +145,12 @@ export class AutoUpdateService {
       return this.getState();
     }
 
+    if (!this.verifiedMessage) {
+      // Sin metadatos firmados no se descarga nada, aunque la UI lo pida.
+      this.rejectUnsigned();
+      return this.getState();
+    }
+
     this.updateState({
       status: 'downloading',
       errorMessage: undefined,
@@ -160,7 +173,7 @@ export class AutoUpdateService {
   }
 
   installUpdateAndRestart(): boolean {
-    if (!this.canUseUpdater() || this.state.status !== 'downloaded') {
+    if (!this.canUseUpdater() || this.state.status !== 'downloaded' || !this.downloadVerified) {
       return false;
     }
 
@@ -202,7 +215,8 @@ export class AutoUpdateService {
   private configureUpdater(): void {
     // En este flujo siempre pedimos confirmación antes de descargar.
     autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = this.preferences.installOnQuit;
+    // Instalar al salir solo cuando lo descargado corresponde a metadatos con firma válida.
+    autoUpdater.autoInstallOnAppQuit = this.preferences.installOnQuit && this.downloadVerified;
     autoUpdater.allowDowngrade = false;
   }
 
@@ -217,6 +231,14 @@ export class AutoUpdateService {
     });
 
     autoUpdater.on('update-available', info => {
+      this.downloadVerified = false;
+      this.configureUpdater();
+      const message = this.verify(info);
+      this.verifiedMessage = message;
+      if (!message) {
+        this.rejectUnsigned(info.version);
+        return;
+      }
       this.updateState({
         status: 'available',
         availableVersion: info.version,
@@ -240,6 +262,16 @@ export class AutoUpdateService {
     });
 
     autoUpdater.on('update-downloaded', info => {
+      // Se vuelve a comprobar: la descarga debe corresponder exactamente a lo verificado.
+      const message = this.verify(info);
+      if (!message || message !== this.verifiedMessage) {
+        this.downloadVerified = false;
+        this.configureUpdater();
+        this.rejectUnsigned(info.version);
+        return;
+      }
+      this.downloadVerified = true;
+      this.configureUpdater();
       this.updateState({
         status: 'downloaded',
         availableVersion: info.version,
@@ -253,6 +285,9 @@ export class AutoUpdateService {
     });
 
     autoUpdater.on('update-not-available', () => {
+      this.verifiedMessage = undefined;
+      this.downloadVerified = false;
+      this.configureUpdater();
       this.updateState({
         status: 'upToDate',
         availableVersion: undefined,
@@ -313,6 +348,33 @@ export class AutoUpdateService {
   private async persistPreferences(): Promise<void> {
     const payload = JSON.stringify(this.preferences, null, 2);
     await fs.writeFile(this.settingsPath, payload, { encoding: 'utf8', mode: 0o600 });
+  }
+
+  private verify(info: unknown): string | undefined {
+    const result = verifyUpdateSignature(info as SignableUpdateInfo, this.trustedKeys);
+    if (!result.ok) {
+      // Solo el motivo, nunca el contenido de los metadatos.
+      console.warn(`[updates] actualización rechazada: firma no válida (${result.reason})`);
+      return undefined;
+    }
+    try {
+      return canonicalUpdateMessage(info as SignableUpdateInfo);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private rejectUnsigned(version?: string): void {
+    this.updateState({
+      status: 'error',
+      availableVersion: version ?? this.state.availableVersion,
+      errorCode: 'signature',
+      errorMessage: 'La actualización no tiene una firma válida de KeyPing y se ha bloqueado.',
+      progressPercent: undefined,
+      transferredBytes: undefined,
+      totalBytes: undefined,
+      checkedAt: Date.now()
+    });
   }
 
   private updateState(next: Partial<UpdateState>): void {

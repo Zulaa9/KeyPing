@@ -435,6 +435,7 @@
   "updates.error.summary.network": "We could not connect to the update service.",
   "updates.error.summary.server": "The update server is not available right now.",
   "updates.error.summary.permissions": "You do not have permission to download this update.",
+  "updates.error.summary.signature": "This update does not have a valid KeyPing signature and was blocked for your safety. Only download KeyPing from the official releases page.",
   "updates.error.summary.generic": "We could not check for updates right now.",
   "updates.actions.download": "Download",
   "updates.actions.updateNow": "Update now",

@@ -17,7 +17,7 @@ export type UpdateState = {
   transferredBytes?: number;
   totalBytes?: number;
   errorMessage?: string;
-  errorCode?: 'network' | 'server' | 'permissions' | 'generic';
+  errorCode?: 'network' | 'server' | 'permissions' | 'signature' | 'generic';
   checkedAt?: number;
 };
 

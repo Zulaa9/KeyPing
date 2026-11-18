@@ -435,6 +435,7 @@
   "updates.error.summary.network": "No hemos podido conectar con el servicio de actualizaciones.",
   "updates.error.summary.server": "El servidor de actualizaciones no está disponible ahora mismo.",
   "updates.error.summary.permissions": "No tienes permisos para descargar esta actualización.",
+  "updates.error.summary.signature": "La actualización no tiene una firma válida de KeyPing y se ha bloqueado por seguridad. Descarga KeyPing solo desde la página oficial de releases.",
   "updates.error.summary.generic": "No se pudo comprobar si hay actualizaciones en este momento.",
   "updates.actions.download": "Descargar",
   "updates.actions.updateNow": "Actualizar ahora",
