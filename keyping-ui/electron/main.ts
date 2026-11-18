@@ -110,8 +110,13 @@ function isTrustedRendererUrl(url: string): boolean {
       return false;
     }
   }
-  const base = pathToFileURL(path.dirname(rendererIndexPath()) + path.sep).href;
-  return url.startsWith(base);
+  // Solo el index.html de la app (la navegación interna usa #/ruta).
+  // Con base href "./" y rutas hash, la URL del marco puede ser el directorio del renderer.
+  const indexPath = rendererIndexPath();
+  const index = pathToFileURL(indexPath).href;
+  const dir = pathToFileURL(path.dirname(indexPath) + path.sep).href;
+  const withoutHash = url.split('#')[0].split('?')[0];
+  return withoutHash === index || withoutHash === dir;
 }
 
 // Solo la ventana principal de KeyPing, cargada desde los archivos de la app, puede usar el IPC.
