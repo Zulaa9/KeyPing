@@ -73,6 +73,7 @@ import { checkPasswordBetter } from './password-check';
 import { AutoUpdateService } from './updates/auto-update.service';
 import { ClipboardClearSessionManager } from './clipboard-clear-session';
 import { writeSecretToWindowsClipboard } from './windows-clipboard';
+import { getLinuxWindowIcon } from './window-icon';
 
 // En la app instalada no se permite abrir un puerto de depuración remota: otro programa del
 // equipo podría lanzar KeyPing así y leer la sesión desbloqueada. (Los fuses ya bloquean
@@ -204,6 +205,13 @@ function createWindow() {
       spellcheck: false
     }
   };
+
+  const linuxIcon = getLinuxWindowIcon({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath
+  });
+  if (linuxIcon) windowOptions.icon = linuxIcon;
 
   if (isWindows || isMac) {
     windowOptions.titleBarStyle = 'hidden';
