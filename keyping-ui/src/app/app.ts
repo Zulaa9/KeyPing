@@ -1,5 +1,5 @@
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { HeaderComponent } from './components/header/header';
 import { FormsModule } from '@angular/forms';
 import { NgClass, NgFor, NgIf, NgStyle, NgSwitch, NgSwitchCase } from '@angular/common';
@@ -10,6 +10,7 @@ import { ElectronService } from './core/electron.service';
 import { filter, Subscription } from 'rxjs';
 import { UpdateBannerComponent } from './components/update-banner/update-banner';
 import { AppUpdateService } from './core/app-update.service';
+import { PasswordCountService } from './core/password-count.service';
 type OnboardingStep = {
   titleKey: string;
   descKey: string;
@@ -22,12 +23,14 @@ type OnboardingPlacement = 'right' | 'bottom' | 'bottom-right' | 'left' | 'cente
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent, FormsModule, NgIf, NgFor, TranslatePipe, NgSwitch, NgSwitchCase, NgStyle, NgClass, UpdateBannerComponent],
+  imports: [HeaderComponent, FormsModule, NgIf, NgFor, TranslatePipe, NgSwitch, NgSwitchCase, NgStyle, NgClass, UpdateBannerComponent],
   templateUrl: './app.html'
 })
 export class AppComponent implements OnInit, OnDestroy {
   // Estado de bloqueo maestro y mensajes de UI asociados
   lockState: MasterState = 'locked';
+  /** Aviso tras desbloquear (bóveda ilegible o migración 1.0.x sin verificador). */
+  unlockNotice: 'vault-unreadable' | 'legacy-unverified' | null = null;
   masterError: { key: string; params?: Record<string, string | number> } | null = null;
   masterCooldownLabel: { key: string; params?: Record<string, string | number> } | null = null;
   private cooldownTimer?: any;
@@ -142,7 +145,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private i18n: I18nService,
     private router: Router,
     private updates: AppUpdateService,
-    private electron: ElectronService
+    private electron: ElectronService,
+    private passwordCount: PasswordCountService
   ) {}
 
   get isLinux(): boolean {
@@ -164,10 +168,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.showIntro = this.lockState === 'unset';
     this.master.state$.subscribe(state => {
       this.lockState = state;
+      if (state !== 'unlocked') this.unlockNotice = null;
       if (state !== 'unset') {
         this.showIntro = false;
       }
       if (state === 'unlocked') {
+        // El contador del menú se pidió con la bóveda bloqueada (lista vacía): se recarga.
+        void this.passwordCount.refreshFromDisk();
         this.maybeStartOnboarding();
       } else {
         this.showOnboarding = false;
@@ -228,6 +235,20 @@ export class AppComponent implements OnInit, OnDestroy {
     this.masterPassword = '';
     this.masterCooldownLabel = null;
     clearInterval(this.cooldownTimer);
+    this.unlockNotice = this.toNotice(this.master.lastUnlockWarning);
+  }
+
+  private toNotice(w: string | null): 'vault-unreadable' | 'legacy-unverified' | null {
+    return w === 'vault-unreadable' || w === 'legacy-unverified' ? w : null;
+  }
+
+  dismissNotice(): void {
+    this.unlockNotice = null;
+  }
+
+  openIntegrityCheck(): void {
+    this.unlockNotice = null;
+    void this.router.navigate(['/settings'], { fragment: 'integrity' });
   }
 
   async onCreateMaster(): Promise<void> {
@@ -244,6 +265,7 @@ export class AppComponent implements OnInit, OnDestroy {
       await this.master.setMaster(this.masterPassword);
       this.masterPassword = '';
       this.masterPasswordConfirm = '';
+      this.unlockNotice = this.toNotice(this.master.lastUnlockWarning);
     } catch (err) {
       console.error('[app] setMaster failed');
       const reason = this.master.lastAuthError?.reason;

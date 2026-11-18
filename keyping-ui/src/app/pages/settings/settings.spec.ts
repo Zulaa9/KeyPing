@@ -34,3 +34,25 @@ describe('SettingsComponent – importación', () => {
     expect(Object.keys(selection[0]).sort()).toEqual(['idx', 'label']);
   });
 });
+
+describe('SettingsComponent – integridad', () => {
+  afterEach(() => uninstallFakeKeyping());
+
+  it('muestra el resultado de la comprobación de integridad con cada aviso', async () => {
+    installFakeKeyping([], {
+      checkVaultIntegrity: jasmine.createSpy('checkVaultIntegrity').and.resolveTo({
+        status: 'warn', fileExists: true, entries: 7, checkedAt: Date.now(),
+        issues: [{ code: 'implausible-timestamps', count: 2 }]
+      })
+    });
+    await TestBed.configureTestingModule({ imports: [SettingsComponent], providers: testProviders }).compileComponents();
+    const fixture = TestBed.createComponent(SettingsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const card: HTMLElement = fixture.nativeElement.querySelector('#integrity');
+    expect(card).toBeTruthy();
+    expect(card.querySelectorAll('.integrity-issues li').length).toBe(1);
+    expect(card.textContent).toContain('settings.integrity.issue.implausible-timestamps');
+  });
+});

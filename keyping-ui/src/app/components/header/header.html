@@ -72,6 +72,8 @@
 
   <!-- CONTENIDO DINAMICO -->
   <main class="main">
-    <router-outlet></router-outlet>
+    <!-- Las vistas solo existen con la sesión abierta: al bloquear se destruyen y con ellas
+         cualquier contraseña revelada en pantalla o en memoria del renderer. -->
+    <router-outlet *ngIf="!locked"></router-outlet>
   </main>
 </div>

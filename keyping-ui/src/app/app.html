@@ -9,11 +9,13 @@
 <kp-header [locked]="lockState !== 'unlocked'" (restartTour)="restartOnboarding()"></kp-header>
 <kp-update-banner *ngIf="lockState === 'unlocked'"></kp-update-banner>
 
-<main class="container">
-  <!-- Las vistas solo existen con la sesión abierta: al bloquear se destruyen y con ellas
-       cualquier contraseña revelada en pantalla o en memoria del renderer. -->
-  <router-outlet *ngIf="lockState === 'unlocked'" />
-</main>
+<div class="unlock-notice" role="alert" *ngIf="lockState === 'unlocked' && unlockNotice">
+  <p>{{ (unlockNotice === 'vault-unreadable' ? 'app.notice.vaultUnreadable' : 'app.notice.legacyUnverified') | t }}</p>
+  <div class="unlock-notice-actions">
+    <button type="button" class="btn ghost" (click)="openIntegrityCheck()">{{ 'app.notice.checkIntegrity' | t }}</button>
+    <button type="button" class="btn ghost" (click)="dismissNotice()">{{ 'app.notice.dismiss' | t }}</button>
+  </div>
+</div>
 
 <div
   class="onboarding-overlay"

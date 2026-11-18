@@ -14,3 +14,26 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
 
 /* Estilos globales adicionales de la app (scrollbars, etc.) */
 @import 'app/app';
+
+/* Aviso tras desbloquear (bóveda ilegible o migración sin verificador) */
+/* Fijo sobre el contenido: las vistas tienen su propio contenedor con scroll. */
+.unlock-notice {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  max-width: min(560px, calc(100vw - 40px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background: #2a2412;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  color: inherit;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  p { margin: 0; flex: 1 1 320px; line-height: 1.45; }
+  .unlock-notice-actions { display: flex; gap: 8px; }
+}

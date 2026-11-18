@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIf, NgFor, NgClass, NgStyle } from '@angular/common';
-import { ElectronService, VaultImportEntry } from '../../core/electron.service';
+import { ElectronService, VaultImportEntry, VaultIntegrityReport } from '../../core/electron.service';
+import { ActivatedRoute } from '@angular/router';
 import { MasterLockService } from '../../core/master-lock.service';
 import { PasswordCountService } from '../../core/password-count.service';
 import { I18nService } from '../../core/i18n.service';
@@ -96,8 +97,40 @@ export class SettingsComponent implements OnInit, OnDestroy {
     private master: MasterLockService,
     private passwordCountSvc: PasswordCountService,
     private i18n: I18nService,
-    private updates: AppUpdateService
+    private updates: AppUpdateService,
+    private route: ActivatedRoute
   ) {}
+
+  integrity: VaultIntegrityReport | null = null;
+  integrityBusy = false;
+  integrityFailed = false;
+
+  async runIntegrityCheck(): Promise<void> {
+    if (this.integrityBusy) return;
+    this.integrityBusy = true;
+    this.integrityFailed = false;
+    try {
+      this.integrity = await this.es.getVaultIntegrity();
+    } catch {
+      this.integrity = null;
+      this.integrityFailed = true;
+    } finally {
+      this.integrityBusy = false;
+    }
+  }
+
+  integrityIssueKey(code: string): string {
+    return 'settings.integrity.issue.' + code;
+  }
+
+  integrityTime(): string {
+    if (!this.integrity) return '';
+    try {
+      return new Date(this.integrity.checkedAt).toLocaleString(this.language === 'en' ? 'en-GB' : 'es-ES');
+    } catch {
+      return '';
+    }
+  }
 
   ngOnInit(): void {
     this.autoLockMinutes = this.master.getAutoLockMinutes();
@@ -117,6 +150,10 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.updatePreferences = preferences;
     });
     void this.loadHistorySettings();
+    void this.runIntegrityCheck();
+    if (this.route.snapshot.fragment === 'integrity') {
+      setTimeout(() => document.getElementById('integrity')?.scrollIntoView({ block: 'start' }), 0);
+    }
     void this.updates.initialize();
   }
 

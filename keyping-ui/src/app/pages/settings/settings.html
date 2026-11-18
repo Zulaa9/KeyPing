@@ -317,6 +317,32 @@
       </div>
     </section>
 
+    <section class="card settings-card integrity-card" id="integrity">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow small">{{ 'settings.integrity.title' | t }}</p>
+          <h2>{{ 'settings.integrity.subtitle' | t }}</h2>
+        </div>
+      </div>
+      <div class="setting-block">
+        <div class="inline-alert" *ngIf="integrity" role="status"
+             [ngClass]="integrity.status === 'ok' ? 'success' : (integrity.status === 'warn' ? 'info' : 'error')">
+          <strong *ngIf="integrity.fileExists">{{ ('settings.integrity.status.' + integrity.status) | t }}</strong>
+          <span *ngIf="integrity.entries !== undefined"> · {{ 'settings.integrity.entries' | t:{ count: integrity.entries } }}</span>
+          <ul class="integrity-issues" *ngIf="integrity.issues.length">
+            <li *ngFor="let issue of integrity.issues">{{ integrityIssueKey(issue.code) | t:{ count: issue.count ?? 0 } }}</li>
+          </ul>
+        </div>
+        <div class="inline-alert error" *ngIf="integrityFailed">{{ 'settings.integrity.failed' | t }}</div>
+        <div class="block-actions">
+          <span class="muted tiny" *ngIf="integrity">{{ 'settings.integrity.checkedAt' | t:{ time: integrityTime() } }}</span>
+          <button type="button" class="btn ghost" (click)="runIntegrityCheck()" [disabled]="integrityBusy">
+            {{ 'settings.integrity.run' | t }}
+          </button>
+        </div>
+      </div>
+    </section>
+
     <section class="card settings-card backups-card">
       <div class="section-head">
         <div>
