@@ -28,6 +28,7 @@ yarn-error.log*
 
 # --- IDEs and editors ---
 .idea/
+.vs/
 .project
 .classpath
 .c9/
