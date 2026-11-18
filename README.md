@@ -66,15 +66,19 @@ No mandatory cloud sync, no external secret storage, and no account required.
 
 ### PBKDF2 key derivation
 
-Key derivation uses PBKDF2-HMAC-SHA512 (`120000` iterations in the current implementation).
+Key derivation uses PBKDF2-HMAC-SHA512 with `600000` iterations and a random salt (`kp-auth.json`). Vaults from older versions that used the legacy key file (`120000` iterations) still open and are moved to this scheme after the first successful unlock.
 
 ### Clipboard auto-clear
 
-Copied secrets are cleared after timeout only if clipboard content still matches the copied secret.
+Copied secrets are cleared after timeout only if clipboard content still matches the copied secret. They are also cleared immediately when the vault locks.
 
 ### Brute-force delay protection
 
-Master lock applies escalating cooldown delays after failed unlock attempts.
+Master lock applies escalating cooldown delays after failed unlock attempts. The counter is kept by the main process and survives an app restart (capped at one hour).
+
+### Safe links
+
+Login and password-change links only accept `http` and `https`. Other schemes (`javascript:`, `file:`, `data:`...), local paths and links with embedded credentials are rejected, and links always open in the system browser.
 
 ### Vault integrity checks
 

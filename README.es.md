@@ -66,15 +66,19 @@ No requiere sincronizacion cloud obligatoria, ni almacenamiento externo de secre
 
 ### Derivacion PBKDF2
 
-La derivacion usa PBKDF2-HMAC-SHA512 (`120000` iteraciones en la implementacion actual).
+La derivacion usa PBKDF2-HMAC-SHA512 con `600000` iteraciones y sal aleatoria (`kp-auth.json`). Las bovedas de versiones anteriores que usaban el archivo de clave heredado (`120000` iteraciones) se siguen abriendo y pasan a este esquema tras el primer desbloqueo correcto.
 
 ### Auto-limpieza del portapapeles
 
-Los secretos copiados se limpian tras el timeout solo si el contenido actual sigue coincidiendo con el secreto copiado.
+Los secretos copiados se limpian tras el timeout solo si el contenido actual sigue coincidiendo con el secreto copiado. Tambien se limpian al momento cuando se bloquea la boveda.
 
 ### Proteccion frente a fuerza bruta
 
-El bloqueo maestro aplica retardos progresivos tras intentos fallidos de desbloqueo.
+El bloqueo maestro aplica retardos progresivos tras intentos fallidos de desbloqueo. El contador lo guarda el proceso principal y se mantiene al reiniciar la app (maximo una hora).
+
+### Enlaces seguros
+
+Los enlaces de inicio de sesion y de cambio de contrasena solo admiten `http` y `https`. Se rechazan otros esquemas (`javascript:`, `file:`, `data:`...), rutas locales y enlaces con credenciales incrustadas, y siempre se abren en el navegador del sistema.
 
 ### Checks de integridad de boveda
 
