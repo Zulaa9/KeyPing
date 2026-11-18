@@ -60,7 +60,19 @@ if (-not $gpgExecutable) {
   $gpgExecutable = $gpgCandidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 if (-not $gpgExecutable) {
-  throw "GPG is not installed or not available in PATH. Install GnuPG to generate $signatureFileName."
+  Write-Warning "GPG not found, skipping $signatureFileName."
+  exit 0
+}
+
+# Signing is optional: skip it when the release key is not in the local keyring.
+# gpg reports a missing key on stderr, which must not abort the script under 'Stop'.
+$ErrorActionPreference = 'Continue'
+& $gpgExecutable --list-secret-keys $gpgKeyFingerprint *> $null
+$gpgKeyExitCode = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($gpgKeyExitCode -ne 0) {
+  Write-Warning "GPG key $gpgKeyFingerprint not found, skipping $signatureFileName."
+  exit 0
 }
 
 # Sign from inside dist/build so output uses local filenames and expected release layout.

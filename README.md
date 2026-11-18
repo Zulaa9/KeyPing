@@ -95,30 +95,25 @@ Download binaries from GitHub Releases:
 
 ## Release Integrity
 
-Each release includes:
-
-- `SHA256SUMS.txt`
-- `SHA256SUMS.txt.asc` (detached ASCII-armored GPG signature)
-
-Release signing key fingerprint:
-
-`D70937B0AD7411A9E6A66337A5F10A1A37AAEBE9`
-
-Verify signature:
+Each release includes `SHA256SUMS.txt` with the SHA-256 of every installer. Check your download before installing:
 
 ```bash
-gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
-Verify checksums:
+On Windows (PowerShell), compare the output with the line in `SHA256SUMS.txt`:
 
-```bash
-sha256sum -c SHA256SUMS.txt
+```powershell
+Get-FileHash .\KeyPing-Setup-<version>.exe -Algorithm SHA256
 ```
 
 ### Signed auto-updates
 
 Since 1.3.0 the update metadata (`latest.yml`, `latest-linux.yml`) is signed with an Ed25519 key whose public half is built into the app. KeyPing refuses to download or install an update whose version, file names, sizes or SHA-512 hashes are not covered by a valid signature, so a tampered release asset cannot be installed automatically. Maintainers: see [docs/RELEASE.md](docs/RELEASE.md).
+
+### GPG signatures (older releases)
+
+Releases v1.0.0 to v1.0.2 also ship `SHA256SUMS.txt.asc`, signed with the GPG key `D70937B0AD7411A9E6A66337A5F10A1A37AAEBE9`. Later releases do not include a GPG signature; use the checksums above and, for automatic updates, the built-in Ed25519 verification.
 
 ## Architecture
 

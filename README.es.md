@@ -95,30 +95,25 @@ Descarga binarios desde GitHub Releases:
 
 ## Integridad de releases
 
-Cada release incluye:
-
-- `SHA256SUMS.txt`
-- `SHA256SUMS.txt.asc` (firma GPG detached en formato ASCII-armored)
-
-Fingerprint de la clave de firma:
-
-`D70937B0AD7411A9E6A66337A5F10A1A37AAEBE9`
-
-Verificar firma:
+Cada release incluye `SHA256SUMS.txt` con el SHA-256 de cada instalador. Comprueba la descarga antes de instalar:
 
 ```bash
-gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
+sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
-Verificar checksums:
+En Windows (PowerShell), compara el resultado con la línea de `SHA256SUMS.txt`:
 
-```bash
-sha256sum -c SHA256SUMS.txt
+```powershell
+Get-FileHash .\KeyPing-Setup-<versión>.exe -Algorithm SHA256
 ```
 
 ### Actualizaciones automáticas firmadas
 
 Desde la 1.3.0 los metadatos de actualización (`latest.yml`, `latest-linux.yml`) van firmados con una clave Ed25519 cuya parte pública está dentro de la app. KeyPing se niega a descargar o instalar una actualización cuya versión, nombres de archivo, tamaños o sumas SHA-512 no estén cubiertos por una firma válida, de modo que un archivo manipulado en una release no puede instalarse automáticamente. Para quien publica: [docs/RELEASE.md](docs/RELEASE.md).
+
+### Firmas GPG (releases antiguas)
+
+Las releases v1.0.0 a v1.0.2 incluyen además `SHA256SUMS.txt.asc`, firmado con la clave GPG `D70937B0AD7411A9E6A66337A5F10A1A37AAEBE9`. Las releases posteriores no llevan firma GPG; usa las sumas de arriba y, para las actualizaciones automáticas, la verificación Ed25519 integrada.
 
 ## Arquitectura
 

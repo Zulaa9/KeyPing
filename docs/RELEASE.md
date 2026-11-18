@@ -36,7 +36,7 @@ Para una compilación de pruebas: `KEYPING_ALLOW_NO_UPDATE_KEY=1` (esa build nun
    ```
    El script comprueba antes que `KeyPing-Setup-X.Y.Z.exe` de `dist/build` coincide en tamaño y
    SHA-512 con el yml. Sube a la release el `.exe`, el `.exe.blockmap`, el `latest.yml` **firmado**,
-   `SHA256SUMS.txt` y `SHA256SUMS.txt.asc`.
+   `SHA256SUMS.txt` (y `SHA256SUMS.txt.asc` solo si firmas con GPG; desde la 1.1.0 las releases salen sin él).
 3. **Linux** (Actions, al empujar el tag): el workflow sube el AppImage a la release, pero el
    `latest-linux.yml` lo deja como artefacto del workflow (`latest-linux-unsigned`), porque no
    puede firmarlo. En tu equipo:
@@ -71,5 +71,5 @@ confíe en una clave nueva, y avisa en el README de la release.
 
 - Las instalaciones 1.2.1 o anteriores no comprueban firmas: la 1.3.0 les llega como hasta ahora.
 - La firma protege la actualización automática. Quien descargue el instalador a mano debe seguir
-  comprobando `SHA256SUMS.txt` y su firma GPG.
+  comprobando `SHA256SUMS.txt`.
 - El instalador de Windows sigue sin firma Authenticode (SmartScreen avisará).
