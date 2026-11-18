@@ -1,7 +1,7 @@
 {
   "name": "keyping-ui",
   "desktopName": "KeyPing.desktop",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "private": true,
   "description": "KeyPing - desktop app that detects reused or similar passwords locally (Angular + Electron, offline).",
   "author": "Unax Zulaika Fuente (Zulaa9)",
@@ -24,6 +24,9 @@
     "test": "ng test",
     "test:electron": "tsc -p electron/tsconfig.test.json && node --test \"dist-electron-tests/**/*.test.js\"",
     "watch": "ng build --watch --configuration development",
+    "update:keygen": "node scripts/update-signing.mjs keygen",
+    "update:sign": "npm run electron:build && node scripts/update-signing.mjs sign",
+    "update:verify": "npm run electron:build && node scripts/update-signing.mjs verify",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
@@ -44,6 +47,7 @@
       }
     ],
     "asar": true,
+    "beforePack": "scripts/check-update-key.js",
     "electronFuses": {
       "runAsNode": false,
       "enableNodeOptionsEnvironmentVariable": false,
