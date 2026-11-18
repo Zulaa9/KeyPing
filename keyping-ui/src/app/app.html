@@ -10,7 +10,9 @@
 <kp-update-banner *ngIf="lockState === 'unlocked'"></kp-update-banner>
 
 <main class="container">
-  <router-outlet />
+  <!-- Las vistas solo existen con la sesión abierta: al bloquear se destruyen y con ellas
+       cualquier contraseña revelada en pantalla o en memoria del renderer. -->
+  <router-outlet *ngIf="lockState === 'unlocked'" />
 </main>
 
 <div

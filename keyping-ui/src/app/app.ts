@@ -208,8 +208,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const ok = await this.master.unlock(this.masterPassword);
     if (!ok) {
+      const reason = this.master.lastAuthError?.reason;
+      const dir = this.master.lastAuthError?.dataDir || '';
       const wait = this.master.getCooldownSeconds();
-      if (wait > 0) {
+      if (reason === 'auth-missing') {
+        this.masterError = { key: 'app.lock.authMissing', params: { dir } };
+      } else if (reason === 'vault-unreadable') {
+        this.masterError = { key: 'app.lock.vaultUnreadable', params: { dir } };
+      } else if (reason === 'error') {
+        this.masterError = { key: 'app.lock.unlockError' };
+      } else if (wait > 0) {
         this.startCooldownCountdown();
         this.masterError = { key: 'app.lock.tooMany' };
       } else {
@@ -237,8 +245,14 @@ export class AppComponent implements OnInit, OnDestroy {
       this.masterPassword = '';
       this.masterPasswordConfirm = '';
     } catch (err) {
-      console.error('[app] setMaster failed', err);
-      this.masterError = { key: 'app.lock.setupFailed' };
+      console.error('[app] setMaster failed');
+      const reason = this.master.lastAuthError?.reason;
+      const dir = this.master.lastAuthError?.dataDir || '';
+      this.masterError = reason === 'auth-missing'
+        ? { key: 'app.lock.authMissing', params: { dir } }
+        : reason === 'vault-unreadable'
+          ? { key: 'app.lock.vaultUnreadable', params: { dir } }
+          : { key: 'app.lock.setupFailed' };
     }
   }
 

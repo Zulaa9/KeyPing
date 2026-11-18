@@ -26,7 +26,6 @@ export class MasterLockService {
   private readonly autoLockStorageKey = 'keyping.lock.autolock.v1';
   private readonly attemptPolicyKey = 'keyping.lock.policy.v1';
   private readonly attemptStateKey = 'keyping.lock.policy.state.v1';
-  private readonly verificationText = 'keyping-master-check';
   private attemptPolicy = {
     freeAttempts: 3,
     baseDelayMs: 5_000,
@@ -36,11 +35,21 @@ export class MasterLockService {
   private nextUnlockAt = 0;
   private lastCooldownMs = 0;
 
+  /** Motivo del último desbloqueo o configuración fallidos (para mostrar un mensaje útil). */
+  lastAuthError: { reason: string; dataDir?: string } | null = null;
+  /** Aviso tras desbloquear: la contraseña es correcta pero el archivo del vault no se pudo leer. */
+  lastUnlockWarning: string | null = null;
+  private sessionLockedUnsub?: () => void;
+
   async init(): Promise<MasterState> {
     this.loadAutoLock();
     this.loadAttemptPolicy();
     this.loadAttemptState();
     await this.syncMainCooldown();
+
+    // El proceso principal bloquea la sesión al suspender o bloquear el equipo.
+    this.sessionLockedUnsub?.();
+    this.sessionLockedUnsub = window.keyping?.onSessionLocked?.(() => this.lock());
 
     // Main process is the source of truth for vault existence.
     // localStorage may be empty (cleared, fresh OS profile, or first launch after upgrade)
@@ -60,7 +69,7 @@ export class MasterLockService {
   lock(): void {
     clearTimeout(this.inactivityTimer);
     this.inactivityTimer = null;
-    if (this.state$.value !== 'unset') {
+    if (this.state$.value === 'unlocked') {
       this.state$.next('locked');
     }
     window.keyping?.sessionLock?.();
@@ -72,22 +81,37 @@ export class MasterLockService {
     this.inactivityTimer = setTimeout(() => this.lock(), this.inactivityMs);
   }
 
+  private normalizeResult(res: KeypingAuthResult | boolean | undefined | null): KeypingAuthResult {
+    if (res === true) return { ok: true };
+    if (!res) return { ok: false, reason: 'invalid' };
+    return res;
+  }
+
+  private applyCooldownFromMain(res: KeypingAuthResult): void {
+    if (!res.ok && typeof res.remainingMs === 'number' && res.remainingMs > 0) {
+      this.nextUnlockAt = Date.now() + res.remainingMs;
+      this.lastCooldownMs = res.remainingMs;
+      this.persistAttemptState();
+    }
+  }
+
   async setMaster(password: string): Promise<void> {
     if (!password || password.length < MIN_MASTER_LENGTH) {
       throw new Error(`Master password must be at least ${MIN_MASTER_LENGTH} characters`);
     }
 
     // Main process creates kp-auth.json and derives the vault key from this password.
-    await window.keyping?.authSetup?.(password);
+    const res = this.normalizeResult(await window.keyping?.authSetup?.(password));
+    if (!res.ok) {
+      this.lastAuthError = { reason: res.reason, dataDir: res.dataDir };
+      throw new Error(`setup-failed:${res.reason}`);
+    }
+    this.lastAuthError = null;
+    this.lastUnlockWarning = res.warning ?? null;
 
-    // Renderer stores a keyed check in localStorage solely for init() state detection.
-    const salt = this.randomBytes(16);
-    const key = await this.deriveKey(password, this.toArrayBuffer(salt), MASTER_PBKDF2_ITER);
-    const check = await this.encryptText(key, this.verificationText);
-    localStorage.setItem(this.masterStorageKey, JSON.stringify({
-      salt: this.toB64(salt), check, iterations: MASTER_PBKDF2_ITER
-    }));
-    // Remove any stale vault cache from previous versions.
+    // El proceso principal es la única fuente de verdad: ya no se guarda ningún verificador
+    // derivado de la contraseña en localStorage (y se borran los de versiones anteriores).
+    localStorage.removeItem(this.masterStorageKey);
     localStorage.removeItem('keyping.vault.enc.v1');
 
     this.state$.next('unlocked');
@@ -100,24 +124,34 @@ export class MasterLockService {
     this.expireCooldownIfElapsed(now);
     if (now < this.nextUnlockAt) {
       this.lastCooldownMs = this.nextUnlockAt - now;
+      this.lastAuthError = { reason: 'cooldown' };
       return false;
     }
 
     // Main process verifies the password and derives the vault encryption key.
-    let mainResult = false;
+    // El verificador heredado (<= 1.0.x) solo se usa si hay que migrar desde kp-master.key.
+    let res: KeypingAuthResult;
     try {
-      mainResult = !!(await window.keyping?.authUnlock?.(password));
+      res = this.normalizeResult(await window.keyping?.authUnlock?.(password, this.loadStoredMaster()));
     } catch (err) {
-      console.warn('[master] authUnlock IPC error', err);
+      console.warn('[master] authUnlock IPC error');
+      res = { ok: false, reason: 'error' };
     }
 
-    if (!mainResult) {
-      this.handleFailedAttempt();
+    if (!res.ok) {
+      this.lastAuthError = { reason: res.reason, dataDir: res.dataDir };
+      if (res.reason === 'invalid' || res.reason === 'cooldown') {
+        this.handleFailedAttempt();
+        this.applyCooldownFromMain(res);
+      }
       return false;
     }
 
-    // Remove any stale vault cache from previous versions.
+    this.lastAuthError = null;
+    this.lastUnlockWarning = res.warning ?? null;
+    // Remove any stale vault cache / verifier from previous versions.
     localStorage.removeItem('keyping.vault.enc.v1');
+    localStorage.removeItem(this.masterStorageKey);
 
     this.state$.next('unlocked');
     this.failedAttempts = 0;
@@ -147,62 +181,6 @@ export class MasterLockService {
     }
   }
 
-  private async deriveKey(password: string, salt: ArrayBuffer, iterations: number): Promise<CryptoKey> {
-    const enc = new TextEncoder();
-    const baseKey = await crypto.subtle.importKey(
-      'raw',
-      enc.encode(password),
-      { name: 'PBKDF2' },
-      false,
-      ['deriveKey']
-    );
-
-    return crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt,
-        iterations,
-        hash: 'SHA-256'
-      },
-      baseKey,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt', 'decrypt']
-    );
-  }
-
-  private async encryptText(key: CryptoKey, text: string): Promise<string> {
-    const enc = new TextEncoder();
-    const iv = this.randomBytes(12);
-    const cipherBuf = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: this.toArrayBuffer(iv) },
-      key,
-      enc.encode(text)
-    );
-    const combined = new Uint8Array(iv.byteLength + cipherBuf.byteLength);
-    combined.set(iv, 0);
-    combined.set(new Uint8Array(cipherBuf), iv.byteLength);
-    return this.toB64(combined);
-  }
-
-  private toB64(u8: Uint8Array): string {
-    let s = '';
-    u8.forEach(b => (s += String.fromCharCode(b)));
-    return btoa(s);
-  }
-
-  private randomBytes(len: number): Uint8Array {
-    const arr = new Uint8Array(len);
-    crypto.getRandomValues(arr);
-    return arr;
-  }
-
-  private toArrayBuffer(u8: Uint8Array): ArrayBuffer {
-    const copy = new Uint8Array(u8.byteLength);
-    copy.set(new Uint8Array(u8.buffer, u8.byteOffset, u8.byteLength));
-    return copy.buffer;
-  }
-
   setAutoLockMinutes(minutes: number): void {
     const clamped = Math.max(1, Math.min(MAX_AUTOLOCK_MINUTES, Math.round(minutes)));
     this.autoLockMinutes = clamped;
@@ -226,6 +204,8 @@ export class MasterLockService {
     this.lastCooldownMs = 0;
     localStorage.setItem(this.attemptPolicyKey, JSON.stringify(this.attemptPolicy));
     this.clearAttemptState();
+    // El proceso principal aplica la política (solo puede ser igual o más estricta que la de serie).
+    void window.keyping?.setAttemptPolicy?.(this.attemptPolicy)?.catch?.(() => {});
   }
 
   getAttemptPolicy(): { freeAttempts: number; baseDelayMs: number; growthFactor: number } {
@@ -239,10 +219,21 @@ export class MasterLockService {
     return Math.ceil(ms / 1000);
   }
 
+  /** Cambia la contraseña maestra (verificada en el proceso principal) y bloquea la sesión. */
   async rotateMaster(current: string, next: string): Promise<boolean> {
-    const unlocked = await this.unlock(current);
-    if (!unlocked) return false;
-    await this.setMaster(next);
+    let res: KeypingAuthResult;
+    try {
+      res = (await window.keyping?.authChange?.(current, next)) ?? { ok: false, reason: 'error' };
+    } catch {
+      res = { ok: false, reason: 'error' };
+    }
+    if (!res.ok) {
+      this.lastAuthError = { reason: res.reason, dataDir: res.dataDir };
+      this.applyCooldownFromMain(res);
+      return false;
+    }
+    this.lastAuthError = null;
+    localStorage.removeItem(this.masterStorageKey);
     this.lock();
     return true;
   }

@@ -47,6 +47,9 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
 
   get errorSummary(): string {
     // Traduce mensajes técnicos en categorías de error más legibles para el usuario.
+    if (this.state.errorCode) {
+      return `updates.error.summary.${this.state.errorCode}`;
+    }
     const raw = (this.state.errorMessage || '').toLowerCase();
     if (!raw) {
       return 'updates.error.summary.generic';

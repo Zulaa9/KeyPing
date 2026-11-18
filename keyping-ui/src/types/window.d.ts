@@ -28,9 +28,13 @@ declare global {
     installOnQuit: boolean;
   };
 
+  type KeypingAuthResult =
+    | { ok: true; warning?: 'vault-unreadable' }
+    | { ok: false; reason: 'invalid' | 'cooldown' | 'auth-missing' | 'vault-unreadable' | 'error'; remainingMs?: number; dataDir?: string };
+
   interface Window {
     keyping?: {
-      checkCandidate(pwd: string): Promise<{ level: 'ok' | 'warn' | 'danger'; reasons: string[] }>;
+      checkCandidate(pwd: string): Promise<{ level: 'ok' | 'warn' | 'danger'; reasons: string[]; codes?: { code: string; params?: Record<string, string | number> }[] }>;
       savePassword(
         pwd: string,
         label?: string,
@@ -80,8 +84,11 @@ declare global {
       onUpdateState?(listener: (payload: UpdateState) => void): (() => void) | void;
       ping?(): Promise<string>;
       hasVault?(): Promise<boolean>;
-      authUnlock?(password: string): Promise<boolean>;
-      authSetup?(password: string): Promise<boolean>;
+      authUnlock?(password: string, legacyCheck?: { salt: string; check: string; iterations: number } | null): Promise<KeypingAuthResult | boolean>;
+      authSetup?(password: string): Promise<KeypingAuthResult | boolean>;
+      authChange?(current: string, next: string): Promise<KeypingAuthResult>;
+      setAttemptPolicy?(policy: { freeAttempts: number; baseDelayMs: number; growthFactor: number }): Promise<unknown>;
+      onSessionLocked?(listener: () => void): () => void;
       authVerify?(password: string): Promise<boolean>;
       sessionLock?(): Promise<void>;
       getMainCooldown?(): Promise<{ failedAttempts: number; nextUnlockAt: number; remainingMs: number }>;

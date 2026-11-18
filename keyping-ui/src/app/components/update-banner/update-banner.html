@@ -24,9 +24,6 @@
       <p class="message" *ngIf="state.status === 'error'">
         {{ errorSummary | t }}
       </p>
-      <p class="error-detail" *ngIf="state.status === 'error' && state.errorMessage">
-        {{ state.errorMessage }}
-      </p>
     </div>
 
     <div class="update-actions">

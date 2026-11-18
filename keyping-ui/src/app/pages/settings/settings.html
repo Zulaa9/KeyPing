@@ -239,8 +239,8 @@
           </span>
         </div>
 
-        <div class="inline-alert error" *ngIf="updateState.status === 'error' && updateState.errorMessage">
-          {{ updateState.errorMessage }}
+        <div class="inline-alert error" *ngIf="updateState.status === 'error'" role="alert">
+          {{ ('updates.error.summary.' + (updateState.errorCode || 'generic')) | t }}
         </div>
 
         <div class="block-actions">
