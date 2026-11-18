@@ -29,7 +29,7 @@ declare global {
   };
 
   type KeypingAuthResult =
-    | { ok: true; warning?: 'vault-unreadable' }
+    | { ok: true; warning?: 'vault-unreadable' | 'legacy-unverified' }
     | { ok: false; reason: 'invalid' | 'cooldown' | 'auth-missing' | 'vault-unreadable' | 'error'; remainingMs?: number; dataDir?: string };
 
   interface Window {

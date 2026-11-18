@@ -74,6 +74,16 @@ import { checkPasswordBetter } from './password-check';
 import { AutoUpdateService } from './updates/auto-update.service';
 import { ClipboardClearSessionManager } from './clipboard-clear-session';
 
+// En la app instalada no se permite abrir un puerto de depuración remota: otro programa del
+// equipo podría lanzar KeyPing así y leer la sesión desbloqueada. (Los fuses ya bloquean
+// --inspect y NODE_OPTIONS; este switch es de Chromium y no lo cubre ningún fuse.)
+const DEBUG_SWITCHES = ['remote-debugging-port', 'remote-debugging-pipe', 'remote-debugging-address'];
+if (app.isPackaged && DEBUG_SWITCHES.some(s => app.commandLine.hasSwitch(s))) {
+  console.error('[main] remote debugging is not allowed in the packaged app');
+  app.exit(1);
+  process.exit(1);
+}
+
 // Prefiere Wayland cuando está disponible (evita keylogging X11 por otras apps).
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
@@ -352,7 +362,7 @@ app.on('before-quit', () => {
 /* -------------------- Auth --------------------- */
 
 type AuthResult =
-  | { ok: true; warning?: 'vault-unreadable' }
+  | { ok: true; warning?: 'vault-unreadable' | 'legacy-unverified' }
   | { ok: false; reason: 'invalid' | 'cooldown' | 'auth-missing' | 'vault-unreadable' | 'error'; remainingMs?: number; dataDir?: string };
 
 type LegacyCheck = { salt?: unknown; check?: unknown; iterations?: unknown } | null | undefined;
@@ -442,7 +452,9 @@ async function migrateFromLegacyKey(password: string, legacyCheck: LegacyCheck):
     key.fill(0);
     if (vaultExists) await promotePendingVault();
     await removeLegacyKeyFile();
-    return { ok: true };
+    // Sin verificador antiguo (localStorage borrado) no hay forma de comprobar que esta era la
+    // contraseña de la 1.0.x: la clave heredada no depende de ella. Se avisa al usuario.
+    return verdict === null && vaultExists ? { ok: true, warning: 'legacy-unverified' } : { ok: true };
   });
 }
 
@@ -468,6 +480,7 @@ handle('keyping:auth:unlock', async (password: unknown, legacyCheck?: LegacyChec
   if (!validPassword(password)) return { ok: false, reason: 'invalid' };
   if (attempts.isCoolingDown()) return { ok: false, reason: 'cooldown', remainingMs: attempts.remainingMs() };
 
+  let migrationWarning: 'legacy-unverified' | undefined;
   try {
     if (await hasAuthFile()) {
       const key = await verifyPasswordAndDeriveKey(password);
@@ -482,13 +495,17 @@ handle('keyping:auth:unlock', async (password: unknown, legacyCheck?: LegacyChec
     } else {
       const res = await migrateFromLegacyKey(password, legacyCheck);
       if (!res.ok) return res;
+      if (res.warning === 'legacy-unverified') migrationWarning = res.warning;
     }
   } catch (err: any) {
     console.error('[main] unlock failed', err?.message);
     return { ok: false, reason: 'error' };
   }
 
-  return finishUnlock();
+  const done = await finishUnlock();
+  // Un aviso de bóveda ilegible pesa más que el de migración sin verificar.
+  if (done.ok && !done.warning && migrationWarning) return { ok: true, warning: migrationWarning };
+  return done;
 });
 
 // Initial setup only. Refuses when a vault or legacy key already exists (prevents takeover and
@@ -500,7 +517,9 @@ handle('keyping:auth:setup', async (password: unknown): Promise<AuthResult> => {
     // Instalación 1.0.x sin datos en localStorage: se migra con la contraseña elegida.
     const res = await migrateFromLegacyKey(password, null);
     if (!res.ok) return res;
-    return finishUnlock();
+    const done = await finishUnlock();
+    if (done.ok && !done.warning && res.warning) return { ok: true, warning: res.warning };
+    return done;
   }
   if (await vaultFileExists()) return { ok: false, reason: 'auth-missing', dataDir: dataDir() };
 
