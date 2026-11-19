@@ -114,5 +114,5 @@ necesitaría un *deploy hook*. Con GitHub Pages, la CSP solo puede ir en `<meta>
 ## Capturas
 
 Generadas con Electron + Playwright sobre la app 1.3.0 compilada, con un `HOME`/`XDG_CONFIG_HOME` temporal (nunca la
-bóveda real), una bóveda nueva y cuentas inventadas en dominios `.example`. Ventana de 1280×800. Astro las convierte en
-AVIF y WebP de 480, 800 y 1280 px.
+bóveda real), una bóveda nueva y cuentas inventadas en dominios `.example`. Ventana de 1280×800 a escala 2×. Astro las convierte en
+AVIF y WebP de hasta 1920 px. Desde la 2.ª iteración, escala 2× (2560×1600) y fuentes en WebP calidad 92; la captura de la llave es un recorte con el botón resaltado.
