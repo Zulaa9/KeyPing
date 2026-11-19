@@ -1,0 +1,96 @@
+---
+import Base from '../layouts/Base.astro';
+import { getRelease, LATEST_URL, RELEASES_URL } from '../lib/release';
+import { ROUTES, type Lang } from '../i18n/routes';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const es = lang === 'es';
+const rel = await getRelease();
+const r = ROUTES[lang];
+const fmtSize = (b: number) => new Intl.NumberFormat(es ? 'es-ES' : 'en-GB', { maximumFractionDigits: 0 }).format(b / 1_000_000) + ' MB';
+const fmtDate = (iso: string) => new Intl.DateTimeFormat(es ? 'es-ES' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' }).format(new Date(iso));
+const title = es ? `Descargar KeyPing ${rel.version} para Windows y Linux` : `Download KeyPing ${rel.version} for Windows and Linux`;
+const description = es
+  ? `Descarga KeyPing ${rel.version}: instalador para Windows y AppImage para Linux, con su SHA-256 y cómo comprobarlo.`
+  : `Download KeyPing ${rel.version}: Windows installer and Linux AppImage, with their SHA-256 and how to check them.`;
+const platforms = [
+  { key: 'windows', name: 'Windows', kind: es ? 'Instalador (.exe), Windows 10 y 11 de 64 bits' : 'Installer (.exe), 64-bit Windows 10 and 11', a: rel.windows },
+  { key: 'linux', name: 'Linux', kind: es ? 'AppImage de 64 bits (x86_64)' : '64-bit AppImage (x86_64)', a: rel.linux },
+] as const;
+---
+<Base lang={lang} page="download" title={title} description={description}>
+  <section class="page-head">
+    <div class="wrap">
+      <p class="eyebrow">{es ? 'Descargas' : 'Downloads'}</p>
+      <h1>{es ? `Descargar KeyPing ${rel.version}` : `Download KeyPing ${rel.version}`}</h1>
+      <p class="lead">{es ? `Publicada el ${fmtDate(rel.publishedAt)}. Gratis, sin registro y sin anuncios.` : `Released on ${fmtDate(rel.publishedAt)}. Free, no sign-up and no ads.`}</p>
+    </div>
+  </section>
+
+  <section class="page-body">
+    <div class="wrap">
+      <div class="platforms">
+        {platforms.map((p) => (
+          <article class="platform" data-platform-card={p.key} aria-labelledby={`pf-${p.key}`}>
+            <span class="detected-badge">{es ? '✓ Tu sistema' : '✓ Your system'}</span>
+            <h2 id={`pf-${p.key}`}>{p.name}</h2>
+            <p class="muted">{p.kind}</p>
+            <dl>
+              <dt>{es ? 'Archivo' : 'File'}</dt><dd><code>{p.a.name}</code></dd>
+              <dt>{es ? 'Versión' : 'Version'}</dt><dd>{rel.version}</dd>
+              <dt>{es ? 'Fecha' : 'Date'}</dt><dd>{fmtDate(rel.publishedAt)}</dd>
+              <dt>{es ? 'Tamaño' : 'Size'}</dt><dd>{fmtSize(p.a.size)}</dd>
+              {p.a.sha256 && (<><dt>SHA-256</dt><dd class="hash">{p.a.sha256}</dd></>)}
+            </dl>
+            <p><a class="btn btn-primary" href={p.a.url}>{es ? `Descargar para ${p.name}` : `Download for ${p.name}`}</a></p>
+          </article>
+        ))}
+      </div>
+      <p class="small muted">
+        {rel.sumsUrl && (<><a href={rel.sumsUrl}>SHA256SUMS.txt</a> · </>)}
+        <a href={rel.url}>{es ? `Notas de la versión ${rel.version}` : `Release notes for ${rel.version}`}</a>{' · '}
+        <a href={RELEASES_URL}>{es ? 'Versiones anteriores' : 'Previous versions'}</a>
+      </p>
+      <p class="small muted">{es ? 'macOS: no hay versión publicada para macOS por ahora.' : 'macOS: there is no published macOS build at the moment.'}</p>
+    </div>
+  </section>
+
+  <section class="section-alt" aria-labelledby="verify-h">
+    <div class="wrap prose">
+      <h2 id="verify-h"><span id={es ? 'verificar' : 'verify'}>{es ? 'Comprueba la descarga' : 'Check your download'}</span></h2>
+      <p>{es
+        ? 'Cada release incluye SHA256SUMS.txt con el SHA-256 de cada instalador. Compáralo antes de instalar: si no coincide, no ejecutes el archivo.'
+        : 'Each release includes SHA256SUMS.txt with the SHA-256 of every installer. Compare it before installing: if it does not match, do not run the file.'}</p>
+      <h3>Windows (PowerShell)</h3>
+      <pre><code>Get-FileHash .\{rel.windows.name} -Algorithm SHA256</code></pre>
+      <p>{es ? 'El resultado debe ser igual (sin importar mayúsculas) al de la línea del instalador en SHA256SUMS.txt' : 'The result must match (ignoring case) the installer’s line in SHA256SUMS.txt'}{rel.windows.sha256 ? (es ? ' y al valor mostrado arriba.' : ' and the value shown above.') : '.'}</p>
+      <h3>Linux</h3>
+      <p>{es ? 'Descarga SHA256SUMS.txt en la misma carpeta que el AppImage y ejecuta:' : 'Download SHA256SUMS.txt to the same folder as the AppImage and run:'}</p>
+      <pre><code>sha256sum -c --ignore-missing SHA256SUMS.txt</code></pre>
+      <p>{es ? <>Debe responder <code>{rel.linux.name}: OK</code>.</> : <>It must print <code>{rel.linux.name}: OK</code>.</>}</p>
+      <p>{es ? 'Las actualizaciones posteriores las verifica la propia app con una firma Ed25519. ' : 'Later updates are verified by the app itself with an Ed25519 signature. '}<a href={r.security + (es ? '#actualizaciones' : '#updates')}>{es ? 'Más detalles' : 'More details'}</a>.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="install-h">
+    <div class="wrap prose">
+      <h2 id="install-h">{es ? 'Instalación' : 'Installation'}</h2>
+      <h3>Windows</h3>
+      <p>{es
+        ? 'Ejecuta el instalador y sigue los pasos. Como el instalador no lleva firma de código, Windows puede mostrar «Windows protegió su PC» (SmartScreen). Si has comprobado el SHA-256, pulsa «Más información» y después «Ejecutar de todas formas».'
+        : 'Run the installer and follow the steps. Because the installer is not code-signed, Windows may show “Windows protected your PC” (SmartScreen). If you have checked the SHA-256, click “More info” and then “Run anyway”.'}</p>
+      <h3>Linux</h3>
+      <p>{es ? 'El AppImage no necesita instalación. Dale permiso de ejecución y ábrelo:' : 'The AppImage needs no installation. Make it executable and open it:'}</p>
+      <pre><code>chmod +x {rel.linux.name}
+./{rel.linux.name}</code></pre>
+      <p>{es
+        ? 'También puedes marcar «Permitir ejecutar el archivo como un programa» en sus propiedades desde el gestor de archivos. Si no arranca, puede que tu distribución necesite la biblioteca FUSE 2 (en Ubuntu, el paquete libfuse2 o libfuse2t64), que usan los AppImage.'
+        : 'You can also tick “Allow executing file as program” in its properties from your file manager. If it does not start, your distribution may need the FUSE 2 library (on Ubuntu, the libfuse2 or libfuse2t64 package), which AppImages use.'}</p>
+      <h3>{es ? 'Actualizaciones' : 'Updates'}</h3>
+      <p>{es
+        ? 'KeyPing avisa cuando hay una versión nueva y la instala al cerrarse si tú la descargas. También puedes descargarla siempre desde '
+        : 'KeyPing tells you when a new version is out and installs it on exit once you download it. You can also always get it from '}<a href={LATEST_URL}>{es ? 'la última release en GitHub' : 'the latest release on GitHub'}</a>.</p>
+    </div>
+  </section>
+</Base>

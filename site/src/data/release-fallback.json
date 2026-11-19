@@ -1,0 +1,19 @@
+{
+  "version": "1.3.0",
+  "tag": "v1.3.0",
+  "publishedAt": "2026-11-18T23:31:43Z",
+  "url": "https://github.com/Zulaa9/KeyPing/releases/tag/v1.3.0",
+  "sumsUrl": "https://github.com/Zulaa9/KeyPing/releases/download/v1.3.0/SHA256SUMS.txt",
+  "windows": {
+    "name": "KeyPing-Setup-1.3.0.exe",
+    "size": 120202417,
+    "url": "https://github.com/Zulaa9/KeyPing/releases/download/v1.3.0/KeyPing-Setup-1.3.0.exe",
+    "sha256": "b31ed93178b66fadd1f80df7f840bfbc796b258f70c43ef11f165efecb3509ae"
+  },
+  "linux": {
+    "name": "KeyPing-1.3.0.AppImage",
+    "size": 132875531,
+    "url": "https://github.com/Zulaa9/KeyPing/releases/download/v1.3.0/KeyPing-1.3.0.AppImage",
+    "sha256": "bd21c76f918cd182d57cadb79db5c4a5b4cdd1abd70fdc6db4788d4a29f96589"
+  }
+}

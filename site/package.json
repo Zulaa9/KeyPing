@@ -1,0 +1,24 @@
+{
+  "name": "keyping-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web pública de KeyPing (keyping.zula.dev), construida con Astro como sitio estático.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "build:offline": "KEYPING_RELEASE_OFFLINE=1 astro build",
+    "preview": "astro preview",
+    "release:snapshot": "node scripts/release-snapshot.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "test:e2e": "node scripts/e2e.mjs"
+  },
+  "dependencies": {
+    "astro": "7.4.12",
+    "sharp": "0.35.5"
+  }
+}

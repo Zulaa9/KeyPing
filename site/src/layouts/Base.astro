@@ -1,0 +1,162 @@
+---
+import '../styles/global.css';
+import { ROUTES, REPO_URL, PORTFOLIO_URL, LICENSE_URL, type Lang, type PageKey } from '../i18n/routes';
+import { getRelease } from '../lib/release';
+
+interface Props {
+  lang: Lang;
+  page: PageKey;
+  title: string;
+  description: string;
+}
+const { lang, page, title, description } = Astro.props;
+const other: Lang = lang === 'es' ? 'en' : 'es';
+const site = Astro.site!;
+const isNotFound = page === 'notFound';
+const selfPath = isNotFound ? '/404.html' : ROUTES[lang][page];
+const altPath = isNotFound ? ROUTES[other].home : ROUTES[other][page];
+const canonical = new URL(selfPath, site).href;
+const ogImage = new URL(`/img/og-${lang}.png`, site).href;
+const release = await getRelease();
+const r = ROUTES[lang];
+
+const t = {
+  es: {
+    skip: 'Saltar al contenido',
+    nav: 'Principal',
+    features: 'Funciones',
+    security: 'Seguridad',
+    download: 'Descargar',
+    faq: 'Preguntas',
+    langLabel: 'English',
+    langTitle: 'Read this page in English',
+    homeLabel: 'KeyPing, inicio',
+    footerTag: 'Gestor de contraseñas local para Windows y Linux.',
+    code: 'Código abierto con licencia MIT',
+    brand: 'El nombre y el logotipo de KeyPing no se incluyen en la licencia MIT.',
+    privacy: 'Privacidad y aviso legal',
+    author: 'Hecho por Unax Zulaika Fuente',
+    portfolio: 'Portfolio',
+    version: 'Versión',
+    suggest: 'This page is also available in English.',
+    suggestLink: 'Switch to English',
+    close: 'Cerrar aviso',
+    suggestLabel: 'Language suggestion',
+  },
+  en: {
+    skip: 'Skip to content',
+    nav: 'Main',
+    features: 'Features',
+    security: 'Security',
+    download: 'Download',
+    faq: 'FAQ',
+    langLabel: 'Español',
+    langTitle: 'Leer esta página en español',
+    homeLabel: 'KeyPing, home',
+    footerTag: 'Local password manager for Windows and Linux.',
+    code: 'Open source under the MIT license',
+    brand: 'The KeyPing name and logo are not covered by the MIT license.',
+    privacy: 'Privacy and legal notice',
+    author: 'Made by Unax Zulaika Fuente',
+    portfolio: 'Portfolio',
+    version: 'Version',
+    suggest: 'Esta página también está disponible en español.',
+    suggestLink: 'Cambiar a español',
+    close: 'Close notice',
+    suggestLabel: 'Sugerencia de idioma',
+  },
+}[lang];
+const year = new Date().getFullYear();
+const current = (k: PageKey) => (k === page ? 'page' : undefined);
+---
+<!doctype html>
+<html lang={lang} dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; manifest-src 'self'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f8fc" media="(prefers-color-scheme: light)" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {isNotFound ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    {!isNotFound && (
+      <>
+        <link rel="alternate" hreflang="es" href={new URL(ROUTES.es[page as Exclude<PageKey, 'notFound'>], site).href} />
+        <link rel="alternate" hreflang="en" href={new URL(ROUTES.en[page as Exclude<PageKey, 'notFound'>], site).href} />
+        <link rel="alternate" hreflang="x-default" href={new URL(ROUTES.es[page as Exclude<PageKey, 'notFound'>], site).href} />
+      </>
+    )}
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/img/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="KeyPing" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={lang === 'es' ? 'Logotipo de KeyPing y el lema: tu enlace para cambiar la contraseña, a un clic.' : 'KeyPing logo and tagline: your password-change link, one click away.'} />
+    <meta property="og:locale" content={lang === 'es' ? 'es_ES' : 'en_US'} />
+    <meta property="og:locale:alternate" content={lang === 'es' ? 'en_US' : 'es_ES'} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script src="/js/site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">{t.skip}</a>
+    <aside class="lang-suggest" id="lang-suggest" hidden aria-label={t.suggestLabel} data-lang={lang} data-alt-lang={other} data-alt-href={altPath}>
+      <p lang={other}>{t.suggest} <a href={altPath} hreflang={other}>{t.suggestLink}</a></p>
+      <button type="button" class="icon-btn" data-dismiss aria-label={t.close}>×</button>
+    </aside>
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="brand" href={r.home} aria-label={t.homeLabel}>
+          <img src="/img/logo-64.png" width="32" height="32" alt="" />
+          <span>KeyPing</span>
+        </a>
+        <nav aria-label={t.nav} class="main-nav">
+          <ul>
+            <li><a href={`${r.home}#${lang === 'es' ? 'funciones' : 'features'}`}>{t.features}</a></li>
+            <li><a href={r.security} aria-current={current('security')}>{t.security}</a></li>
+            <li><a href={r.faq} aria-current={current('faq')}>{t.faq}</a></li>
+            <li><a href={r.download} aria-current={current('download')} class="nav-cta">{t.download}</a></li>
+          </ul>
+        </nav>
+        <a class="lang-switch" href={altPath} hreflang={other} lang={other} title={t.langTitle}>
+          <span aria-hidden="true">{other.toUpperCase()}</span><span class="sr-only">{t.langLabel}</span>
+        </a>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap footer-grid">
+        <div>
+          <p class="footer-brand"><img src="/img/logo-64.png" width="24" height="24" alt="" /> KeyPing</p>
+          <p class="muted">{t.footerTag}</p>
+          <p class="muted small">{t.version} {release.version}</p>
+        </div>
+        <ul class="footer-links">
+          <li><a href={r.download}>{t.download}</a></li>
+          <li><a href={r.security}>{t.security}</a></li>
+          <li><a href={r.faq}>{t.faq}</a></li>
+          <li><a href={r.privacy}>{t.privacy}</a></li>
+        </ul>
+        <ul class="footer-links">
+          <li><a href={REPO_URL}>GitHub</a></li>
+          <li><a href={LICENSE_URL}>{t.code}</a></li>
+          <li><a href={PORTFOLIO_URL}>{t.portfolio} · zula.dev</a></li>
+        </ul>
+      </div>
+      <div class="wrap footer-legal">
+        <p class="small muted">© {year} Unax Zulaika Fuente. {t.brand} <a href={`${r.privacy}#${lang === 'es' ? 'marca' : 'trademark'}`}>{lang === 'es' ? 'Aviso de marca' : 'Trademark notice'}</a>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

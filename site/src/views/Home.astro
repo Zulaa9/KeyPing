@@ -1,0 +1,239 @@
+---
+import Base from '../layouts/Base.astro';
+import Screenshot from '../components/Screenshot.astro';
+import DownloadButton from '../components/DownloadButton.astro';
+import { ROUTES, REPO_URL, LICENSE_URL, PORTFOLIO_URL, type Lang } from '../i18n/routes';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const r = ROUTES[lang];
+
+const c = {
+  es: {
+    title: 'KeyPing · Gestor de contraseñas local con enlace directo para cambiarlas',
+    description: 'Gestor de contraseñas gratuito y de código abierto para Windows y Linux. Todo en tu equipo, sin cuenta ni nube, y con el enlace para cambiar cada contraseña a un clic.',
+    eyebrow: 'Gestor de contraseñas local · Windows y Linux',
+    h1: 'Te roban una cuenta. Cambias la contraseña en segundos.',
+    lead: 'KeyPing guarda cada contraseña junto al enlace donde usas la cuenta y el enlace directo para cambiarla. Cuando algo va mal no tienes que buscar: lo abres, pulsas y cambias.',
+    points: ['Sin cuenta ni nube', 'Cifrado AES-256-GCM en tu equipo', 'Gratis y de código abierto (MIT)'],
+    heroAlt: 'Ficha de una cuenta ficticia en KeyPing con el botón «Cambiar contraseña» junto a su enlace de cambio.',
+    storyEyebrow: 'Por qué existe',
+    storyH2: 'Con los nervios, nadie encuentra dónde cambiar la contraseña',
+    storyQuote: [
+      'Hice KeyPing para mí. Paso muchas horas en el ordenador, entre juegos y desarrollo, y alguna vez me han robado una cuenta de Discord o de un videojuego.',
+      'Siempre me pasaba lo mismo: entras en pánico, no reaccionas rápido y no encuentras dónde se cambia la contraseña. Ahora cada cuenta tiene anotado su enlace de cambio y lo tengo a un clic, justo cuando no estoy pensando con claridad.',
+    ],
+    storyCite: 'Unax Zulaika Fuente, autor de KeyPing',
+    flowEyebrow: 'Plan de emergencia',
+    flowH2: 'Qué haces cuando una cuenta está en peligro',
+    flowLead: 'Cinco pasos y ninguna búsqueda en menús de ajustes. Capturas reales de KeyPing con datos inventados.',
+    steps: [
+      { h: 'Abre KeyPing', p: 'Desbloquea la bóveda con tu contraseña maestra. Tus cuentas están ordenadas por carpetas y marcadas con un icono de llave si tienen enlace de cambio.', shot: 'lista', alt: 'Lista de contraseñas de KeyPing con cuentas ficticias agrupadas en carpetas.' },
+      { h: 'Busca la cuenta', p: 'Escribe parte del nombre, del usuario, del correo o de la web. La lista se filtra mientras escribes.', shot: 'busqueda', alt: 'Búsqueda «pixel» en KeyPing que deja solo la cuenta ficticia Pixel Arena.' },
+      { h: 'Pulsa «Cambiar contraseña»', p: 'KeyPing abre en tu navegador la página exacta donde se cambia esa contraseña, la que anotaste al guardarla. Solo admite enlaces http y https.', shot: 'detalle-enlace', alt: 'Ficha de la cuenta con el enlace de cambio de contraseña y el botón «Cambiar contraseña».' },
+      { h: 'Genera una contraseña nueva', p: 'Pulsa «Editar» y luego «Generar». El generador usa el generador aleatorio criptográfico del sistema.', shot: 'generar', alt: 'Edición de la cuenta con una contraseña nueva generada por KeyPing.' },
+      { h: 'Guárdala con historial', p: 'Al guardar, la contraseña anterior queda en el historial de esa cuenta, por si el cambio no llega a completarse en la web.', shot: 'historial', alt: 'Historial de la cuenta con la contraseña actual y la versión anterior.' },
+    ],
+    featEyebrow: 'Funciones',
+    featH2: 'Más que un sitio donde guardar contraseñas',
+    featLead: 'Todo lo que aparece aquí está en la versión actual.',
+    features: [
+      { i: '🔗', h: 'Enlace de acceso y de cambio', p: 'Cada entrada guarda dónde inicias sesión y dónde se cambia la contraseña. El cambio está también como acceso directo en la lista.' },
+      { i: '🛡️', h: 'Salud de contraseñas', p: 'Una puntuación de 0 a 100 de la bóveda y alertas de contraseñas débiles, cortas, con poca variedad o sin 2FA anotado.' },
+      { i: '♻️', h: 'Reutilizadas y parecidas', p: 'Detecta contraseñas repetidas y variantes casi iguales, incluso con cambios del tipo «a» por «4» o «o» por «0».' },
+      { i: '🕘', h: 'Historial por contraseña', p: 'Guarda las versiones anteriores de cada cuenta (20 por defecto, configurable de 1 a 200) y permite restaurarlas.' },
+      { i: '🗂️', h: 'Carpetas', p: 'Organiza las cuentas en carpetas y muévelas arrastrando y soltando.' },
+      { i: '🔐', h: 'Generador', p: 'De 8 a 40 caracteres con mayúsculas, minúsculas, números y símbolos a tu elección.' },
+      { i: '📋', h: 'Portapapeles que se limpia', p: 'Lo copiado se borra a los 20 segundos si sigue en el portapapeles, y también al bloquear. En Windows intenta además dejarlo fuera del historial (Win+V).' },
+      { i: '💾', h: 'Copias cifradas', p: 'Exporta la bóveda a un archivo cifrado con tu contraseña maestra e impórtalo en otro equipo, uniendo o sustituyendo entradas.' },
+      { i: '⏱️', h: 'Bloqueo automático', p: 'Se bloquea tras un tiempo sin uso (de 1 a 30 minutos) y al suspender o bloquear la sesión del sistema.' },
+      { i: '🌐', h: 'Español e inglés', p: 'Interfaz completa en los dos idiomas.' },
+      { i: '🧭', h: 'Modo demo y tour', p: 'Con la bóveda vacía puedes ver datos de ejemplo, y un tour guiado explica cada pantalla.' },
+    ],
+    galleryAlt: {
+      salud: 'Pantalla de salud de contraseñas con una puntuación de 44 sobre 100 y alertas por categoría.',
+      panel: 'Panel de inicio con el resumen de contraseñas fuertes, medias, débiles, con 2FA y duplicadas.',
+      generador: 'Generador de contraseñas con longitud ajustable y tipos de caracteres.',
+    },
+    galleryCap: { salud: 'Salud de la bóveda', panel: 'Resumen al abrir', generador: 'Generador' },
+    secEyebrow: 'Privacidad',
+    secH2: 'Tus contraseñas no salen de tu equipo',
+    secPoints: [
+      'Sin cuenta, sin servidor y sin sincronización.',
+      'Bóveda cifrada con AES-256-GCM y una clave derivada de tu contraseña maestra con PBKDF2-HMAC-SHA512 (600.000 iteraciones).',
+      'La única conexión propia de la app es comprobar si hay versiones nuevas, y puedes desactivarla.',
+      'Las actualizaciones solo se instalan si sus metadatos llevan una firma Ed25519 válida.',
+    ],
+    secLink: 'Cómo protege KeyPing tus datos y cuáles son sus límites',
+    ossH2: 'Código abierto y sin letra pequeña',
+    ossP: 'KeyPing es gratuito y su código está publicado en GitHub con licencia MIT: puedes revisarlo, compilarlo y proponer cambios. No hay versión de pago, anuncios ni recogida de datos.',
+    ossRepo: 'Ver el código en GitHub',
+    ossLicense: 'Licencia MIT',
+    ossAuthor: 'Lo desarrolla Unax Zulaika Fuente.',
+    ossPortfolio: 'Más proyectos en zula.dev',
+  },
+  en: {
+    title: 'KeyPing · Local password manager with a direct link to change each password',
+    description: 'Free, open-source password manager for Windows and Linux. Everything stays on your computer, no account or cloud, and the link to change each password is one click away.',
+    eyebrow: 'Local password manager · Windows and Linux',
+    h1: 'An account gets hijacked. You change the password in seconds.',
+    lead: 'KeyPing stores each password together with the link where you use the account and the direct link to change it. When something goes wrong there is nothing to search for: open it, click, change.',
+    points: ['No account, no cloud', 'AES-256-GCM encryption on your device', 'Free and open source (MIT)'],
+    heroAlt: 'A fictional account in KeyPing with the “Change password” button next to its password-change link.',
+    storyEyebrow: 'Why it exists',
+    storyH2: 'When you panic, nobody can find where to change the password',
+    storyQuote: [
+      'I built KeyPing for myself. I spend many hours at the computer, gaming and coding, and more than once someone has taken over a Discord or game account of mine.',
+      'It was always the same: you panic, you do not react fast and you cannot find where the password is changed. Now every account has its change link saved and it is one click away, right when I am not thinking clearly.',
+    ],
+    storyCite: 'Unax Zulaika Fuente, author of KeyPing',
+    flowEyebrow: 'Emergency plan',
+    flowH2: 'What to do when an account is at risk',
+    flowLead: 'Five steps and no digging through settings menus. Real KeyPing screenshots with made-up data.',
+    steps: [
+      { h: 'Open KeyPing', p: 'Unlock the vault with your master password. Accounts are grouped in folders and show a key icon when they have a change link.', shot: 'lista', alt: 'KeyPing password list with fictional accounts grouped in folders.' },
+      { h: 'Find the account', p: 'Type part of the name, username, email or website. The list filters as you type.', shot: 'busqueda', alt: 'Searching “pixel” in KeyPing leaves only the fictional Pixel Arena account.' },
+      { h: 'Click “Change password”', p: 'KeyPing opens, in your browser, the exact page where that password is changed: the one you saved with it. Only http and https links are allowed.', shot: 'detalle-enlace', alt: 'Account details with the password-change link and the “Change password” button.' },
+      { h: 'Generate a new password', p: 'Click “Edit” and then “Generate”. The generator uses the operating system’s cryptographic random number generator.', shot: 'generar', alt: 'Editing the account with a new password generated by KeyPing.' },
+      { h: 'Save it with history', p: 'When you save, the previous password stays in that account’s history, in case the change on the website does not go through.', shot: 'historial', alt: 'Account history showing the current password and the previous version.' },
+    ],
+    featEyebrow: 'Features',
+    featH2: 'More than a place to store passwords',
+    featLead: 'Everything listed here is in the current version.',
+    features: [
+      { i: '🔗', h: 'Login and change links', p: 'Each entry stores where you sign in and where the password is changed. The change link is also a shortcut in the list.' },
+      { i: '🛡️', h: 'Password health', p: 'A 0–100 score for the vault and alerts for weak, short or low-variety passwords and accounts without 2FA noted.' },
+      { i: '♻️', h: 'Reused and similar', p: 'Finds repeated passwords and near-identical variants, even with swaps such as “a” for “4” or “o” for “0”.' },
+      { i: '🕘', h: 'Per-password history', p: 'Keeps previous versions of each account (20 by default, configurable from 1 to 200) and lets you restore them.' },
+      { i: '🗂️', h: 'Folders', p: 'Organise accounts in folders and move them with drag and drop.' },
+      { i: '🔐', h: 'Generator', p: '8 to 40 characters with the uppercase, lowercase, digits and symbols you choose.' },
+      { i: '📋', h: 'Self-clearing clipboard', p: 'Copied secrets are wiped after 20 seconds if still on the clipboard, and when the vault locks. On Windows it also tries to keep them out of clipboard history (Win+V).' },
+      { i: '💾', h: 'Encrypted backups', p: 'Export the vault to a file encrypted with your master password and import it on another computer, merging or replacing entries.' },
+      { i: '⏱️', h: 'Auto-lock', p: 'Locks after a period of inactivity (1 to 30 minutes) and when the system suspends or the session is locked.' },
+      { i: '🌐', h: 'Spanish and English', p: 'Full interface in both languages.' },
+      { i: '🧭', h: 'Demo mode and tour', p: 'With an empty vault you can browse sample data, and a guided tour explains each screen.' },
+    ],
+    galleryAlt: {
+      salud: 'Password health screen with a score of 44 out of 100 and alerts by category.',
+      panel: 'Home dashboard summarising strong, medium, weak, 2FA-enabled and duplicate passwords.',
+      generador: 'Password generator with adjustable length and character types.',
+    },
+    galleryCap: { salud: 'Vault health', panel: 'Overview on unlock', generador: 'Generator' },
+    secEyebrow: 'Privacy',
+    secH2: 'Your passwords never leave your computer',
+    secPoints: [
+      'No account, no server, no sync.',
+      'Vault encrypted with AES-256-GCM using a key derived from your master password with PBKDF2-HMAC-SHA512 (600,000 iterations).',
+      'The app’s only connection of its own is checking for new versions, and you can turn it off.',
+      'Updates are only installed if their metadata carries a valid Ed25519 signature.',
+    ],
+    secLink: 'How KeyPing protects your data, and its limits',
+    ossH2: 'Open source, no small print',
+    ossP: 'KeyPing is free and its source code is on GitHub under the MIT license: you can read it, build it and suggest changes. There is no paid tier, no ads and no data collection.',
+    ossRepo: 'View the code on GitHub',
+    ossLicense: 'MIT license',
+    ossAuthor: 'Developed by Unax Zulaika Fuente.',
+    ossPortfolio: 'More projects at zula.dev',
+  },
+}[lang];
+const featId = lang === 'es' ? 'funciones' : 'features';
+const flowId = lang === 'es' ? 'emergencia' : 'emergency';
+---
+<Base lang={lang} page="home" title={c.title} description={c.description}>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">{c.eyebrow}</p>
+        <h1>{c.h1}</h1>
+        <p class="lead">{c.lead}</p>
+        <DownloadButton lang={lang} />
+        <ul class="hero-points">{c.points.map((p) => <li>{p}</li>)}</ul>
+      </div>
+      <Screenshot lang={lang} name="detalle-enlace" alt={c.heroAlt} eager sizes="(min-width: 960px) 600px, 100vw" />
+    </div>
+  </section>
+
+  <section class="section-alt" aria-labelledby="story-h">
+    <div class="wrap story">
+      <div>
+        <p class="eyebrow">{c.storyEyebrow}</p>
+        <h2 id="story-h">{c.storyH2}</h2>
+      </div>
+      <blockquote>
+        {c.storyQuote.map((p) => <p>{p}</p>)}
+        <cite>{c.storyCite}</cite>
+      </blockquote>
+    </div>
+  </section>
+
+  <section id={flowId} aria-labelledby="flow-h">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">{c.flowEyebrow}</p>
+        <h2 id="flow-h">{c.flowH2}</h2>
+        <p class="lead">{c.flowLead}</p>
+      </div>
+      <ol class="steps">
+        {c.steps.map((s) => (
+          <li class="step">
+            <div class="step-text">
+              <h3>{s.h}</h3>
+              <p class="muted">{s.p}</p>
+            </div>
+            <Screenshot lang={lang} name={s.shot} alt={s.alt} sizes="(min-width: 880px) 640px, 100vw" />
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <section id={featId} class="section-alt" aria-labelledby="feat-h">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">{c.featEyebrow}</p>
+        <h2 id="feat-h">{c.featH2}</h2>
+        <p class="lead">{c.featLead}</p>
+      </div>
+      <ul class="grid-cards" role="list">
+        {c.features.map((f) => (
+          <li class="card">
+            <h3><span class="ico" aria-hidden="true">{f.i}</span>{f.h}</h3>
+            <p>{f.p}</p>
+          </li>
+        ))}
+      </ul>
+      <div class="gallery">
+        {(['salud', 'panel', 'generador'] as const).map((k) => (
+          <figure>
+            <Screenshot lang={lang} name={k} alt={c.galleryAlt[k]} sizes="(min-width: 880px) 360px, 100vw" />
+            <figcaption>{c.galleryCap[k]}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="sec-h">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">{c.secEyebrow}</p>
+        <h2 id="sec-h">{c.secH2}</h2>
+        <ul class="prose">{c.secPoints.map((p) => <li>{p}</li>)}</ul>
+        <p><a href={r.security}>{c.secLink} →</a></p>
+      </div>
+      <div class="card">
+        <h2 class="h3-like">{c.ossH2}</h2>
+        <p>{c.ossP}</p>
+        <p>{c.ossAuthor} <a href={PORTFOLIO_URL}>{c.ossPortfolio}</a>.</p>
+        <p><a href={REPO_URL}>{c.ossRepo}</a> · <a href={LICENSE_URL}>{c.ossLicense}</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-alt cta-band" aria-label={lang === 'es' ? 'Descarga' : 'Download'}>
+    <div class="wrap">
+      <h2>{lang === 'es' ? 'Prepara tu plan de emergencia antes de necesitarlo' : 'Set up your emergency plan before you need it'}</h2>
+      <DownloadButton lang={lang} size="md" />
+    </div>
+  </section>
+</Base>

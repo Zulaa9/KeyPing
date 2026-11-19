@@ -1,0 +1,93 @@
+---
+// Cada dato de esta página sale del código de la 1.3.0 (ver site/README.md, «Fuentes»).
+import Base from '../layouts/Base.astro';
+import { ROUTES, REPO_URL, type Lang } from '../i18n/routes';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const r = ROUTES[lang];
+const es = lang === 'es';
+const title = es ? 'Seguridad y privacidad · KeyPing' : 'Security and privacy · KeyPing';
+const description = es
+  ? 'Cómo cifra KeyPing tu bóveda, qué conexiones hace, cómo se verifican las actualizaciones y qué no puede hacer.'
+  : 'How KeyPing encrypts your vault, which connections it makes, how updates are verified and what it cannot do.';
+---
+<Base lang={lang} page="security" title={title} description={description}>
+  <section class="page-head">
+    <div class="wrap">
+      <p class="eyebrow">{es ? 'Seguridad y privacidad' : 'Security and privacy'}</p>
+      <h1>{es ? 'Todo en tu equipo. Nada en la nube.' : 'Everything on your computer. Nothing in the cloud.'}</h1>
+      <p class="lead">{es
+        ? 'KeyPing no tiene cuenta, servidor ni sincronización. Esta página explica qué protege, cómo lo hace y dónde están sus límites, con datos sacados del código de la versión actual.'
+        : 'KeyPing has no account, server or sync. This page explains what it protects, how, and where its limits are, using facts taken from the current version’s source code.'}</p>
+    </div>
+  </section>
+
+  <section class="page-body">
+    <div class="wrap prose">
+      <h2 id={es ? 'local' : 'local'}>{es ? 'Dónde están tus datos' : 'Where your data lives'}</h2>
+      <p>{es
+        ? 'La bóveda es un archivo cifrado en la carpeta de datos de la aplicación de tu usuario:'
+        : 'The vault is an encrypted file in your user’s application data folder:'}</p>
+      <ul>
+        <li>Windows: <code>%APPDATA%\keyping-ui</code></li>
+        <li>Linux: <code>~/.config/keyping-ui</code></li>
+      </ul>
+      <p>{es
+        ? 'No se envía a ningún sitio. Si quieres llevarla a otro equipo, exportas un archivo cifrado y lo importas allí.'
+        : 'It is not sent anywhere. To move it to another computer, export an encrypted file and import it there.'}</p>
+
+      <h2 id={es ? 'cifrado' : 'encryption'}>{es ? 'Cifrado' : 'Encryption'}</h2>
+      <table class="facts">
+        <tbody>
+          <tr><th scope="row">{es ? 'Bóveda' : 'Vault'}</th><td>{es ? 'AES-256-GCM, con un nonce aleatorio de 12 bytes en cada escritura y etiqueta de autenticación de 16 bytes.' : 'AES-256-GCM, with a random 12-byte nonce on every write and a 16-byte authentication tag.'}</td></tr>
+          <tr><th scope="row">{es ? 'Clave' : 'Key'}</th><td>{es ? 'Derivada de tu contraseña maestra con PBKDF2-HMAC-SHA512, 600.000 iteraciones y una sal aleatoria de 32 bytes.' : 'Derived from your master password with PBKDF2-HMAC-SHA512, 600,000 iterations and a random 32-byte salt.'}</td></tr>
+          <tr><th scope="row">{es ? 'Contraseña maestra' : 'Master password'}</th><td>{es ? 'No se guarda. Solo se guarda un texto de control cifrado con la clave derivada, que sirve para saber si la contraseña es correcta.' : 'Never stored. Only a check value encrypted with the derived key is kept, to tell whether the password is correct.'}</td></tr>
+          <tr><th scope="row">{es ? 'Clave en memoria' : 'Key in memory'}</th><td>{es ? 'Vive en el proceso principal mientras la bóveda está abierta y se sobrescribe con ceros al bloquear.' : 'Held by the main process while the vault is open and overwritten with zeros on lock.'}</td></tr>
+          <tr><th scope="row">{es ? 'Archivos exportados' : 'Exported files'}</th><td>{es ? 'AES-256-GCM con una clave derivada de la contraseña maestra con PBKDF2-HMAC-SHA256, 600.000 iteraciones y sal propia de 16 bytes.' : 'AES-256-GCM with a key derived from the master password using PBKDF2-HMAC-SHA256, 600,000 iterations and its own 16-byte salt.'}</td></tr>
+          <tr><th scope="row">{es ? 'Bóvedas antiguas' : 'Older vaults'}</th><td>{es ? 'Las creadas con versiones 1.0.x (120.000 iteraciones y archivo de clave) se abren y pasan al esquema actual tras el primer desbloqueo.' : 'Vaults from 1.0.x (120,000 iterations and a key file) still open and move to the current scheme after the first unlock.'}</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id={es ? 'proteccion' : 'protection'}>{es ? 'Protección mientras la usas' : 'Protection while in use'}</h2>
+      <ul>
+        <li>{es ? 'Intentos fallidos: tras 3 intentos sin espera, cada fallo obliga a esperar más (5 segundos, que se duplican hasta un máximo de 1 hora). El contador sobrevive a reiniciar la app.' : 'Failed attempts: after 3 free attempts, each failure adds a growing delay (5 seconds, doubling up to 1 hour). The counter survives an app restart.'}</li>
+        <li>{es ? 'Bloqueo automático tras 1 a 30 minutos sin actividad (5 por defecto) y al suspender el equipo o bloquear la sesión.' : 'Auto-lock after 1 to 30 minutes of inactivity (5 by default) and when the computer suspends or the session is locked.'}</li>
+        <li>{es ? 'Portapapeles: lo copiado se borra a los 20 segundos solo si el portapapeles sigue conteniendo lo mismo, y al bloquear. En Windows se marca para quedar fuera del historial (Win+V) y del portapapeles en la nube; si eso falla, se copia de forma normal.' : 'Clipboard: copied secrets are cleared after 20 seconds only if the clipboard still holds the same content, and on lock. On Windows they are flagged to stay out of clipboard history (Win+V) and cloud clipboard; if that fails, a normal copy is made.'}</li>
+        <li>{es ? 'Enlaces: solo se aceptan http y https, sin credenciales incrustadas, y se abren siempre en tu navegador, nunca dentro de la app.' : 'Links: only http and https are accepted, with no embedded credentials, and they always open in your browser, never inside the app.'}</li>
+        <li>{es ? 'Aislamiento de Electron: la interfaz no tiene acceso a Node.js (contextIsolation, sandbox y nodeIntegration desactivado), la app rechaza permisos como cámara o micrófono y el ejecutable se publica con los fusibles de Electron que impiden usarlo como Node.js, depurarlo por línea de comandos o cargar código fuera del paquete verificado.' : 'Electron isolation: the interface has no access to Node.js (contextIsolation, sandbox, nodeIntegration off), the app denies permissions such as camera or microphone, and the executable ships with Electron fuses that prevent running it as Node.js, debugging it from the command line or loading code outside the verified package.'}</li>
+        <li>{es ? 'Integridad: la app comprueba la estructura de la bóveda y avisa si detecta corrupción.' : 'Integrity: the app checks the vault structure and warns if it detects corruption.'}</li>
+      </ul>
+
+      <h2 id={es ? 'conexiones' : 'connections'}>{es ? 'Qué conexiones hace la app' : 'Which connections the app makes'}</h2>
+      <p>{es
+        ? 'Una sola por su cuenta: comprobar en GitHub Releases si hay una versión nueva, unos segundos después de arrancar y cuando la pides en Ajustes. Puedes desactivar la comprobación automática. La descarga automática viene desactivada: tú decides cuándo descargar.'
+        : 'Only one on its own: checking GitHub Releases for a new version, a few seconds after start-up and when you ask in Settings. You can turn the automatic check off. Automatic download is off by default: you decide when to download.'}</p>
+      <p>{es
+        ? 'No hay analítica, telemetría, informes de errores remotos ni iconos descargados de internet; el corrector ortográfico está desactivado para que no descargue diccionarios. Los enlaces de tus cuentas solo se abren cuando los pulsas, y lo hace tu navegador.'
+        : 'There is no analytics, telemetry, remote crash reporting or icons fetched from the internet; spell checking is off so no dictionaries are downloaded. Your accounts’ links only open when you click them, and your browser opens them.'}</p>
+
+      <h2 id={es ? 'actualizaciones' : 'updates'}>{es ? 'Cómo se verifican las actualizaciones' : 'How updates are verified'}</h2>
+      <p>{es
+        ? 'Desde la 1.3.0, los metadatos de cada versión (latest.yml y latest-linux.yml) van firmados con una clave Ed25519 cuya parte pública está dentro de la app. KeyPing se niega a descargar o instalar una actualización si la versión, los nombres de archivo, los tamaños o los SHA-512 no están cubiertos por una firma válida. Así, aunque alguien sustituyera un archivo de la release, la app no lo instalaría.'
+        : 'Since 1.3.0, each version’s metadata (latest.yml and latest-linux.yml) is signed with an Ed25519 key whose public half is built into the app. KeyPing refuses to download or install an update if the version, file names, sizes or SHA-512 hashes are not covered by a valid signature. So even if someone replaced a release file, the app would not install it.'}</p>
+      <p>{es ? 'Para la primera instalación, cada release publica ' : 'For the first install, each release ships '}<code>SHA256SUMS.txt</code>{es ? ' con el SHA-256 de cada instalador. ' : ' with the SHA-256 of every installer. '}<a href={r.download + (es ? '#verificar' : '#verify')}>{es ? 'Cómo comprobarlo' : 'How to check it'}</a>.</p>
+
+      <h2 id={es ? 'limites' : 'limits'}>{es ? 'Límites, sin rodeos' : 'Limits, plainly'}</h2>
+      <div class="note">
+        <p><strong>{es ? 'Si olvidas la contraseña maestra, no hay recuperación.' : 'If you forget the master password, there is no recovery.'}</strong> {es
+          ? 'No existe una puerta trasera ni una copia de la clave: ni el autor ni nadie puede abrir tu bóveda sin ella. Las copias exportadas también se cifran con la contraseña maestra, así que tampoco sirven sin ella. Guárdala en un lugar seguro.'
+          : 'There is no back door and no copy of the key: neither the author nor anyone else can open your vault without it. Exported backups are also encrypted with the master password, so they do not help without it either. Keep it somewhere safe.'}</p>
+      </div>
+      <ul>
+        <li>{es ? 'Sin sincronización: si pierdes o formateas el equipo sin una copia exportada, pierdes la bóveda.' : 'No sync: if you lose or wipe the computer without an exported backup, you lose the vault.'}</li>
+        <li>{es ? 'KeyPing protege los datos guardados en disco. No puede protegerte de un programa malicioso que ya controle tu equipo mientras la bóveda está abierta.' : 'KeyPing protects data at rest. It cannot protect you from malware that already controls your computer while the vault is open.'}</li>
+        <li>{es ? 'En Linux, el historial del portapapeles de tu escritorio puede conservar lo copiado; KeyPing solo puede borrar el portapapeles actual.' : 'On Linux, your desktop’s clipboard history may keep copied secrets; KeyPing can only clear the current clipboard.'}</li>
+        <li>{es ? 'No tiene extensión de navegador ni autocompletado: copias y pegas.' : 'There is no browser extension or autofill: you copy and paste.'}</li>
+        <li>{es ? 'Los instaladores no llevan firma de código de Windows, por eso SmartScreen puede avisar al instalar.' : 'Installers are not code-signed for Windows, so SmartScreen may warn during installation.'}</li>
+        <li>{es ? 'El código no ha pasado una auditoría de seguridad externa. Es abierto para que cualquiera pueda revisarlo.' : 'The code has not had an external security audit. It is open so anyone can review it.'}</li>
+      </ul>
+      <p>{es ? '¿Has encontrado un problema de seguridad? Escribe al autor a través de ' : 'Found a security problem? Contact the author through '}<a href={REPO_URL}>GitHub</a>.</p>
+    </div>
+  </section>
+</Base>

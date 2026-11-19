@@ -1,0 +1,54 @@
+---
+import Base from '../layouts/Base.astro';
+import { ROUTES, REPO_URL, LICENSE_URL, type Lang } from '../i18n/routes';
+
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const es = lang === 'es';
+const r = ROUTES[lang];
+const title = es ? 'Preguntas frecuentes · KeyPing' : 'FAQ · KeyPing';
+const description = es
+  ? 'Respuestas breves sobre KeyPing: precio, dónde se guardan los datos, contraseña maestra, varios equipos, conexiones y plataformas.'
+  : 'Short answers about KeyPing: price, where data is stored, the master password, multiple computers, connections and platforms.';
+---
+<Base lang={lang} page="faq" title={title} description={description}>
+  <section class="page-head">
+    <div class="wrap">
+      <p class="eyebrow">{es ? 'Preguntas frecuentes' : 'FAQ'}</p>
+      <h1>{es ? 'Lo que suele preguntarse' : 'Common questions'}</h1>
+    </div>
+  </section>
+  <section class="page-body">
+    <div class="wrap prose">
+      {es ? (
+        <>
+          <details><summary>¿Cuánto cuesta?</summary><p>Nada. KeyPing es gratuito y de código abierto con <a href={LICENSE_URL}>licencia MIT</a>. No hay versión de pago ni anuncios.</p></details>
+          <details><summary>¿Dónde se guardan mis contraseñas?</summary><p>En un archivo cifrado en tu equipo: <code>%APPDATA%\keyping-ui</code> en Windows y <code>~/.config/keyping-ui</code> en Linux. No hay servidor ni nube.</p></details>
+          <details><summary>¿Qué pasa si olvido la contraseña maestra?</summary><p>No se puede recuperar ni restablecer, y sin ella la bóveda no se puede descifrar. Las copias exportadas también usan la contraseña maestra. Guárdala en un lugar seguro.</p></details>
+          <details><summary>¿Puedo usarlo en varios equipos?</summary><p>Sí, pero no se sincroniza. Exporta la bóveda en un archivo cifrado e impórtalo en el otro equipo; al importar puedes unir las entradas o sustituirlas.</p></details>
+          <details><summary>¿Se conecta a internet?</summary><p>Solo para comprobar si hay una versión nueva en GitHub, y puedes desactivarlo en Ajustes. Los enlaces de tus cuentas solo se abren en tu navegador cuando los pulsas. <a href={r.security + '#conexiones'}>Más detalles</a>.</p></details>
+          <details><summary>¿Rellena las contraseñas en el navegador?</summary><p>No. No tiene extensión de navegador: copias la contraseña y el portapapeles se limpia solo a los 20 segundos.</p></details>
+          <details><summary>¿Puedo importar desde otro gestor de contraseñas?</summary><p>KeyPing importa sus propias copias exportadas y archivos JSON con su formato. No tiene importadores específicos para otros gestores.</p></details>
+          <details><summary>¿Hay versión para macOS, Android o iPhone?</summary><p>No. Solo hay versiones publicadas para Windows y Linux.</p></details>
+          <details><summary>¿Por qué Windows avisa al instalarlo?</summary><p>Porque el instalador no lleva firma de código de Windows. Comprueba el SHA-256 antes de instalar. <a href={r.download + '#verificar'}>Cómo hacerlo</a>.</p></details>
+          <details><summary>¿Cómo se actualiza?</summary><p>La app avisa cuando hay una versión nueva. Solo instala actualizaciones cuyos metadatos lleven una firma Ed25519 válida.</p></details>
+          <details><summary>¿Quién lo hace?</summary><p>Unax Zulaika Fuente, desarrollador. El código está en <a href={REPO_URL}>GitHub</a>, donde también puedes informar de errores.</p></details>
+        </>
+      ) : (
+        <>
+          <details><summary>How much does it cost?</summary><p>Nothing. KeyPing is free and open source under the <a href={LICENSE_URL}>MIT license</a>. There is no paid tier and no ads.</p></details>
+          <details><summary>Where are my passwords stored?</summary><p>In an encrypted file on your computer: <code>%APPDATA%\keyping-ui</code> on Windows and <code>~/.config/keyping-ui</code> on Linux. There is no server or cloud.</p></details>
+          <details><summary>What if I forget the master password?</summary><p>It cannot be recovered or reset, and without it the vault cannot be decrypted. Exported backups also use the master password. Keep it somewhere safe.</p></details>
+          <details><summary>Can I use it on several computers?</summary><p>Yes, but it does not sync. Export the vault to an encrypted file and import it on the other computer; you can merge or replace entries.</p></details>
+          <details><summary>Does it connect to the internet?</summary><p>Only to check GitHub for a new version, and you can turn that off in Settings. Your accounts’ links only open in your browser when you click them. <a href={r.security + '#connections'}>More details</a>.</p></details>
+          <details><summary>Does it autofill passwords in the browser?</summary><p>No. There is no browser extension: you copy the password and the clipboard clears itself after 20 seconds.</p></details>
+          <details><summary>Can I import from another password manager?</summary><p>KeyPing imports its own exported backups and JSON files in its format. It has no dedicated importers for other managers.</p></details>
+          <details><summary>Is there a macOS, Android or iPhone version?</summary><p>No. Only Windows and Linux builds are published.</p></details>
+          <details><summary>Why does Windows warn me during installation?</summary><p>Because the installer is not code-signed for Windows. Check the SHA-256 before installing. <a href={r.download + '#verify'}>How to do it</a>.</p></details>
+          <details><summary>How does it update?</summary><p>The app tells you when a new version is out. It only installs updates whose metadata carries a valid Ed25519 signature.</p></details>
+          <details><summary>Who makes it?</summary><p>Unax Zulaika Fuente, a developer. The code is on <a href={REPO_URL}>GitHub</a>, where you can also report bugs.</p></details>
+        </>
+      )}
+    </div>
+  </section>
+</Base>
