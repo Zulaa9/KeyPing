@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { storeUserDataDir } from './vault/paths';
+
+test('the Microsoft Store version keeps its data apart from the GitHub version', () => {
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));
+  const appData = join('C:', 'Users', 'demo', 'AppData', 'Roaming');
+  const storeDir = storeUserDataDir(appData);
+  // Nunca la carpeta de la versión NSIS/AppImage (%APPDATA%\keyping-ui).
+  assert.notEqual(storeDir, join(appData, pkg.name));
+  assert.equal(storeDir, join(appData, 'keyping-store'));
+});
 
 test('release builds keep the hardening fuses enabled', () => {
   const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));

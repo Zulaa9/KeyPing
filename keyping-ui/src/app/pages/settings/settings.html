@@ -205,6 +205,9 @@
         <div class="inline-alert info" *ngIf="updateState.storeManaged">
           {{ 'settings.updates.storeManaged' | t }}
         </div>
+        <div class="inline-alert info" *ngIf="updateState.storeManaged">
+          {{ 'settings.updates.storeData' | t }}
+        </div>
 
         <ng-container *ngIf="!updateState.storeManaged">
         <div class="updates-toggles">
