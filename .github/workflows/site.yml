@@ -2,7 +2,8 @@ name: Web (keyping.zula.dev)
 
 # La web se publica en Cloudflare Pages, que la construye desde site/ en cada push a main.
 # Este workflow solo pide a Cloudflare una nueva publicación cuando sale una versión de la app,
-# para que los enlaces de descarga apunten a ella. No toca keyping-ui/ ni las releases.
+# para que los enlaces de descarga apunten a ella, y también recompila el portfolio (zula.dev).
+# No toca keyping-ui/ ni las releases.
 on:
   release:
     types: [published]
@@ -28,3 +29,16 @@ jobs:
           fi
           curl -fsS -X POST "$HOOK" > /dev/null
           echo "Publicación solicitada a Cloudflare Pages."
+
+      # El portfolio (zula.dev) muestra la versión de KeyPing leída de GitHub al compilar;
+      # este hook lo recompila para que la versión nueva aparezca allí también.
+      - name: Trigger portfolio deploy hook (zula.dev)
+        env:
+          HOOK: ${{ secrets.PORTFOLIO_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::Falta el secreto PORTFOLIO_DEPLOY_HOOK; zula.dev no se actualiza solo."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Publicación del portfolio solicitada a Cloudflare Pages."
