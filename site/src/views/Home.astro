@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Screenshot from '../components/Screenshot.astro';
 import DownloadButton from '../components/DownloadButton.astro';
-import { ROUTES, REPO_URL, LICENSE_URL, PORTFOLIO_URL, type Lang } from '../i18n/routes';
+import { ROUTES, REPO_URL, LICENSE_URL, PORTFOLIO_PROJECTS_URL, type Lang } from '../i18n/routes';
 
 import { getRelease, versionAtLeast, LINUX_SPELLCHECK_FIX } from '../lib/release';
 
@@ -231,7 +231,7 @@ const flowId = lang === 'es' ? 'emergencia' : 'emergency';
       <div class="card">
         <h2 class="h3-like">{c.ossH2}</h2>
         <p>{c.ossP}</p>
-        <p>{c.ossAuthor} <a href={PORTFOLIO_URL}>{c.ossPortfolio}</a>.</p>
+        <p>{c.ossAuthor} <a href={PORTFOLIO_PROJECTS_URL[lang]}>{c.ossPortfolio}</a>.</p>
         <p><a href={REPO_URL}>{c.ossRepo}</a> · <a href={LICENSE_URL}>{c.ossLicense}</a></p>
       </div>
     </div>

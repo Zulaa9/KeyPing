@@ -213,7 +213,9 @@ details > :not(summary) { color: var(--text); }
 .footer-grid { display: grid; gap: 1.5rem; }
 @media (min-width: 720px) { .footer-grid { grid-template-columns: 1.4fr 1fr 1fr; } }
 .footer-brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; margin-bottom: 0.3rem; }
-.footer-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.footer-links { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; gap: 0.5rem; }
+.footer-links a, .footer-legal a { color: var(--muted); text-decoration: none; }
+.footer-links a:hover, .footer-links a:focus-visible, .footer-legal a:hover, .footer-legal a:focus-visible { color: var(--text); text-decoration: underline; }
 .footer-legal { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 
 .notfound { text-align: center; padding: 5rem 0; }

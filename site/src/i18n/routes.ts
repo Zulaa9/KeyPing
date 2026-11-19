@@ -11,5 +11,7 @@ export const ROUTES: Record<Lang, Record<Exclude<PageKey, 'notFound'>, string>> 
 export const REPO_URL = 'https://github.com/Zulaa9/KeyPing';
 export const LICENSE_URL = 'https://github.com/Zulaa9/KeyPing/blob/main/LICENSE';
 export const TRADEMARK_URL = 'https://github.com/Zulaa9/KeyPing/blob/main/TRADEMARK.md';
-export const PORTFOLIO_URL = 'https://zula.dev';
+// El portfolio tiene el inglés en la raíz y el español en /es/.
+export const PORTFOLIO_URL: Record<Lang, string> = { es: 'https://zula.dev/es/', en: 'https://zula.dev/' };
+export const PORTFOLIO_PROJECTS_URL: Record<Lang, string> = { es: 'https://zula.dev/es/projects/', en: 'https://zula.dev/projects/' };
 export const AUTHOR_URL = 'https://github.com/Zulaa9';
