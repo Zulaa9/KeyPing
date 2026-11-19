@@ -2,10 +2,12 @@
 
 [English](./README.md) | [Espanol](./README.es.md)
 
+Website: **[keyping.zula.dev](https://keyping.zula.dev)**
+
 **KeyPing is a privacy-first desktop password manager focused on detecting weak, reused, and risky passwords while keeping all data fully local and offline.**
 
 [![Release](https://img.shields.io/github/v/release/Zulaa9/KeyPing?label=release)](https://github.com/Zulaa9/KeyPing/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-0f172a)](https://github.com/Zulaa9/KeyPing/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f172a)](https://github.com/Zulaa9/KeyPing/releases)
 [![Stack](https://img.shields.io/badge/stack-Angular%20%2B%20Electron-2563eb)](./keyping-ui)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -15,17 +17,12 @@ Active development. Core features are stable and used daily, with continuous imp
 
 ## Screenshots
 
-### Demo Flow
+Version 1.3.0 with made-up data.
 
-![GitHub Password Flow](docs/screenshots/github-password-generator-flow.gif)
-
-![Dashboard](docs/screenshots/dashboard.png)
-![Password List](docs/screenshots/password-list.png)
-![Password Health](docs/screenshots/password-health.png)
-![Password Health 2](docs/screenshots/password-health2.png)
-![Generator](docs/screenshots/generator.png)
-![Settings](docs/screenshots/settings.png)
-![Settings 2](docs/screenshots/settings2.png)
+![Account details with the direct password-change link](docs/screenshots/1.3.0/en-detalle-enlace.png)
+![Password history of an account](docs/screenshots/1.3.0/en-historial.png)
+![Password health](docs/screenshots/1.3.0/en-salud.png)
+![Dashboard](docs/screenshots/1.3.0/en-panel.png)
 
 ## Features
 
@@ -91,7 +88,10 @@ Download binaries from GitHub Releases:
 - Releases: https://github.com/Zulaa9/KeyPing/releases
 - Windows: `.exe` installer (NSIS)
 - Linux: `AppImage`
-- macOS: `.dmg`
+
+There is no macOS build at the moment.
+
+Website with download links and verification steps: https://keyping.zula.dev
 
 ## Release Integrity
 
