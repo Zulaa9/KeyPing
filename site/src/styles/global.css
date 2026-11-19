@@ -214,8 +214,9 @@ details > :not(summary) { color: var(--text); }
 @media (min-width: 720px) { .footer-grid { grid-template-columns: 1.4fr 1fr 1fr; } }
 .footer-brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; margin-bottom: 0.3rem; }
 .footer-links { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; gap: 0.5rem; }
-.footer-links a, .footer-legal a { color: var(--muted); text-decoration: none; }
-.footer-links a:hover, .footer-links a:focus-visible, .footer-legal a:hover, .footer-legal a:focus-visible { color: var(--text); text-decoration: underline; }
+.footer-links a { color: var(--text); font-weight: 500; text-decoration: underline; text-decoration-color: var(--border-strong, var(--muted)); text-decoration-thickness: 1px; text-underline-offset: 0.3em; }
+.footer-links a[href^="http"]::after { content: " ↗"; color: var(--muted); font-size: 0.85em; }
+.footer-links a:hover, .footer-links a:focus-visible { color: var(--accent); text-decoration-color: currentColor; }
 .footer-legal { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 
 .notfound { text-align: center; padding: 5rem 0; }
