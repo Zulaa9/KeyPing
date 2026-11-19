@@ -399,6 +399,7 @@
   "settings.updates.title": "Actualizaciones de la aplicación",
   "settings.updates.subtitle": "Controla como se buscan, descargan e instalan nuevas versiones.",
   "settings.updates.currentVersion": "Versión actual: {{version}}",
+  "settings.updates.storeManaged": "Has instalado KeyPing desde Microsoft Store: la Store lo mantiene actualizado y la app no busca versiones por su cuenta.",
   "settings.updates.autoCheck": "Buscar actualizaciones al iniciar",
   "settings.updates.autoDownload": "Descargar automáticamente cuando haya una versión",
   "settings.updates.installOnQuit": "Instalar al cerrar la app (si ya se descargo)",

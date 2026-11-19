@@ -7,6 +7,9 @@
 /.angular/
 .angular/
 
+# Paquetes, capturas y pruebas locales de Microsoft Store (nunca al repositorio)
+/_store/
+
 # Node modules and dependency files
 /node_modules/
 /package-lock.json

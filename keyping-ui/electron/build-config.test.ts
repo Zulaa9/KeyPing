@@ -23,3 +23,14 @@ test('the Linux window identity matches the desktop entry without moving user da
   assert.equal(pkg.name, 'keyping-ui');
   assert.ok(pkg.build.extraResources.some((r: { to: string }) => r.to === 'icon.png'));
 });
+
+test('the Microsoft Store package keeps the identity reserved in Partner Center', () => {
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8'));
+  // Si cambia cualquiera de estos valores, la Store rechaza el paquete o lo trata como otra app.
+  assert.equal(pkg.build.appx.identityName, 'Zula.KeyPing');
+  assert.equal(pkg.build.appx.publisher, 'CN=B47EE665-C2CC-409C-A9E9-64B89433581E');
+  assert.equal(pkg.build.appx.publisherDisplayName, 'Zula');
+  assert.deepEqual(pkg.build.appx.languages, ['es-ES', 'en-US']);
+  // El script de la Store genera solo el appx y nunca publica en GitHub.
+  assert.match(pkg.scripts['dist:store'], /electron-builder --win appx --x64 --publish never/);
+});

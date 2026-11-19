@@ -202,6 +202,11 @@
           </div>
         </div>
 
+        <div class="inline-alert info" *ngIf="updateState.storeManaged">
+          {{ 'settings.updates.storeManaged' | t }}
+        </div>
+
+        <ng-container *ngIf="!updateState.storeManaged">
         <div class="updates-toggles">
           <label class="checkbox">
             <input
@@ -276,6 +281,7 @@
         <div class="inline-alert" *ngIf="updateMessage" [ngClass]="updateMessageType">
           {{ updateMessage }}
         </div>
+        </ng-container>
       </div>
     </section>
 
