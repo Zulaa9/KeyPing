@@ -50,6 +50,7 @@ jobs:
       - name: Build
         working-directory: site
         env:
+          ASTRO_TELEMETRY_DISABLED: '1'
           # Solo lectura de la API pública de releases (evita el límite de peticiones anónimas).
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build
