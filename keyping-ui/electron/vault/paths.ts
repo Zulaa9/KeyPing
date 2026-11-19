@@ -6,6 +6,13 @@ import { app } from 'electron';
 // depender de Electron ni tocar nunca la bóveda real del equipo.
 let overrideDir: string | null = null;
 
+// Carpeta de datos de la versión de Microsoft Store: distinta de la de GitHub (keyping-ui).
+export const STORE_USER_DATA_FOLDER = 'keyping-store';
+
+export function storeUserDataDir(appDataDir: string): string {
+  return path.join(appDataDir, STORE_USER_DATA_FOLDER);
+}
+
 export function setDataDirForTests(dir: string | null): void {
   overrideDir = dir;
 }

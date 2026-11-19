@@ -48,6 +48,11 @@ export class AppUpdateService {
     return this.preferencesSubject.value;
   }
 
+  /** Versión de Microsoft Store: sin updater propio ni avisos de nueva versión. */
+  get storeManaged(): boolean {
+    return this.stateSubject.value.storeManaged === true;
+  }
+
   get shouldShowUpToDate(): boolean {
     return this.wasManualCheckRequested && this.stateSubject.value.status === 'upToDate';
   }

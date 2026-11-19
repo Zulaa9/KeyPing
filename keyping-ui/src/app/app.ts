@@ -159,10 +159,13 @@ export class AppComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     await this.updates.initialize();
-    try {
-      await this.updates.checkForUpdates(false);
-    } catch (err) {
-      console.error('[app] startup update check failed', err);
+    // En la versión de Microsoft Store las actualizaciones las gestiona la Store.
+    if (!this.updates.storeManaged) {
+      try {
+        await this.updates.checkForUpdates(false);
+      } catch (err) {
+        console.error('[app] startup update check failed', err);
+      }
     }
     this.lockState = await this.master.init();
     this.showIntro = this.lockState === 'unset';

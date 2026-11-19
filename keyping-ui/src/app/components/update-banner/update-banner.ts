@@ -89,6 +89,8 @@ export class UpdateBannerComponent implements OnInit, OnDestroy {
   }
 
   private shouldRender(state: UpdateState): boolean {
+    // En la versión de Microsoft Store nunca se avisa de versiones: las instala la Store.
+    if (state.storeManaged) return false;
     // Evita mostrar estados neutros; solo aparece en estados accionables o de error.
     const isPopupStatus =
       state.status === 'available' ||

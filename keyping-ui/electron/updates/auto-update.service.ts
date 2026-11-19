@@ -44,14 +44,24 @@ export class AutoUpdateService {
   constructor(
     getWindows: () => BrowserWindow[],
     private readonly isTrustedSender: (event: IpcMainInvokeEvent) => boolean = () => true,
-    private readonly trustedKeys: TrustedKeys = UPDATE_PUBLIC_KEYS
+    private readonly trustedKeys: TrustedKeys = UPDATE_PUBLIC_KEYS,
+    // En la versión de Microsoft Store las actualizaciones las instala la Store: el updater
+    // propio no se configura, no se conecta a GitHub y la UI no muestra avisos de versión.
+    private readonly storeManaged: boolean = process.windowsStore === true
   ) {
     this.getWindows = getWindows;
+    if (storeManaged) this.state = { ...this.state, storeManaged: true };
   }
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
     this.isInitialized = true;
+
+    if (this.storeManaged) {
+      // Solo responde al renderer con el estado fijo; nunca toca electron-updater.
+      this.registerIpcHandlers();
+      return;
+    }
 
     this.preferences = await this.loadPreferences();
     this.configureUpdater();
@@ -81,6 +91,7 @@ export class AutoUpdateService {
   }
 
   async setPreferences(input: SetPreferencesInput): Promise<UpdatePreferences> {
+    if (this.storeManaged) return this.getPreferences();
     this.preferences = {
       ...this.preferences,
       ...this.sanitizePreferences(input)
@@ -209,7 +220,7 @@ export class AutoUpdateService {
   }
 
   private canUseUpdater(): boolean {
-    return app.isPackaged;
+    return app.isPackaged && !this.storeManaged;
   }
 
   private configureUpdater(): void {

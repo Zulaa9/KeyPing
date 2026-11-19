@@ -66,7 +66,7 @@ import {
   verifyLegacyRendererCheck,
 } from './vault/crypto';
 import { withVaultLock } from './vault/fsutil';
-import { dataDir } from './vault/paths';
+import { dataDir, storeUserDataDir } from './vault/paths';
 import { AttemptGuard } from './auth-attempts';
 import { safeExternalHref } from './url-utils';
 import { checkPasswordBetter } from './password-check';
@@ -95,6 +95,10 @@ if (process.platform === 'linux') {
 // nunca la bóveda real del equipo (npm run dev, Playwright).
 if (!app.isPackaged && process.env.KEYPING_USER_DATA_DIR) {
   app.setPath('userData', path.resolve(process.env.KEYPING_USER_DATA_DIR));
+} else if (process.windowsStore === true) {
+  // La versión de Microsoft Store tiene datos propios (dentro del paquete; se borran al
+  // desinstalarla) y nunca lee ni copia la bóveda de la versión de GitHub (%APPDATA%\keyping-ui).
+  app.setPath('userData', storeUserDataDir(app.getPath('appData')));
 }
 
 const CLIPBOARD_TTL_MS = 20_000;

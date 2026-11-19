@@ -21,6 +21,8 @@
     "generate:checksums": "powershell -ExecutionPolicy Bypass -File scripts/generate-checksums.ps1",
     "build": "npm run build:angular && npm run electron:build && electron-builder && npm run generate:checksums",
     "build:linux": "npm run build:angular && npm run electron:build && electron-builder --linux && bash scripts/generate-checksums.sh",
+    "dist:store": "npm run build:angular && npm run electron:build && electron-builder --win appx --x64 --publish never",
+    "generate:appx-assets": "powershell -ExecutionPolicy Bypass -File scripts/generate-appx-assets.ps1",
     "test": "ng test",
     "test:electron": "tsc -p electron/tsconfig.test.json && node --test \"dist-electron-tests/**/*.test.js\"",
     "watch": "ng build --watch --configuration development",
@@ -67,6 +69,22 @@
       ],
       "artifactName": "KeyPing-Setup-${version}.exe",
       "icon": "build/icon.ico"
+    },
+    "appx": {
+      "identityName": "Zula.KeyPing",
+      "publisher": "CN=B47EE665-C2CC-409C-A9E9-64B89433581E",
+      "publisherDisplayName": "Zula",
+      "displayName": "KeyPing",
+      "applicationId": "KeyPing",
+      "languages": [
+        "es-ES",
+        "en-US"
+      ],
+      "backgroundColor": "transparent",
+      "showNameOnTiles": false,
+      "minVersion": "10.0.17763.0",
+      "maxVersionTested": "10.0.26100.0",
+      "artifactName": "KeyPing-${version}-store-${arch}.${ext}"
     },
     "linux": {
       "target": [

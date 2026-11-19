@@ -195,13 +195,21 @@
         <div class="block-head">
           <div>
             <div class="block-title">{{ 'settings.updates.title' | t }}</div>
-            <p class="muted tiny">{{ 'settings.updates.subtitle' | t }}</p>
+            <p class="muted tiny" *ngIf="!updateState.storeManaged">{{ 'settings.updates.subtitle' | t }}</p>
           </div>
           <div class="pill pill-muted">
             {{ 'settings.updates.currentVersion' | t:{ version: updateState.currentVersion } }}
           </div>
         </div>
 
+        <div class="inline-alert info" *ngIf="updateState.storeManaged">
+          {{ 'settings.updates.storeManaged' | t }}
+        </div>
+        <div class="inline-alert info" *ngIf="updateState.storeManaged">
+          {{ 'settings.updates.storeData' | t }}
+        </div>
+
+        <ng-container *ngIf="!updateState.storeManaged">
         <div class="updates-toggles">
           <label class="checkbox">
             <input
@@ -276,6 +284,7 @@
         <div class="inline-alert" *ngIf="updateMessage" [ngClass]="updateMessageType">
           {{ updateMessage }}
         </div>
+        </ng-container>
       </div>
     </section>
 

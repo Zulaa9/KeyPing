@@ -22,6 +22,8 @@ export type UpdateState = {
   // Categoría estable del error para traducirla en el renderer (es/en).
   errorCode?: UpdateErrorCode;
   checkedAt?: number;
+  // true en la versión de Microsoft Store: la Store actualiza la app y KeyPing no comprueba nada.
+  storeManaged?: boolean;
 };
 
 export type UpdatePreferences = {
