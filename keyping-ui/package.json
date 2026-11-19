@@ -1,7 +1,7 @@
 {
   "name": "keyping-ui",
   "desktopName": "KeyPing.desktop",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "description": "KeyPing - desktop app that detects reused or similar passwords locally (Angular + Electron, offline).",
   "author": "Unax Zulaika Fuente (Zulaa9)",

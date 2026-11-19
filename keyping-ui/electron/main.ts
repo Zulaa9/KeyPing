@@ -74,6 +74,7 @@ import { AutoUpdateService } from './updates/auto-update.service';
 import { ClipboardClearSessionManager } from './clipboard-clear-session';
 import { writeSecretToWindowsClipboard } from './windows-clipboard';
 import { getLinuxWindowIcon } from './window-icon';
+import { disableSpellcheckDownloads } from './spellcheck';
 
 // En la app instalada no se permite abrir un puerto de depuración remota: otro programa del
 // equipo podría lanzar KeyPing así y leer la sesión desbloqueada. (Los fuses ya bloquean
@@ -290,6 +291,9 @@ function createWindow() {
 }
 
 // Una sola instancia: dos procesos escribiendo la misma bóveda a la vez podrían pisarse.
+// Antes de que exista ninguna sesión: evita que Electron descargue diccionarios ortográficos.
+app.on('session-created', session => disableSpellcheckDownloads(session));
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
