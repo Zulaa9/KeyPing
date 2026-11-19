@@ -61,11 +61,16 @@ const description = es
 
       <h2 id={es ? 'conexiones' : 'connections'}>{es ? 'Qué conexiones hace la app' : 'Which connections the app makes'}</h2>
       <p>{es
-        ? 'Una sola por su cuenta: comprobar en GitHub Releases si hay una versión nueva, unos segundos después de arrancar y cuando la pides en Ajustes. Puedes desactivar la comprobación automática. La descarga automática viene desactivada: tú decides cuándo descargar.'
-        : 'Only one on its own: checking GitHub Releases for a new version, a few seconds after start-up and when you ask in Settings. You can turn the automatic check off. Automatic download is off by default: you decide when to download.'}</p>
+        ? 'Por diseño, una sola: comprobar en GitHub Releases si hay una versión nueva, unos segundos después de arrancar y cuando la pides en Ajustes. Puedes desactivar la comprobación automática. La descarga automática viene desactivada: tú decides cuándo descargar.'
+        : 'By design, only one: checking GitHub Releases for a new version, a few seconds after start-up and when you ask in Settings. You can turn the automatic check off. Automatic download is off by default: you decide when to download.'}</p>
+      <div class="note">
+        <p><strong>{es ? 'Excepción detectada en Linux.' : 'Known exception on Linux.'}</strong> {es
+          ? 'En la versión actual, al arrancar en Linux, el motor de Electron intenta descargar un diccionario ortográfico desde un servidor de Google (redirector.gvt1.com), aunque KeyPing tiene el corrector desactivado. No envía nada de tu bóveda, pero sí deja ver tu dirección IP y el idioma del sistema. Está pendiente de corregir en una próxima versión.'
+          : 'In the current version, when it starts on Linux, the Electron engine tries to download a spell-check dictionary from a Google server (redirector.gvt1.com), even though KeyPing has spell checking turned off. Nothing from your vault is sent, but it does reveal your IP address and system language. A fix is pending for an upcoming version.'}</p>
+      </div>
       <p>{es
-        ? 'No hay analítica, telemetría, informes de errores remotos ni iconos descargados de internet; el corrector ortográfico está desactivado para que no descargue diccionarios. Los enlaces de tus cuentas solo se abren cuando los pulsas, y lo hace tu navegador.'
-        : 'There is no analytics, telemetry, remote crash reporting or icons fetched from the internet; spell checking is off so no dictionaries are downloaded. Your accounts’ links only open when you click them, and your browser opens them.'}</p>
+        ? 'No hay analítica, telemetría, informes de errores remotos ni iconos descargados de internet. Los enlaces de tus cuentas solo se abren cuando los pulsas, y lo hace tu navegador.'
+        : 'There is no analytics, telemetry, remote crash reporting or icons fetched from the internet. Your accounts’ links only open when you click them, and your browser opens them.'}</p>
 
       <h2 id={es ? 'actualizaciones' : 'updates'}>{es ? 'Cómo se verifican las actualizaciones' : 'How updates are verified'}</h2>
       <p>{es

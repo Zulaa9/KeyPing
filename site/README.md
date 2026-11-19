@@ -4,6 +4,7 @@ Sitio estático con [Astro](https://astro.build) que explica qué es KeyPing, po
 Es independiente de `keyping-ui/`: tiene su propio `package.json` y no comparte dependencias con la app.
 
 - Sin backend, cookies, analítica, almacenamiento del navegador ni recursos de terceros (fuentes del sistema).
+- El build desactiva la telemetría de Astro (`ASTRO_TELEMETRY_DISABLED=1` en el workflow; en local, `npx astro telemetry disable`).
 - Español en `/` y inglés en `/en/`, con `hreflang`, selector visible y una sugerencia de idioma que nunca redirige.
 - Modo claro y oscuro según el sistema. Colores e icono de la app.
 - CSP en `<meta>` sin `unsafe-inline` (ni scripts ni estilos en línea) y `referrer-policy`.
@@ -100,7 +101,8 @@ necesitaría un *deploy hook*. Con GitHub Pages, la CSP solo puede ir en `<meta>
 | Autobloqueo 1–30 min (5 por defecto), al suspender o bloquear | `src/app/core/master-lock.service.ts`, `settings.html` (`min=1 max=30`), `main.ts` (`powerMonitor`) |
 | Portapapeles: 20 s si no ha cambiado y al bloquear; exclusión de Win+V | `main.ts` (`CLIPBOARD_TTL_MS`), `clipboard-clear-session.ts`, `windows-clipboard.ts` |
 | Enlaces solo http/https, sin credenciales, en el navegador | `electron/url-utils.ts`, `main.ts` (`setWindowOpenHandler`, `will-navigate`) |
-| contextIsolation, sandbox, sin nodeIntegration, spellcheck desactivado, permisos denegados | `main.ts` (`webPreferences`, `setPermissionRequestHandler`) |
+| contextIsolation, sandbox, sin nodeIntegration, permisos denegados | `main.ts` (`webPreferences`, `setPermissionRequestHandler`) |
+| Excepción en Linux: Electron intenta descargar un diccionario de `redirector.gvt1.com` al arrancar | Observado el 2026-11-19 ejecutando la 1.3.0 en Linux (registro del proxy de red); persiste con `setSpellCheckerEnabled(false)` tras `whenReady` y con `--disable-spell-checking` |
 | Fusibles de Electron | `keyping-ui/package.json` (`build.electronFuses`) |
 | Única conexión: comprobar actualizaciones (desactivable, sin descarga automática por defecto) | `electron/updates/auto-update.service.ts` (`DEFAULT_PREFERENCES`), `settings.html` |
 | Firma Ed25519 de latest*.yml, rechazo sin firma válida | `electron/updates/update-signature.ts`, `auto-update.service.ts`, `docs/RELEASE.md` |

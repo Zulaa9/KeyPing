@@ -12,16 +12,18 @@ interface Props {
   class?: string;
 }
 const { lang, name, alt, sizes = '(min-width: 1100px) 640px, 100vw', eager = false, class: cls } = Astro.props;
-const all = import.meta.glob<{ default: ImageMetadata }>('../assets/screens/*/*.png', { eager: true });
-const mod = all[`../assets/screens/${lang}/${name}.png`];
-if (!mod) throw new Error(`Falta la captura ${lang}/${name}.png`);
+const all = import.meta.glob<{ default: ImageMetadata }>('../assets/screens/*/*.webp', { eager: true });
+const mod = all[`../assets/screens/${lang}/${name}.webp`];
+if (!mod) throw new Error(`Falta la captura ${lang}/${name}.webp`);
+// Nunca se amplía por encima del tamaño de la captura original.
+const widths = [480, 800, 1280, 1920].filter((w) => w < mod.default.width).concat(mod.default.width <= 1920 ? [mod.default.width] : []);
 ---
 <Picture
   src={mod.default}
   alt={alt}
   formats={['avif']}
   fallbackFormat="webp"
-  widths={[480, 800, 1280]}
+  widths={widths}
   sizes={sizes}
   quality={78}
   loading={eager ? 'eager' : 'lazy'}
