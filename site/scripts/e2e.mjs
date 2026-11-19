@@ -40,6 +40,10 @@ async function loadAll(page) {
   await page.evaluate(async () => {
     for (const img of document.querySelectorAll('img[loading="lazy"]')) img.loading = 'eager';
     await Promise.all([...document.images].map((i) => (i.complete ? null : new Promise((ok) => { i.onload = i.onerror = ok; }))));
+    // Recorre la página para que el navegador decodifique y pinte cada imagen antes de la captura.
+    for (let y = 0; y < document.body.scrollHeight; y += innerHeight / 2) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 60)); }
+    await Promise.all([...document.images].map((i) => i.decode().catch(() => null)));
+    scrollTo(0, 0);
   });
 }
 
