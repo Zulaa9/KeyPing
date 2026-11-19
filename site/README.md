@@ -16,14 +16,14 @@ Es independiente de `keyping-ui/`: tiene su propio `package.json` y no comparte 
 site/
 ├── astro.config.mjs          # salida estática, sin CSS/JS en línea, sin data: URIs
 ├── public/
-│   ├── CNAME                 # keyping.zula.dev (se copia a la salida)
+│   ├── _headers              # cabeceras HTTP de Cloudflare Pages (CSP, HSTS, etc.)
 │   ├── js/site.js            # único script: botón de descarga según el sistema y sugerencia de idioma
 │   ├── img/                  # iconos (de keyping-ui/public/icon.png) e imágenes Open Graph
 │   ├── robots.txt, favicon.ico, apple-touch-icon.png, site.webmanifest
 ├── scripts/
 │   ├── check-links.mjs       # comprobador de enlaces internos y externos de dist/
 │   ├── e2e.mjs               # pruebas con Playwright (y axe si AXE_PATH apunta a axe.min.js)
-│   ├── serve.mjs             # servidor local que imita GitHub Pages (404.html con estado 404)
+│   ├── serve.mjs             # servidor local que imita el alojamiento (404.html con estado 404)
 │   ├── release-snapshot.mjs  # actualiza la release de respaldo
 │   └── make-og.mjs           # regenera las imágenes Open Graph (necesita Playwright)
 └── src/
@@ -60,32 +60,28 @@ Los instaladores llevan la versión en el nombre (`KeyPing-Setup-X.Y.Z.exe`, `Ke
 Tras publicar una versión conviene ejecutar `npm run release:snapshot` y guardar el cambio, para que el respaldo no
 se quede atrás.
 
-## Publicación (pasos que tienes que hacer tú)
+## Publicación: Cloudflare Pages
 
-Nada de esto está hecho. El workflow `.github/workflows/site.yml` construye y despliega en GitHub Pages al hacer push a
-`main` con cambios en `site/`, al publicarse una release, al terminar «Release Linux» y a mano.
+Proyecto de Cloudflare Pages conectado al repositorio (integración Git), con estos ajustes:
 
-1. **Activar Pages**: repositorio KeyPing → Settings → Pages → *Build and deployment* → Source: **GitHub Actions**.
-2. **Permitir tags en el entorno** (para el disparo por release): Settings → Environments → `github-pages` →
-   *Deployment branches and tags* → añadir la regla de tag `v*`. Sin esto, el despliegue lanzado por una release se
-   rechaza; los de `main`, `workflow_run` y manuales funcionan igual.
-3. **Primer despliegue**: tras fusionar en `main`, Actions → «Web (keyping.zula.dev)» → *Run workflow*.
-4. **Dominio en GitHub**: Settings → Pages → *Custom domain*: `keyping.zula.dev` → Save. (El archivo `CNAME` ya va en
-   la salida.) Recomendado: verificar `zula.dev` en tu cuenta (Settings de tu perfil → Pages → *Add a domain*), que
-   te pedirá un registro TXT `_github-pages-challenge-Zulaa9.zula.dev`; evita que otra cuenta use tus subdominios.
-5. **DNS en Cloudflare** (zona `zula.dev` → DNS → Add record):
-   - Tipo `CNAME`, nombre `keyping`, destino `zulaa9.github.io`, **Proxy status: DNS only** (nube gris).
-   - Con el proxy activado, GitHub no puede emitir el certificado; déjalo en gris.
-6. **HTTPS**: cuando GitHub muestre «DNS check successful» y el certificado esté listo (puede tardar hasta 24 h),
-   marca **Enforce HTTPS** en Settings → Pages.
-7. Comprueba `https://keyping.zula.dev/`, `/en/`, una ruta inexistente (404) y un botón de descarga.
+| Ajuste | Valor |
+|---|---|
+| Rama de producción | `main` |
+| Directorio raíz | `site` |
+| Comando de build | `npm run build` |
+| Directorio de salida | `dist` |
+| Variables | `NODE_VERSION=22`, `ASTRO_TELEMETRY_DISABLED=1` |
+| Rutas observadas (*build watch paths*) | `site/*` |
+| Dominio | `keyping.zula.dev` (registro DNS creado por Cloudflare) |
 
-### Alternativa: Cloudflare Pages
-
-Tu DNS y tu portfolio ya están en Cloudflare Pages. La web también funciona ahí sin cambios (build `npm run build`,
-directorio raíz `site`, salida `dist`, variable `NODE_VERSION=22`); además permitiría cabeceras HTTP reales
-(`_headers`: CSP con `frame-ancestors`, HSTS…). El inconveniente es que el refresco al publicar una release
-necesitaría un *deploy hook*. Con GitHub Pages, la CSP solo puede ir en `<meta>`, que no admite `frame-ancestors`.
+- Cada push a `main` que cambie `site/` publica la web. Las ramas generan vistas previas en `<rama>.<proyecto>.pages.dev`.
+- **Refresco al publicar una versión**: `.github/workflows/site.yml` llama a un *deploy hook* de Cloudflare cuando se
+  publica una release, cuando termina «Release Linux» o a mano. El hook se crea en Cloudflare (proyecto → Settings →
+  Builds → Deploy hooks, rama `main`) y su URL se guarda en GitHub como secreto `CLOUDFLARE_PAGES_DEPLOY_HOOK`
+  (Settings → Secrets and variables → Actions). Es una credencial: no la pegues en ningún otro sitio.
+- Las cabeceras HTTP (CSP con `frame-ancestors`, HSTS, `nosniff`, `Permissions-Policy`…) están en `public/_headers`.
+- Los builds de Cloudflare consultan la API de GitHub sin token (límite de 60 peticiones por hora y por IP). Si se
+  agota, el build usa la release de respaldo y sigue; por eso conviene `npm run release:snapshot` tras cada versión.
 
 ## Fuentes de las afirmaciones de seguridad (código de la 1.3.0)
 
