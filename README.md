@@ -17,12 +17,18 @@ Active development. Core features are stable and used daily, with continuous imp
 
 ## Screenshots
 
-Version 1.3.0 with made-up data.
+Versions 1.3.0 and 1.3.1 with made-up data.
+
+Adding an account with the built-in generator (1.3.1):
+
+![Adding an account with the password generator](docs/screenshots/1.3.1/en-flujo-anadir.gif)
 
 ![Account details with the direct password-change link](docs/screenshots/1.3.0/en-detalle-enlace.png)
 ![Password history of an account](docs/screenshots/1.3.0/en-historial.png)
 ![Password health](docs/screenshots/1.3.0/en-salud.png)
 ![Dashboard](docs/screenshots/1.3.0/en-panel.png)
+![Password list grouped by folders](docs/screenshots/1.3.0/en-lista.png)
+![Floating password generator](docs/screenshots/1.3.0/en-generador.png)
 
 ## Features
 

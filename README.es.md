@@ -17,12 +17,18 @@ Desarrollo activo. Las funcionalidades base son estables y se estan mejorando de
 
 ## Capturas
 
-Versión 1.3.0 con datos inventados.
+Versiones 1.3.0 y 1.3.1 con datos inventados.
+
+Añadir una cuenta con el generador integrado (1.3.1):
+
+![Añadir una cuenta con el generador de contraseñas](docs/screenshots/1.3.1/es-flujo-anadir.gif)
 
 ![Ficha de una cuenta con el enlace directo para cambiar la contraseña](docs/screenshots/1.3.0/es-detalle-enlace.png)
 ![Historial de contraseñas de una cuenta](docs/screenshots/1.3.0/es-historial.png)
 ![Salud de contraseñas](docs/screenshots/1.3.0/es-salud.png)
 ![Panel de inicio](docs/screenshots/1.3.0/es-panel.png)
+![Lista de contraseñas agrupada por carpetas](docs/screenshots/1.3.0/es-lista.png)
+![Generador de contraseñas flotante](docs/screenshots/1.3.0/es-generador.png)
 
 ## Funcionalidades
 
