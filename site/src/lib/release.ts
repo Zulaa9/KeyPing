@@ -38,3 +38,16 @@ export function getRelease(): Promise<Release> {
   cached ??= load();
   return cached;
 }
+
+/** Primera versión que ya no descarga el diccionario ortográfico de Electron en Linux. */
+export const LINUX_SPELLCHECK_FIX = '1.3.1';
+
+/** true si `version` (x.y.z) es igual o posterior a `min`. */
+export function versionAtLeast(version: string, min: string): boolean {
+  const a = version.split('.').map(n => parseInt(n, 10) || 0);
+  const b = min.split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  }
+  return true;
+}

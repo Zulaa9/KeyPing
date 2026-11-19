@@ -4,9 +4,12 @@ import Screenshot from '../components/Screenshot.astro';
 import DownloadButton from '../components/DownloadButton.astro';
 import { ROUTES, REPO_URL, LICENSE_URL, PORTFOLIO_URL, type Lang } from '../i18n/routes';
 
+import { getRelease, versionAtLeast, LINUX_SPELLCHECK_FIX } from '../lib/release';
+
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 const r = ROUTES[lang];
+const linuxFixed = versionAtLeast((await getRelease()).version, LINUX_SPELLCHECK_FIX);
 
 const c = {
   es: {
@@ -61,7 +64,9 @@ const c = {
     secPoints: [
       'Sin cuenta, sin servidor y sin sincronización.',
       'Bóveda cifrada con AES-256-GCM y una clave derivada de tu contraseña maestra con PBKDF2-HMAC-SHA512 (600.000 iteraciones).',
-      'Sin analítica ni telemetría. La app solo se conecta para buscar versiones nuevas (puedes desactivarlo), con una excepción en Linux pendiente de corregir.',
+      linuxFixed
+        ? 'Sin analítica ni telemetría. La app solo se conecta para buscar versiones nuevas, y puedes desactivarlo.'
+        : 'Sin analítica ni telemetría. La app solo se conecta para buscar versiones nuevas (puedes desactivarlo), con una excepción en Linux pendiente de corregir.',
       'Las actualizaciones solo se instalan si sus metadatos llevan una firma Ed25519 válida.',
     ],
     secLink: 'Cómo protege KeyPing tus datos y cuáles son sus límites',
@@ -124,7 +129,9 @@ const c = {
     secPoints: [
       'No account, no server, no sync.',
       'Vault encrypted with AES-256-GCM using a key derived from your master password with PBKDF2-HMAC-SHA512 (600,000 iterations).',
-      'No analytics or telemetry. The app only connects to check for new versions (you can turn it off), with one Linux exception still to be fixed.',
+      linuxFixed
+        ? 'No analytics or telemetry. The app only connects to check for new versions, and you can turn that off.'
+        : 'No analytics or telemetry. The app only connects to check for new versions (you can turn it off), with one Linux exception still to be fixed.',
       'Updates are only installed if their metadata carries a valid Ed25519 signature.',
     ],
     secLink: 'How KeyPing protects your data, and its limits',

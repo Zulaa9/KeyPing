@@ -3,10 +3,13 @@
 import Base from '../layouts/Base.astro';
 import { ROUTES, REPO_URL, type Lang } from '../i18n/routes';
 
+import { getRelease, versionAtLeast, LINUX_SPELLCHECK_FIX } from '../lib/release';
+
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 const r = ROUTES[lang];
 const es = lang === 'es';
+const linuxFixed = versionAtLeast((await getRelease()).version, LINUX_SPELLCHECK_FIX);
 const title = es ? 'Seguridad y privacidad · KeyPing' : 'Security and privacy · KeyPing';
 const description = es
   ? 'Cómo cifra KeyPing tu bóveda, qué conexiones hace, cómo se verifican las actualizaciones y qué no puede hacer.'
@@ -64,9 +67,15 @@ const description = es
         ? 'Por diseño, una sola: comprobar en GitHub Releases si hay una versión nueva, unos segundos después de arrancar y cuando la pides en Ajustes. Puedes desactivar la comprobación automática. La descarga automática viene desactivada: tú decides cuándo descargar.'
         : 'By design, only one: checking GitHub Releases for a new version, a few seconds after start-up and when you ask in Settings. You can turn the automatic check off. Automatic download is off by default: you decide when to download.'}</p>
       <div class="note">
-        <p><strong>{es ? 'Excepción detectada en Linux.' : 'Known exception on Linux.'}</strong> {es
-          ? 'En la versión actual, al arrancar en Linux, el motor de Electron intenta descargar un diccionario ortográfico desde un servidor de Google (redirector.gvt1.com), aunque KeyPing tiene el corrector desactivado. No envía nada de tu bóveda, pero sí deja ver tu dirección IP y el idioma del sistema. Está pendiente de corregir en una próxima versión.'
-          : 'In the current version, when it starts on Linux, the Electron engine tries to download a spell-check dictionary from a Google server (redirector.gvt1.com), even though KeyPing has spell checking turned off. Nothing from your vault is sent, but it does reveal your IP address and system language. A fix is pending for an upcoming version.'}</p>
+        <p><strong>{linuxFixed
+          ? (es ? `Corregido en la ${LINUX_SPELLCHECK_FIX} (Linux).` : `Fixed in ${LINUX_SPELLCHECK_FIX} (Linux).`)
+          : (es ? 'Excepción detectada en Linux.' : 'Known exception on Linux.')}</strong> {linuxFixed
+          ? (es
+            ? 'Hasta la 1.3.0, al arrancar en Linux, el motor de Electron intentaba descargar un diccionario ortográfico desde un servidor de Google (redirector.gvt1.com), aunque KeyPing tenía el corrector desactivado. No enviaba nada de tu bóveda, pero sí dejaba ver tu dirección IP y el idioma del sistema. Si usas Linux, actualiza.'
+            : 'Up to 1.3.0, when it started on Linux, the Electron engine tried to download a spell-check dictionary from a Google server (redirector.gvt1.com), even though KeyPing had spell checking turned off. Nothing from your vault was sent, but it did reveal your IP address and system language. If you use Linux, please update.')
+          : (es
+            ? 'En la versión actual, al arrancar en Linux, el motor de Electron intenta descargar un diccionario ortográfico desde un servidor de Google (redirector.gvt1.com), aunque KeyPing tiene el corrector desactivado. No envía nada de tu bóveda, pero sí deja ver tu dirección IP y el idioma del sistema. Está pendiente de corregir en una próxima versión.'
+            : 'In the current version, when it starts on Linux, the Electron engine tries to download a spell-check dictionary from a Google server (redirector.gvt1.com), even though KeyPing has spell checking turned off. Nothing from your vault is sent, but it does reveal your IP address and system language. A fix is pending for an upcoming version.')}</p>
       </div>
       <p>{es
         ? 'No hay analítica, telemetría, informes de errores remotos ni iconos descargados de internet. Los enlaces de tus cuentas solo se abren cuando los pulsas, y lo hace tu navegador.'
