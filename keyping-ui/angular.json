@@ -67,6 +67,51 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "mobile": {
+              "baseHref": "./",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": false
+              },
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "12kB",
+                  "maximumError": "24kB"
+                }
+              ],
+              "outputHashing": "all",
+              "outputPath": "dist/keyping-ui-mobile",
+              "fileReplacements": [
+                {
+                  "replace": "src/app/platform/platform.ts",
+                  "with": "src/app/platform/platform.mobile.ts"
+                }
+              ]
+            },
+            "mobile-sim": {
+              "baseHref": "./",
+              "optimization": false,
+              "budgets": [],
+              "outputHashing": "none",
+              "outputPath": "dist/keyping-ui-mobile-sim",
+              "fileReplacements": [
+                {
+                  "replace": "src/app/platform/platform.ts",
+                  "with": "src/app/platform/platform.mobile-sim.ts"
+                }
+              ],
+              "sourceMap": true
             }
           },
           "defaultConfiguration": "production"
@@ -79,6 +124,9 @@
             },
             "development": {
               "buildTarget": "keyping-ui:build:development"
+            },
+            "mobile-sim": {
+              "buildTarget": "keyping-ui:build:mobile-sim"
             }
           },
           "defaultConfiguration": "development"

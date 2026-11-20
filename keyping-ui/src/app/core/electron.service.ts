@@ -133,8 +133,14 @@ type KeypingApi = {
   compactVault(keepOnlyCurrent?: boolean, maxHistoryPerEntry?: number): Promise<{ removed: number; kept: number; chains: number }>;
   checkVaultIntegrity(): Promise<VaultIntegrityReport>;
   ping?(): Promise<string>;
+  /** Solo móvil: guarda o comparte un archivo de exportación con el sistema. */
+  saveExportFile?(filename: string, text: string, how: 'save' | 'share'): Promise<boolean>;
+  mobile?: boolean;
 };
 
+// Capa de plataforma de la interfaz: las páginas hablan con window.keyping solo a través de este
+// servicio. En el escritorio lo expone el preload de Electron; en el móvil, src/app/platform
+// (núcleo compartido core/ + Capacitor).
 @Injectable({ providedIn: 'root' })
 export class ElectronService {
   private get api(): KeypingApi | undefined {
@@ -149,6 +155,20 @@ export class ElectronService {
 
   isLinux(): boolean {
     return this.api?.platform === 'linux';
+  }
+
+  /** Build móvil (Android/iOS o su simulación en navegador). */
+  isMobile(): boolean {
+    return this.api?.mobile === true;
+  }
+
+  /**
+   * Entrega el archivo de exportación al sistema en el móvil (selector de archivos o hoja de
+   * compartir). Devuelve false si la plataforma no lo gestiona (escritorio: descarga normal).
+   */
+  async saveExportFile(filename: string, text: string, how: 'save' | 'share' = 'save'): Promise<boolean> {
+    if (!this.api?.saveExportFile) return false;
+    return this.api.saveExportFile(filename, text, how);
   }
 
   minimizeWindow(): void {
