@@ -4,7 +4,10 @@
     "outDir": "../dist-electron-tests"
   },
   "include": [
-    "./**/*.ts"
+    "./**/*.ts",
+    "../core/**/*.ts"
   ],
-  "exclude": []
+  "exclude": [
+    "../core/tests/**"
+  ]
 }

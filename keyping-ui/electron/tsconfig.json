@@ -6,7 +6,7 @@
     ],
     "module": "CommonJS",
     "moduleResolution": "Node",
-    "rootDir": ".",
+    "rootDir": "..",
     "outDir": "../dist-electron",
     "esModuleInterop": true,
     "strict": true,
@@ -18,9 +18,11 @@
     "composite": true
   },
   "include": [
-    "./**/*.ts"
+    "./**/*.ts",
+    "../core/**/*.ts"
   ],
   "exclude": [
-    "./**/*.test.ts"
+    "./**/*.test.ts",
+    "../core/tests/**"
   ]
 }

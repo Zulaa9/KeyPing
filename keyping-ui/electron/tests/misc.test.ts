@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { promises as fs, readFileSync } from 'fs';
+import { promises as fs, readFileSync, existsSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
@@ -45,11 +45,15 @@ test('URL validation rejects dangerous schemes, local paths and embedded credent
   assert.equal(normalizeStoredUrl(undefined), undefined);
 });
 
-test('renderer copy of url-utils is identical to the main-process one', () => {
-  const root = path.resolve(__dirname, '..', '..');
+test('renderer and main-process url-utils share the core module', () => {
+  // Una sola implementación (core/url-utils.ts) para el escritorio, el renderer y el móvil.
+  let root = __dirname;
+  while (!existsSync(path.join(root, 'package.json'))) root = path.dirname(root);
   const main = readFileSync(path.join(root, 'electron', 'url-utils.ts'), 'utf8');
   const renderer = readFileSync(path.join(root, 'src', 'app', 'core', 'url-utils.ts'), 'utf8');
-  assert.equal(renderer, main);
+  assert.match(main, /export \* from '\.\.\/core\/url-utils';/);
+  assert.match(renderer, /export \* from '\.\.\/\.\.\/\.\.\/core\/url-utils';/);
+  assert.ok(existsSync(path.join(root, 'core', 'url-utils.ts')));
 });
 
 test('attempt policy can only be made stricter than the default', () => {
