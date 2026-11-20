@@ -67,51 +67,6 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
-            },
-            "mobile": {
-              "baseHref": "./",
-              "optimization": {
-                "scripts": true,
-                "styles": {
-                  "minify": true,
-                  "inlineCritical": false
-                },
-                "fonts": false
-              },
-              "budgets": [
-                {
-                  "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
-                },
-                {
-                  "type": "anyComponentStyle",
-                  "maximumWarning": "12kB",
-                  "maximumError": "24kB"
-                }
-              ],
-              "outputHashing": "all",
-              "outputPath": "dist/keyping-ui-mobile",
-              "fileReplacements": [
-                {
-                  "replace": "src/app/platform/platform.ts",
-                  "with": "src/app/platform/platform.mobile.ts"
-                }
-              ]
-            },
-            "mobile-sim": {
-              "baseHref": "./",
-              "optimization": false,
-              "budgets": [],
-              "outputHashing": "none",
-              "outputPath": "dist/keyping-ui-mobile-sim",
-              "fileReplacements": [
-                {
-                  "replace": "src/app/platform/platform.ts",
-                  "with": "src/app/platform/platform.mobile-sim.ts"
-                }
-              ],
-              "sourceMap": true
             }
           },
           "defaultConfiguration": "production"
@@ -124,9 +79,6 @@
             },
             "development": {
               "buildTarget": "keyping-ui:build:development"
-            },
-            "mobile-sim": {
-              "buildTarget": "keyping-ui:build:mobile-sim"
             }
           },
           "defaultConfiguration": "development"
@@ -158,6 +110,80 @@
               "src/styles.scss"
             ]
           }
+        }
+      }
+    },
+    "keyping-mobile": {
+      "projectType": "application",
+      "root": "mobile",
+      "sourceRoot": "mobile/src",
+      "prefix": "m",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "mobile/src/main.ts",
+            "index": "mobile/src/index.html",
+            "tsConfig": "mobile/tsconfig.app.json",
+            "outputPath": "dist/keyping-ui-mobile",
+            "baseHref": "./",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "mobile/public"
+              }
+            ],
+            "styles": [
+              "mobile/src/styles.css"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": false
+              },
+              "outputHashing": "all",
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "400kB",
+                  "maximumError": "800kB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
+              ]
+            },
+            "sim": {
+              "optimization": false,
+              "outputHashing": "none",
+              "sourceMap": true,
+              "outputPath": "dist/keyping-ui-mobile-sim",
+              "fileReplacements": [
+                {
+                  "replace": "mobile/src/app/platform/platform.ts",
+                  "with": "mobile/src/app/platform/platform.sim.ts"
+                }
+              ]
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "sim": {
+              "buildTarget": "keyping-mobile:build:sim"
+            }
+          },
+          "defaultConfiguration": "sim"
         }
       }
     }
