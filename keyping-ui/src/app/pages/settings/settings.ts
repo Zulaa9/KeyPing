@@ -300,18 +300,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.languageMessage = this.i18n.translate('settings.language.saved', { lang: label });
   }
 
-  async onExportVault(password: string, includeHistory = true, how: 'save' | 'share' = 'save'): Promise<void> {
+  async onExportVault(password: string, includeHistory = true): Promise<void> {
     this.exportMessage = undefined;
     this.exporting = true;
     try {
       const res = await this.es.exportVault('master', password, includeHistory);
       const payload = res.payload ?? { format: res.format, enc: res.enc, data: res.base64 };
-      // Móvil: selector de archivos del sistema u hoja de compartir. Escritorio: descarga.
-      if (this.isMobile) {
-        const delivered = await this.es.saveExportFile(res.filename || 'keyping-vault.kpenc', JSON.stringify(payload), how);
-        this.exportMessage = this.t(delivered ? 'settings.export.success' : 'settings.export.cancelled');
-        return;
-      }
       const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -338,20 +332,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.exportModal.error = '';
   }
 
-  /** Build móvil: cambia el selector de importación y añade «Compartir» a la exportación. */
-  get isMobile(): boolean {
-    return this.es.isMobile();
-  }
-
-  /**
-   * Filtro del selector de importación. En Android las extensiones propias (.kpenc) no tienen tipo
-   * MIME y un filtro por extensión ocultaría los archivos: se acepta cualquiera y se valida al leerlo.
-   */
-  get importAccept(): string {
-    return this.isMobile ? '' : '.kpenc,.json,.keyping';
-  }
-
-  async confirmExport(how: 'save' | 'share' = 'save'): Promise<void> {
+  async confirmExport(): Promise<void> {
     if (!this.exportModal.password.trim()) {
       this.exportModal.error = this.t('settings.export.modal.errorRequired');
       return;
@@ -363,7 +344,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     }
 
     this.exportModal.error = '';
-    await this.onExportVault(this.exportModal.password.trim(), this.exportIncludeHistory, how);
+    await this.onExportVault(this.exportModal.password.trim(), this.exportIncludeHistory);
     this.closeExportModal();
   }
 

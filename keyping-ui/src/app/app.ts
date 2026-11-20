@@ -239,9 +239,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.masterCooldownLabel = null;
     clearInterval(this.cooldownTimer);
     this.unlockNotice = this.toNotice(this.master.lastUnlockWarning);
-    // Móvil: tras desbloquear se va directo a la búsqueda (flujo de emergencia: desbloquear,
-    // buscar la cuenta y pulsar el acceso al enlace de cambio de contraseña).
-    if (this.electron.isMobile()) setTimeout(() => this.handleSearchShortcut());
   }
 
   private toNotice(w: string | null): 'vault-unreadable' | 'legacy-unverified' | null {
