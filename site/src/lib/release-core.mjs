@@ -10,6 +10,8 @@ const TIMEOUT_MS = 10_000;
 
 const WIN_RE = /^KeyPing-Setup-(\d+\.\d+\.\d+)\.exe$/;
 const LINUX_RE = /^KeyPing-(\d+\.\d+\.\d+)\.AppImage$/;
+// Android es opcional: solo las releases que incluyen el APK firmado lo muestran en la web.
+const ANDROID_RE = /^KeyPing-(\d+\.\d+\.\d+)\.apk$/;
 
 async function fetchWithTimeout(url, options = {}) {
   const ctrl = new AbortController();
@@ -48,6 +50,7 @@ export function normalizeRelease(api, sums = {}) {
   };
   const windows = pick(WIN_RE);
   const linux = pick(LINUX_RE);
+  const android = pick(ANDROID_RE);
   if (!windows || !linux) throw new Error('la release no tiene instalador de Windows y AppImage');
   const sumsAsset = api.assets.find((x) => x.name === 'SHA256SUMS.txt');
   return {
@@ -58,6 +61,7 @@ export function normalizeRelease(api, sums = {}) {
     sumsUrl: sumsAsset ? sumsAsset.browser_download_url : null,
     windows,
     linux,
+    android,
   };
 }
 

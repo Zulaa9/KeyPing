@@ -1,5 +1,5 @@
 // KeyPing web: mejora progresiva sin dependencias ni peticiones de red.
-// 1) Botón de descarga según el sistema (Windows o Linux).
+// 1) Botón de descarga según el sistema (Windows, Linux o Android si la release trae APK).
 // 2) Sugerencia de idioma (nunca redirige).
 (function () {
   'use strict';
@@ -10,7 +10,8 @@
       if (navigator.userAgentData && navigator.userAgentData.platform) platform = navigator.userAgentData.platform;
     } catch (e) { /* sin userAgentData */ }
     var ua = (navigator.userAgent || '') + ' ' + platform;
-    if (/Android|iPhone|iPad|iPod|CrOS/i.test(ua)) return 'other';
+    if (/Android/i.test(ua)) return 'android';
+    if (/iPhone|iPad|iPod|CrOS/i.test(ua)) return 'other';
     if (/Windows|Win32|Win64/i.test(ua)) return 'windows';
     if (/Macintosh|Mac OS X|macOS/i.test(ua)) return 'other';
     if (/Linux|X11/i.test(ua)) return 'linux';
@@ -36,6 +37,10 @@
         other.setAttribute('href', b.getAttribute('data-' + them + '-href'));
         other.textContent = b.getAttribute('data-' + them + '-other');
         other.hidden = false;
+      } else if (os === 'android' && b.getAttribute('data-android-href')) {
+        primary.setAttribute('href', b.getAttribute('data-android-href'));
+        primary.setAttribute('data-os-target', os);
+        label.textContent = b.getAttribute('data-android-label');
       } else if (unsupported) {
         unsupported.hidden = false;
       }
