@@ -5,6 +5,8 @@ android {
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "dev.zula.keyping"
+        resValue "string", "app_name", "KeyPing"
+        resValue "string", "title_activity_main", "KeyPing"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -17,6 +19,13 @@ android {
         }
     }
     buildTypes {
+        // La build de depuración es otra app (dev.zula.keyping.pruebas, «KeyPing pruebas») con sus propios datos:
+        // las pruebas nunca tocan la bóveda de la app normal instalada en el mismo teléfono.
+        debug {
+            applicationIdSuffix ".pruebas"
+            resValue "string", "app_name", "KeyPing pruebas"
+            resValue "string", "title_activity_main", "KeyPing pruebas"
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
