@@ -2,13 +2,24 @@
 import { ChangeDetectionStrategy, Component, Injectable, computed, inject, signal } from '@angular/core';
 import { I18n } from '../i18n';
 import { Entry, VaultStore, displayName, fold, hostOf } from '../vault';
-import { Icon, Nav, avatarOf } from '../ui';
+import { Icon, Nav, Toast, avatarOf } from '../ui';
 
 /** Búsqueda y carpeta elegidas: se mantienen al volver del detalle. */
 @Injectable({ providedIn: 'root' })
 export class ListState {
   readonly query = signal('');
   readonly folder = signal<string | null>(null);
+  readonly sort = signal<'name' | 'recent'>(readSort());
+
+  toggleSort(): void {
+    this.sort.set(this.sort() === 'name' ? 'recent' : 'name');
+    try { localStorage.setItem(SORT_KEY, this.sort()); } catch { /* sin persistencia */ }
+  }
+}
+
+const SORT_KEY = 'kp-mobile-sort';
+function readSort(): 'name' | 'recent' {
+  try { return localStorage.getItem(SORT_KEY) === 'recent' ? 'recent' : 'name'; } catch { return 'name'; }
 }
 
 @Component({
@@ -47,18 +58,22 @@ export class ListState {
       <button class="btn" (click)="nav.push({ name: 'import' })"><kp-icon name="upload"/>{{ i18n.t('list.empty.import') }}</button>
     </section>
   } @else {
-    <p class="count muted">{{ i18n.t('list.count', { n: store.entries().length }) }}</p>
+    <div class="list-head">
+      <p class="count muted">{{ i18n.t('list.count', { n: store.entries().length }) }}</p>
+      <button class="sort-btn" (click)="state.toggleSort()"><kp-icon name="sort" [size]="16"/>
+        {{ i18n.t(state.sort() === 'name' ? 'list.sortName' : 'list.sortRecent') }}</button>
+    </div>
     <ul class="rows">
       @for (e of filtered(); track e.id) {
-        <li>
+        <li class="row-wrap">
           <button class="row" (click)="open(e)">
             <span class="avatar" [style.--h]="avatar(e).hue">{{ avatar(e).letter }}</span>
             <span class="row-text">
               <span class="row-title">{{ name(e) }}</span>
               @if (sub(e)) { <span class="row-sub">{{ sub(e) }}</span> }
             </span>
-            <kp-icon name="chevron" [size]="20"/>
           </button>
+          <button class="row-copy" (click)="copy(e)" [attr.aria-label]="i18n.t('list.copy', { name: name(e) })"><kp-icon name="copy"/></button>
         </li>
       } @empty {
         <li class="none muted">{{ i18n.t('list.noResults', { q: state.query() }) }}</li>
@@ -72,15 +87,18 @@ export class ListScreen {
   readonly store = inject(VaultStore);
   readonly nav = inject(Nav);
   readonly state = inject(ListState);
+  private readonly toast = inject(Toast);
 
   readonly filtered = computed(() => {
     const q = fold(this.state.query().trim());
     const folder = this.state.folder();
-    return this.store.entries().filter(e => {
+    const list = this.store.entries().filter(e => {
       if (folder !== null && (e.folder || '').trim() !== folder) return false;
       if (!q) return true;
       return [e.label, e.username, e.email, e.folder, hostOf(e.loginUrl), hostOf(e.passwordChangeUrl)].some(v => fold(v).includes(q));
     });
+    if (this.state.sort() === 'recent') return [...list].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+    return list;
   });
 
   name(e: Entry): string {
@@ -94,6 +112,13 @@ export class ListScreen {
 
   avatar(e: Entry) {
     return avatarOf(this.name(e));
+  }
+
+  /** Copiar sin abrir la entrada: lo más rápido para pegar la contraseña en otra app. */
+  async copy(e: Entry): Promise<void> {
+    const ok = await this.store.svc.copyPassword(e.id);
+    navigator.vibrate?.(20);
+    this.toast.show(this.i18n.t(ok ? 'copy.done' : 'copy.fail'));
   }
 
   open(e: Entry): void {

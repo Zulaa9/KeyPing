@@ -9,6 +9,7 @@ export type Entry = {
   createdAt: number;
   updatedAt?: number;
   length: number;
+  classMask?: number;
   label?: string;
   loginUrl?: string;
   passwordChangeUrl?: string;

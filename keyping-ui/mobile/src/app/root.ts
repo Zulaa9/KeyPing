@@ -5,6 +5,7 @@ import { VaultStore } from './vault';
 import { Confirm, Icon, Nav, Tab, Toast } from './ui';
 import { SetupScreen, UnlockScreen } from './screens/auth';
 import { ListScreen } from './screens/list';
+import { HealthScreen } from './screens/health';
 import { DetailScreen, NewPasswordScreen } from './screens/detail';
 import { EditScreen } from './screens/edit';
 import { ExportScreen, GeneratorScreen, ImportScreen, MasterScreen, SettingsScreen } from './screens/tools';
@@ -12,7 +13,7 @@ import { ExportScreen, GeneratorScreen, ImportScreen, MasterScreen, SettingsScre
 @Component({
   selector: 'kp-root',
   standalone: true,
-  imports: [Icon, SetupScreen, UnlockScreen, ListScreen, DetailScreen, NewPasswordScreen, EditScreen, GeneratorScreen,
+  imports: [Icon, SetupScreen, UnlockScreen, ListScreen, HealthScreen, DetailScreen, NewPasswordScreen, EditScreen, GeneratorScreen,
     SettingsScreen, ExportScreen, ImportScreen, MasterScreen],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -36,6 +37,7 @@ import { ExportScreen, GeneratorScreen, ImportScreen, MasterScreen, SettingsScre
         <div class="screen tabbed" [attr.data-screen]="nav.tab()">
           @switch (nav.tab()) {
             @case ('list') { <kp-list/> }
+            @case ('health') { <kp-health/> }
             @case ('gen') { <kp-generator/> }
             @case ('settings') { <kp-settings/> }
           }
@@ -69,6 +71,7 @@ export class Root implements OnInit {
   readonly confirm = inject(Confirm);
   readonly tabs: { id: Tab; icon: string; label: string }[] = [
     { id: 'list', icon: 'key', label: 'tab.passwords' },
+    { id: 'health', icon: 'pulse', label: 'tab.health' },
     { id: 'gen', icon: 'dice', label: 'tab.generator' },
     { id: 'settings', icon: 'gear', label: 'tab.settings' }
   ];

@@ -109,7 +109,7 @@ button:disabled { opacity: .45; cursor: default; }
 /* ---------- Barra de pestañas ---------- */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: grid; grid-template-columns: repeat(4, 1fr);
   height: calc(var(--tabbar) + var(--safe-bottom)); padding-bottom: var(--safe-bottom);
   background: var(--surface); border-top: 1px solid var(--line);
 }
@@ -248,3 +248,26 @@ button.item:active { background: var(--surface-2); }
 .btn.ghost { background: none; border-color: transparent; color: var(--accent); }
 .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+/* ---------- Lista: copiar rápido y orden ---------- */
+.list-head { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
+.sort-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 0; background: none; color: var(--muted); font-size: 13px; }
+.row-wrap { display: flex; align-items: center; }
+.row-wrap .row { flex: 1; min-width: 0; }
+.row-copy { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border: 0; border-radius: 14px; background: none; color: var(--accent); }
+.row-copy:active { background: var(--surface); }
+.rows.flush { padding: 0; }
+
+/* ---------- Salud ---------- */
+.score-card { display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+.score-card strong { font-size: 20px; }
+.score-ring { --p: 0; --c: var(--ok); flex: none; display: grid; place-items: center; width: 78px; height: 78px; border-radius: 50%;
+  background: radial-gradient(closest-side, var(--surface) 78%, transparent 80%), conic-gradient(var(--c) calc(var(--p) * 1%), var(--surface-2) 0); }
+.score-ring span { font-size: 24px; font-weight: 700; }
+.score-card[data-band=moderate] .score-ring { --c: var(--warn); }
+.score-card[data-band=risky] .score-ring { --c: var(--danger); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.stat { display: flex; flex-direction: column; align-items: center; padding: 10px 4px; border-radius: 12px; background: var(--surface); font-size: 12px; color: var(--muted); text-align: center; }
+.stat b { font-size: 20px; color: var(--text); }
+.row-sub.issue { color: var(--warn); }
+.row-sub.issue[data-level=weak] { color: var(--danger); }

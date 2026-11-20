@@ -3,7 +3,7 @@
 import { ChangeDetectionStrategy, Component, Injectable, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
-export type Tab = 'list' | 'gen' | 'settings';
+export type Tab = 'list' | 'health' | 'gen' | 'settings';
 export type Screen =
   | { name: 'detail'; id: string }
   | { name: 'edit'; id?: string; password?: string }
@@ -116,6 +116,8 @@ const PATHS: Record<string, string> = {
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
+  pulse: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  sort: '<path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'
 };
 
