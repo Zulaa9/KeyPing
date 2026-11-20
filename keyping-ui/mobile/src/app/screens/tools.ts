@@ -186,7 +186,7 @@ export class ExportScreen implements OnDestroy {
 }
 
 type Reason = 'new' | 'existing' | 'conflict';
-type Item = { idx: number; label: string; sub: string; reason: Reason; selected: boolean };
+type Item = { idx: number; label: string; named: boolean; sub: string; reason: Reason; selected: boolean };
 
 @Component({
   selector: 'kp-import',
@@ -332,7 +332,7 @@ export class ImportScreen implements OnDestroy {
           && norm(raw.email) === norm(cur.email) && norm(raw.loginUrl) === norm(cur.loginUrl);
         reason = same ? 'existing' : 'conflict';
       }
-      items.push({ idx, label, sub: raw?.username || raw?.email || '', reason, selected: reason !== 'existing' });
+      items.push({ idx, label, named: !!(raw?.label || raw?.name || raw?.title), sub: raw?.username || raw?.email || '', reason, selected: reason !== 'existing' });
     });
     return items;
   }
@@ -359,7 +359,9 @@ export class ImportScreen implements OnDestroy {
       const selection = this.items().filter(i => i.selected).map(i => ({
         idx: i.idx,
         label: i.reason === 'conflict' ? `${i.label} - ${this.i18n.t('imp.conflictSuffix')}`
-          : i.reason === 'existing' ? `${i.label} - ${this.i18n.t('imp.duplicateSuffix')}` : i.label
+          : i.reason === 'existing' ? `${i.label} - ${this.i18n.t('imp.duplicateSuffix')}`
+          // Sin nombre en el archivo: no se guarda el texto «Sin nombre» (dependería del idioma).
+          : i.named ? i.label : undefined
       }));
       const res = (await this.store.svc.importVault(mode, mode === 'merge' ? selection : undefined)) as any;
       this.raw = '';

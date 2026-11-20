@@ -121,7 +121,7 @@ export class VaultStore {
     try {
       const list = (await this.svc.listPasswords()) as Entry[];
       this.loadError.set(false);
-      this.entries.set([...list].sort((a, b) => fold(displayName(a)).localeCompare(fold(displayName(b)))));
+      this.entries.set([...list].sort(byName));
     } catch {
       this.loadError.set(true);
     }
@@ -160,6 +160,14 @@ export class VaultStore {
     await this.svc.deletePassword(id);
     await this.refresh();
   }
+}
+
+/** Orden por nombre; las entradas sin nombre van al final. */
+function byName(a: Entry, b: Entry): number {
+  const na = fold(displayName(a));
+  const nb = fold(displayName(b));
+  if (!na !== !nb) return na ? -1 : 1;
+  return na.localeCompare(nb);
 }
 
 function readAutoLock(): number {
