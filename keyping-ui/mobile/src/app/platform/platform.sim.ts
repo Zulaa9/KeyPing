@@ -25,7 +25,7 @@ export async function installPlatform(): Promise<void> {
         timer = setTimeout(() => { if (sim.clipboard === owned) sim.clipboard = null; }, ttlMs);
         return true;
       },
-      clearClipboardIfOwned: async () => { if (sim.clipboard === owned) sim.clipboard = null; },
+      clearClipboardIfOwned: async () => {}, // igual que en Android: solo se vacía a los 20 s
       openExternal: async url => { sim.opened.push(url); return true; }
     },
     {

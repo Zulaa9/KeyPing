@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { I18n } from '../i18n';
 import { VaultStore } from '../vault';
 import { Icon } from '../ui';
+import { platform } from '../platform/mobile-bridge';
+import { classifyImport, decryptMasterExport } from '../../../../core/export-format';
+import { webCrypto } from '../../../../core/web-crypto';
 
 @Component({
   selector: 'kp-setup',
@@ -13,6 +16,27 @@ import { Icon } from '../ui';
   template: `
   <main class="auth">
     <img class="auth-logo" src="logo.png" alt="" width="72" height="72">
+    @if (mode() === 'restore') {
+      <h1>{{ i18n.t('restore.title') }}</h1>
+      <p class="muted">{{ i18n.t('restore.lead') }}</p>
+      @if (!fileName()) {
+        <button class="btn primary big" (click)="pickFile()" [disabled]="busy()"><kp-icon name="upload"/>{{ i18n.t('imp.pick') }}</button>
+      } @else {
+        <p class="file-name center">{{ fileName() }}</p>
+        <form (ngSubmit)="restore()" class="stack">
+          <label class="field">
+            <span>{{ i18n.t('restore.password') }}</span>
+            <input id="restore-pwd" type="password" name="rpwd" [(ngModel)]="pwd" autocomplete="off" autocapitalize="off"
+              spellcheck="false" [disabled]="busy()">
+          </label>
+          <p class="hint">{{ i18n.t('restore.passwordHint') }}</p>
+          <button class="btn primary big" type="submit" [disabled]="busy() || !pwd">
+            {{ busy() ? i18n.t('setup.creating') : i18n.t('restore.submit') }}</button>
+        </form>
+      }
+      @if (error()) { <p class="msg error" role="alert">{{ error() }}</p> }
+      <button class="btn ghost" (click)="setMode('new')" [disabled]="busy()">{{ i18n.t('restore.back') }}</button>
+    } @else {
     <h1>{{ i18n.t('setup.title') }}</h1>
     <p class="muted">{{ i18n.t('setup.lead') }}</p>
     <form (ngSubmit)="create()" class="stack">
@@ -35,7 +59,10 @@ import { Icon } from '../ui';
       <button class="btn primary big" type="submit" [disabled]="busy() || pwd.length < 8 || !confirm">
         {{ busy() ? i18n.t('setup.creating') : i18n.t('setup.create') }}</button>
     </form>
-    <p class="hint center">{{ i18n.t('setup.hint') }}</p>
+    <div class="divider"><span>{{ i18n.t('restore.or') }}</span></div>
+    <button class="btn big" (click)="setMode('restore')" [disabled]="busy()"><kp-icon name="upload"/>{{ i18n.t('restore.cta') }}</button>
+    <p class="hint center">{{ i18n.t('restore.ctaHint') }}</p>
+    }
   </main>`
 })
 export class SetupScreen {
@@ -46,6 +73,62 @@ export class SetupScreen {
   readonly show = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
+  readonly mode = signal<'new' | 'restore'>('new');
+  readonly fileName = signal('');
+  private raw = '';
+
+  setMode(m: 'new' | 'restore'): void {
+    this.mode.set(m);
+    this.error.set('');
+    this.fileName.set('');
+    this.raw = this.pwd = this.confirm = '';
+  }
+
+  async pickFile(): Promise<void> {
+    this.error.set('');
+    const p = platform();
+    const r = await p.withSystemUi(() => p.extras.pickImportFile()).catch(() => ({ error: 'read-error' as const }));
+    if (!r) return;
+    if ('error' in r) return this.error.set(this.i18n.t(r.error === 'too-large' ? 'imp.err.tooLarge' : 'imp.err.invalid'));
+    try {
+      if (classifyImport(r.text).kind !== 'master') throw new Error('not-portable');
+    } catch {
+      return this.error.set(this.i18n.t('restore.notPortable'));
+    }
+    this.raw = r.text;
+    this.fileName.set(r.name || '.kpenc');
+  }
+
+  /**
+   * Restaurar en un teléfono nuevo: la bóveda se crea con la misma contraseña con la que se exportó el
+   * archivo (la maestra del escritorio) y se importa entero, historial incluido.
+   */
+  async restore(): Promise<void> {
+    if (!this.pwd || !this.raw || this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const kind = classifyImport(this.raw);
+      if (kind.kind !== 'master') throw new Error('not-portable');
+      try {
+        await decryptMasterExport(kind.payload, this.pwd, webCrypto); // se comprueba antes de crear nada
+      } catch {
+        return this.error.set(this.i18n.t('imp.err.wrongPassword'));
+      }
+      if (this.pwd.length < 8) return this.error.set(this.i18n.t('restore.tooShort'));
+      const svc = this.store.svc;
+      const r = await svc.authSetup(this.pwd);
+      if (!r.ok) throw new Error(r.reason);
+      await svc.parseImport(this.raw, this.pwd);
+      await svc.importVault('overwrite');
+      this.raw = this.pwd = '';
+      await this.store.afterUnlock();
+    } catch {
+      this.error.set(this.i18n.t('common.error'));
+    } finally {
+      this.busy.set(false);
+    }
+  }
 
   async create(): Promise<void> {
     if (this.pwd.length < 8) return;

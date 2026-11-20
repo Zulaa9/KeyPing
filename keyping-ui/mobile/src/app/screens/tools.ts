@@ -234,9 +234,21 @@ type Item = { idx: number; label: string; sub: string; reason: Reason; selected:
             </label></li>
           }
         </ul>
-        <button class="btn primary big" (click)="run('merge')" [disabled]="busy() || !selectedCount()">
+        @if (canAdopt()) {
+          <label class="toggle row-toggle"><input id="import-adopt" type="checkbox" [checked]="adopt()" (change)="adopt.set(!adopt())">{{ i18n.t('imp.adopt') }}</label>
+          @if (adopt()) {
+            <label class="field">
+              <span>{{ i18n.t('imp.adoptCurrent') }}</span>
+              <input id="import-current" type="password" name="current" [(ngModel)]="current" autocomplete="current-password" autocapitalize="off" spellcheck="false">
+            </label>
+            <p class="muted small">{{ i18n.t('imp.adoptHint') }}</p>
+          }
+        } @else {
+          <p class="muted small">{{ i18n.t('imp.keepMaster') }}</p>
+        }
+        <button class="btn primary big" (click)="run('merge')" [disabled]="busy() || !selectedCount() || (adopt() && canAdopt() && !current)">
           {{ i18n.t('imp.merge', { n: selectedCount() }) }}</button>
-        <button class="btn ghost-danger" (click)="run('overwrite')" [disabled]="busy()">{{ i18n.t('imp.overwrite') }}</button>
+        <button class="btn ghost-danger" (click)="run('overwrite')" [disabled]="busy() || (adopt() && canAdopt() && !current)">{{ i18n.t('imp.overwrite') }}</button>
       }
     }
     @if (error()) { <p class="msg error" role="alert">{{ error() }}</p> }
@@ -254,11 +266,16 @@ export class ImportScreen implements OnDestroy {
   readonly fileName = signal('');
   readonly items = signal<Item[]>([]);
   readonly selectedCount = computed(() => this.items().filter(i => i.selected).length);
+  /** El archivo se abrió con una contraseña que puede ser maestra (8 caracteres o más). */
+  readonly canAdopt = signal(false);
+  readonly adopt = signal(true);
   pwd = '';
+  current = '';
+  private filePassword = '';
   private raw = '';
 
   ngOnDestroy(): void {
-    this.raw = this.pwd = '';
+    this.raw = this.pwd = this.current = this.filePassword = '';
   }
 
   async pick(): Promise<void> {
@@ -287,7 +304,10 @@ export class ImportScreen implements OnDestroy {
         this.step.set('password');
         return;
       }
+      this.filePassword = password ?? '';
       this.pwd = '';
+      // No se compara con la maestra actual: authVerify contaría un intento fallido.
+      this.canAdopt.set(this.filePassword.length >= 8);
       this.items.set(this.preview(res.entries || []));
       this.step.set('review');
     } catch (err) {
@@ -327,9 +347,15 @@ export class ImportScreen implements OnDestroy {
 
   async run(mode: 'merge' | 'overwrite'): Promise<void> {
     if (mode === 'overwrite' && !(await this.confirm.ask(this.i18n.t('imp.overwriteConfirm'), this.i18n.t('imp.overwrite')))) return;
+    const adopt = this.canAdopt() && this.adopt();
     this.busy.set(true);
     this.error.set('');
     try {
+      // La contraseña actual se comprueba antes de importar para no dejar el cambio a medias.
+      if (adopt && !(await this.store.svc.authVerify(this.current))) {
+        this.error.set(this.i18n.t('master.wrong'));
+        return;
+      }
       const selection = this.items().filter(i => i.selected).map(i => ({
         idx: i.idx,
         label: i.reason === 'conflict' ? `${i.label} - ${this.i18n.t('imp.conflictSuffix')}`
@@ -337,8 +363,11 @@ export class ImportScreen implements OnDestroy {
       }));
       const res = (await this.store.svc.importVault(mode, mode === 'merge' ? selection : undefined)) as any;
       this.raw = '';
+      let adopted = false;
+      if (adopt) adopted = (await this.store.svc.authChange(this.current, this.filePassword)).ok;
+      this.current = this.filePassword = '';
       await this.store.refresh();
-      this.toast.show(this.i18n.t('imp.done', { n: res.imported }), 3500);
+      this.toast.show(this.i18n.t(adopted ? 'imp.adoptDone' : 'imp.done', { n: res.imported }), 4000);
       this.nav.reset();
     } catch (err) {
       this.error.set(this.i18n.t(errorKey(err)));

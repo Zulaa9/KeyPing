@@ -244,3 +244,7 @@ button.item:active { background: var(--surface-2); }
 /* Teclado abierto: sin barra de pestañas ni botón flotante. */
 .kb-open .tabbar, .kb-open .fab { display: none; }
 .kb-open .screen.tabbed { padding-bottom: 16px; }
+
+.btn.ghost { background: none; border-color: transparent; color: var(--accent); }
+.divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }

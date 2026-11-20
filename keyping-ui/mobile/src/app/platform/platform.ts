@@ -30,7 +30,9 @@ export async function installPlatform(): Promise<void> {
     },
     {
       copySensitive: async (text, ttlMs) => (await Native.copySensitive({ text, ttlMs })).ok,
-      clearClipboardIfOwned: async () => { await Native.clearClipboardIfOwned(); },
+      // En el móvil la app se bloquea en cuanto pasa a segundo plano, que es justo cuando se va a pegar
+      // en otra app: el portapapeles no se vacía al bloquear, solo a los 20 s (copySensitive).
+      clearClipboardIfOwned: async () => {},
       openExternal: async url => (await Native.openExternal({ url })).ok
     },
     {
