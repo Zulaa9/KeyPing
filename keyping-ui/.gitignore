@@ -11,6 +11,7 @@
 # --- Electron build outputs ---
 /dist-electron
 /dist-electron-tests
+/dist-core-tests
 /dist/build
 
 # --- Node modules ---

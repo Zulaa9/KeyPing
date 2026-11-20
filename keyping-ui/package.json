@@ -25,6 +25,7 @@
     "generate:appx-assets": "powershell -ExecutionPolicy Bypass -File scripts/generate-appx-assets.ps1",
     "test": "ng test",
     "test:electron": "tsc -p electron/tsconfig.test.json && node --test \"dist-electron-tests/**/*.test.js\"",
+    "test:core": "npm run electron:build && tsc -p core/tsconfig.json && node --test \"dist-core-tests/core/tests/**/*.test.js\"",
     "watch": "ng build --watch --configuration development",
     "update:keygen": "node scripts/update-signing.mjs keygen",
     "update:sign": "npm run electron:build && node scripts/update-signing.mjs sign",
