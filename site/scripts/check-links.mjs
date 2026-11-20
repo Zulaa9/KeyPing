@@ -47,6 +47,8 @@ for (const { from, url } of refs) {
     external.get(target).add(from);
     continue;
   }
+  // Descargas servidas por la función de Cloudflare (functions/files): no son archivos estáticos.
+  if (/^\/files\/v\d+\.\d+\.\d+\/[A-Za-z0-9.-]+$/.test(target)) continue;
   const u = new URL(target, `http://x${from}`);
   let p = decodeURIComponent(u.pathname);
   let file = join(ROOT, p);

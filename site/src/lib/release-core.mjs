@@ -5,6 +5,11 @@
 export const REPO = 'Zulaa9/KeyPing';
 export const RELEASES_URL = `https://github.com/${REPO}/releases`;
 export const LATEST_URL = `${RELEASES_URL}/latest`;
+
+/** Descarga servida desde la propia web (functions/files): el navegador no sale de keyping.zula.dev. */
+export function fileHref(tag, name) {
+  return `/files/${tag}/${name}`;
+}
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
 const TIMEOUT_MS = 10_000;
 
@@ -44,7 +49,7 @@ export function normalizeRelease(api, sums = {}) {
     return {
       name: a.name,
       size: a.size,
-      url: a.browser_download_url,
+      url: fileHref(api.tag_name, a.name),
       sha256: sums[a.name] ?? null,
     };
   };
@@ -58,7 +63,7 @@ export function normalizeRelease(api, sums = {}) {
     tag: api.tag_name,
     publishedAt: api.published_at,
     url: api.html_url,
-    sumsUrl: sumsAsset ? sumsAsset.browser_download_url : null,
+    sumsUrl: sumsAsset ? fileHref(api.tag_name, sumsAsset.name) : null,
     windows,
     linux,
     android,
