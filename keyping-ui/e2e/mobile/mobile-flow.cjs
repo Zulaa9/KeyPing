@@ -80,6 +80,9 @@ async function run(browser, base, vp) {
   await page.locator('.checks .row').first().waitFor({ timeout: 30000 });
   const active = EXPECTED.fullHistory.filter(e => e.active !== false);
   assert.equal(await page.locator('.checks .row').count(), active.length);
+  // Misma contraseña maestra que el escritorio: se adopta la del archivo (pide la actual del teléfono).
+  assert.equal(await page.isChecked('#import-adopt'), true);
+  await page.fill('#import-current', MASTER);
   await shot(page, `${tag}-03-import-review`);
   await page.locator('.page .btn.primary').tap();
   await screen('list').waitFor();
@@ -87,7 +90,8 @@ async function run(browser, base, vp) {
   assert.equal(await rows.count(), active.length);
   await shot(page, `${tag}-04-list`);
   await noOverflow(page, 'lista');
-  step(`importadas ${active.length} entradas (selector abierto sin bloqueo)`);
+  step(`importadas ${active.length} entradas (selector abierto sin bloqueo); maestra = la del archivo`);
+  const NEW_MASTER = EXPECTED.exportPassword;
 
   // 3. Urgencia: buscar sin tildes, Intro abre el detalle, «Cambiar contraseña» guarda, copia y abre la web.
   await page.fill('#search', 'nandu');
@@ -149,7 +153,7 @@ async function run(browser, base, vp) {
   // 6. Exportar (guardar y compartir) y comprobar el archivo con el código del escritorio.
   await page.locator('.item', { hasText: 'Exportar' }).tap();
   await screen('export').waitFor();
-  await page.fill('#export-pwd', MASTER);
+  await page.fill('#export-pwd', NEW_MASTER);
   await page.locator('.page button[type=submit]').tap();
   await page.locator('.msg.ok').waitFor({ timeout: 30000 });
   await shot(page, `${tag}-11-export`);
@@ -157,7 +161,7 @@ async function run(browser, base, vp) {
   assert.match(download.suggestedFilename(), /^keyping-vault-.*\.kpenc$/);
   const exported = fs.readFileSync(await download.path(), 'utf8');
   const desktopVault = require(path.join(ROOT, 'dist-electron', 'electron', 'vault', 'index.js'));
-  const parsed = await desktopVault.parseImportPayload(exported, MASTER);
+  const parsed = await desktopVault.parseImportPayload(exported, NEW_MASTER);
   assert.equal(parsed.source, 'master');
   // Al fusionar viajan las entradas activas con sus versiones anteriores; una entrada borrada no.
   const byId = new Map(EXPECTED.fullHistory.map(e => [e.id, e]));
@@ -176,19 +180,31 @@ async function run(browser, base, vp) {
   await rows.first().tap();
   await page.locator('.card .btn', { hasText: 'Mostrar' }).tap();
   await page.locator('.secret.revealed').waitFor();
+  await page.locator('.card .btn.primary', { hasText: 'Copiar' }).tap();
+  await page.locator('.toast').waitFor();
   await hide(page, true);
   await page.locator('.auth #unlock-pwd').waitFor();
   assert.equal(await page.locator('.secret, .row, .version').count(), 0);
+  // El portapapeles sigue disponible para pegar en otra app (se vacía a los 20 s, no al bloquear).
+  assert.ok(await page.evaluate(() => window.__kpSim.clipboard));
   await hide(page, false);
   await shot(page, `${tag}-12-locked`);
-  await page.fill('#unlock-pwd', 'incorrecta-123');
+  await page.fill('#unlock-pwd', MASTER); // la antigua ya no vale
   await page.locator('.auth button[type=submit]').tap();
   await page.locator('.msg.error').waitFor({ timeout: 30000 });
-  await page.fill('#unlock-pwd', MASTER);
+  await page.fill('#unlock-pwd', NEW_MASTER);
   await page.locator('.auth button[type=submit]').tap();
   await screen('list').waitFor({ timeout: 30000 });
   assert.equal(await rows.count(), active.length + 1);
-  step('bloqueo en segundo plano, intento fallido y desbloqueo');
+  step('bloqueo en segundo plano (portapapeles intacto), la maestra antigua falla y la del archivo abre');
+
+  // Tras reiniciar la app (recarga) todo sigue ahí.
+  await page.reload();
+  await page.fill('#unlock-pwd', NEW_MASTER);
+  await page.locator('.auth button[type=submit]').tap();
+  await screen('list').waitFor({ timeout: 30000 });
+  assert.equal(await rows.count(), active.length + 1);
+  step('reinicio: datos y contraseña maestra persistentes');
 
   // 8. Idioma.
   await page.locator('.tabbar button', { hasText: 'Ajustes' }).tap();
@@ -197,6 +213,38 @@ async function run(browser, base, vp) {
   await page.locator('.segmented button', { hasText: 'Español' }).tap();
 
   assert.deepEqual(errors, []);
+  await ctx.close();
+  await restoreFlow(browser, base, vp);
+}
+
+// Teléfono nuevo: restaurar desde el .kpenc del escritorio con su contraseña maestra.
+async function restoreFlow(browser, base, vp) {
+  const tag = `${vp.width}x${vp.height}`;
+  const ctx = await browser.newContext({ viewport: vp, isMobile: true, hasTouch: true, locale: 'es-ES' });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(base);
+  await page.locator('.auth .btn', { hasText: 'Restaurar' }).tap();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('.auth .btn.primary').tap()]);
+  await chooser.setFiles(FIXTURE);
+  await page.fill('#restore-pwd', 'otra-cualquiera');
+  await page.locator('.auth button[type=submit]').tap();
+  await page.locator('.msg.error').waitFor({ timeout: 30000 });
+  assert.equal(await page.evaluate(() => Object.keys(localStorage).length), 0, 'contraseña errónea: no se crea nada');
+  await page.fill('#restore-pwd', EXPECTED.exportPassword);
+  await shot(page, `${tag}-13-restore`);
+  await page.locator('.auth button[type=submit]').tap();
+  await page.locator('.tabbar').waitFor({ timeout: 60000 });
+  const active = EXPECTED.fullHistory.filter(e => e.active !== false).length;
+  assert.equal(await page.locator('.rows .row').count(), active);
+  await page.reload();
+  await page.fill('#unlock-pwd', EXPECTED.exportPassword);
+  await page.locator('.auth button[type=submit]').tap();
+  await page.locator('.tabbar').waitFor({ timeout: 30000 });
+  assert.equal(await page.locator('.rows .row').count(), active);
+  assert.deepEqual(errors, []);
+  console.log(`  [${tag}] restaurar desde .kpenc: misma maestra que el escritorio, ${active} entradas, persiste tras reiniciar`);
   await ctx.close();
 }
 
