@@ -1,42 +1,48 @@
 # KeyPing móvil (rama `movil`)
 
-Estado: implementado y probado en navegador (Playwright) y con tests; APK de depuración e instalación en dispositivo
-pendientes de confirmar (ver «Pruebas»). Nada publicado, firmado con claves de publicación ni subido a tiendas.
+Estado: implementado; probado con tests, Playwright y en un Nothing Phone 3 (APK de depuración). Nada publicado, firmado con claves de publicación ni subido a tiendas.
 
 ## 1. Enfoque y estructura
 
-- **Capacitor 8.6** sobre la misma app Angular 20. Un solo código de interfaz; la plataforma se elige al compilar
-  (`ng build --configuration mobile`) y al arrancar (`src/main.ts` → `installPlatform()`).
-- **Núcleo compartido `core/`** (TypeScript sin dependencias de Node ni del DOM):
-  `export-format.ts` (formato `.kpenc`), `vault-model.ts`, `vault-ops.ts` (cargar/guardar/historial),
-  `keyping-service.ts` (implementa el mismo contrato `window.keyping` que el preload de Electron),
-  `password-check.ts`, `similarity.ts`, `attempt-policy.ts`, `crypto-provider.ts` con dos implementaciones:
-  `electron/vault/node-crypto.ts` (escritorio) y `core/web-crypto.ts` (móvil, Web Crypto).
-- **Escritorio**: `electron/` delega en `core/` (mismo comportamiento y mismos ficheros en disco).
-- **Capa de plataforma** `src/app/platform/`: `platform.ts` (escritorio, sin cambios), `platform.mobile.ts`
-  (plugin nativo `KeypingNative`), `platform.mobile-sim.ts` (simulador en navegador para Playwright),
-  `mobile-bridge.ts` (monta `window.keyping` con `KeypingService`).
-- **Android** `android/`: `MainActivity` + `KeypingNativePlugin.java` (ficheros privados, portapapeles sensible,
-  enlaces externos, selector de guardado y hoja de compartir, aviso de segundo plano).
-- **iOS** `ios/`: proyecto generado por Capacitor, **no compilado** y sin el plugin nativo en Swift (ver §8).
+- **App móvil propia** (proyecto Angular `keyping-mobile`, carpeta `mobile/`), diseñada para el teléfono; no reutiliza
+  pantallas del escritorio. **Capacitor 8.6** la empaqueta para Android (`android/`); iOS preparado (`ios/`).
+- **Núcleo compartido `core/`** (TypeScript sin Node ni DOM), el mismo que usa el escritorio:
+  `keyping-service.ts` (bóveda, intentos, historial, exportar/importar), `export-format.ts` (`.kpenc`),
+  `vault-model.ts`, `vault-ops.ts`, `password-check.ts`, `similarity.ts`, `password-generator.ts`, `url-utils.ts`,
+  `attempt-policy.ts` y `crypto-provider.ts` con dos implementaciones: `electron/vault/node-crypto.ts` (escritorio) y
+  `core/web-crypto.ts` (móvil).
+- **Escritorio**: `electron/` delega en `core/`; la interfaz (`src/`) es idéntica a 1.3.1 salvo dos reexportaciones.
+- **Capa nativa** `mobile/src/app/platform/`: `platform.ts` (plugin `KeypingNative`), `platform.sim.ts` (simulador en
+  navegador para Playwright), `mobile-bridge.ts` (instancia el núcleo; bloqueo al pasar a segundo plano salvo durante un
+  selector o la hoja de compartir abiertos por la propia app, con un máximo de 3 min).
+- **Android**: `MainActivity` (FLAG_SECURE) + `KeypingNativePlugin.java` (ficheros privados con escritura atómica,
+  portapapeles sensible con limpieza, enlaces solo http/https, guardar/compartir/abrir archivos con el selector del
+  sistema). Sin permiso INTERNET, sin copia de seguridad en la nube, `loggingBehavior: 'none'`.
 
-## 2. Inventario de funciones
+## 2. Pantallas e inventario de funciones
+
+Pestañas inferiores: **Contraseñas** (buscador fijo, carpetas en chips, filas grandes, botón +), **Generador** y
+**Ajustes**. Pantallas apiladas con el botón Atrás del sistema: detalle, añadir/editar, contraseña nueva, exportar,
+importar y contraseña maestra.
+
+Flujo de urgencia: buscar (sin tildes) → Intro abre el primer resultado → «Cambiar contraseña en la web» → «Guardar,
+copiar y abrir la web». La nueva se guarda antes de salir de la app (la anterior queda en el historial) para que no se
+pierda si el sistema cierra o bloquea la app mientras se está en el navegador.
 
 | Función de escritorio | Móvil |
 |---|---|
 | Crear/desbloquear bóveda, contraseña maestra, política de intentos (3 libres, 5 s ×2, máx. 1 h) | Portada |
-| Lista, búsqueda, detalle, editar, borrar, historial de versiones, carpetas | Portada (carpeta se edita en el detalle; sin arrastrar y soltar) |
-| Análisis de contraseña (patrones, similitud con la bóveda) | Portada |
-| Generador | Adaptada: hoja inferior en lugar de panel flotante arrastrable |
-| Enlace «Cambiar contraseña» (flujo de emergencia) | Portada: buscar → detalle → botón; solo http/https en el navegador del sistema |
-| Copiar contraseña con limpieza a los 20 s | Adaptada: portapapeles marcado como sensible (Android 13+) y limpieza automática |
-| Exportar `.kpenc` | Adaptada: selector del sistema «Guardar» o «Compartir» |
-| Importar `.kpenc` / JSON | Adaptada: selector del sistema |
-| Idiomas es/en | Portada (mismas claves) |
-| Bloqueo por inactividad | Portada + bloqueo al pasar a segundo plano |
-| Autoactualización firmada (updater) | No aplicable: la actualiza la tienda |
-| Ventana: ampliar, minimizar, bandeja, atajos globales | No aplicable |
-| Exportación nativa v1 `.keyping` | No aplicable: depende de la clave de sesión del equipo (no portable); al importarla se explica el error |
+| Lista, búsqueda, detalle, editar, borrar, historial (recuperar/borrar versiones), carpetas | Adaptada al tacto (carpeta como campo y chips; sin arrastrar y soltar) |
+| Análisis de contraseña (patrones, similitud con la bóveda) | Portada, bajo el campo de contraseña |
+| Generador | Adaptado: dentro del campo de contraseña y como pestaña |
+| Enlace de cambio de contraseña | Adaptado: guarda, copia y abre la web en un toque |
+| Copiar con limpieza a los 20 s | Portapapeles marcado como sensible (Android 13+) y limpieza automática |
+| Exportar / importar `.kpenc` | Flujo guiado; selector del sistema y hoja de compartir (el nombre del archivo usa la hora UTC, igual que el escritorio) |
+| Versiones guardadas por entrada | Portada (5, 10 o 20) |
+| Idiomas es/en | Portada (textos propios del móvil, mismas reglas del analizador) |
+| Bloqueo por inactividad | Portado (1, 5 o 15 min) + bloqueo al pasar a segundo plano |
+| Autoactualización, ventana, bandeja, atajos, comprobación de integridad | No aplicable (la tienda actualiza; sin ventanas) |
+| Exportación nativa v1 `.keyping` | No aplicable: depende de la clave del equipo; al importarla se explica el error |
 
 ## 3. Formato de exportación (portabilidad)
 
@@ -58,29 +64,22 @@ El único formato portable es **v2 `.kpenc`**, idéntico en escritorio 1.3.1 y e
 
 ## 4. Cambios en escritorio
 
-- Refactor sin cambio de comportamiento: lógica movida a `core/` y reexportada desde `electron/`.
-- `main` de `package.json` → `dist-electron/electron/main.js` (por `rootDir ..`); scripts de firma del updater
-  apuntan a esa ruta. Comprobado: `build:linux` genera el AppImage y arranca.
-- `electron.service.ts` gana `isMobile()` y `saveExportFile()`; en escritorio no cambian los flujos.
+- Interfaz (`src/`) idéntica a 1.3.1; `src/app/core/url-utils.ts` y `password-generator.ts` reexportan `core/`.
+- Lógica de `electron/` movida a `core/` sin cambio de comportamiento; `main` de `package.json` →
+  `dist-electron/electron/main.js` y los scripts de firma del updater apuntan ahí. `build:linux` genera y arranca el AppImage.
 - Formato de exportación, bóveda y empaquetado Windows/Linux/MSIX: sin cambios.
 
-## 5. Pruebas ejecutadas (entorno Linux en la nube)
+## 5. Pruebas
 
 | Comando | Resultado |
 |---|---|
-| `npm test` (Angular) | 46/46 OK, antes y después |
+| `npm test` (Angular escritorio) | 46/46 OK |
 | `npm run test:electron` | 59/59 OK |
 | `npm run test:core` | 18 OK + 1 omitida (necesita `KP_BASELINE_DIST`) |
-| `KP_DESKTOP_DIST=<1.3.1 sin modificar> npm run test:core` | 18 OK + 1 omitida: el escritorio 1.3.1 original lee lo que exporta el núcleo nuevo |
-| `KP_BASELINE_DIST=<1.3.1> …` | 19/19 OK: bóveda creada por 1.3.1 abierta por el núcleo nuevo y al revés |
-| `npm run build:linux` | OK, `KeyPing-1.3.1.AppImage`, arranca con HOME temporal |
-| `npm run test:mobile-e2e` (360×800 y 412×915) | OK: crear bóveda, importar fixture de escritorio, buscar, abrir enlace de cambio, generar y guardar con historial, exportar y verificar con el parser de escritorio, bloquear/desbloquear |
-
-Fixtures: `core/tests/fixtures/` generados con el escritorio 1.3.1 (`scripts/gen-export-fixtures.cjs`), contraseña
-de exportación ficticia `Móvil-Exporta-2026!ñ`; incluyen cadena de 3 versiones, texto japonés, entrada borrada y
-entrada sin metadatos. Pruebas campo a campo, ida, vuelta e ida y vuelta.
-
-No ejecutado en la nube: compilación del APK (sin acceso a dl.google.com para el SDK) y emulador (sin /dev/kvm).
+| Con `KP_DESKTOP_DIST` / `KP_BASELINE_DIST` apuntando al 1.3.1 sin modificar | 18 + 1 omitida / 19 OK: compatibilidad en ambos sentidos |
+| `npm run build:linux` | AppImage generado y arrancado con HOME temporal (antes de rehacer la app móvil; el escritorio no ha cambiado desde entonces) |
+| `npm run test:mobile-e2e` (360×800 y 412×915) | OK: crear bóveda, importar el `.kpenc` del escritorio con el selector abierto sin bloqueo, buscar sin tildes, urgencia (guardar, copiar, abrir web, historial), añadir con generador, exportar y leerlo con el escritorio, compartir, bloqueo en segundo plano sin datos en pantalla, intento fallido, desbloqueo, idioma |
+| Dispositivo real (Nothing Phone 3, Android 17) | Versión anterior: sin INTERNET, portapapeles sensible y limpio a 20,0 s, recientes ocultos, exportar e importar OK; 3 fallos corregidos. App nueva (a23cac3): abre la bóveda creada por la anterior; importar con el selector sin bloqueo; urgencia abre el navegador y guarda la nueva con 3 versiones previas; segundo plano → bloqueo sin datos en 0,3 s; logcat sin el texto copiado; portapapeles vacío a 20 s; exportar/compartir sin bloqueo; sin INTERNET. Corregidos después: Atrás del sistema salía de la app, contador de versiones a 0 hasta desplegar, barras sobre el teclado, rotación libre |
 
 ## 6. Lista manual en dispositivo (pendiente salvo que se indique)
 
