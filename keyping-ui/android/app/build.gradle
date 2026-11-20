@@ -21,10 +21,14 @@ android {
     buildTypes {
         // La build de depuración es otra app (dev.zula.keyping.pruebas, «KeyPing pruebas») con sus propios datos:
         // las pruebas nunca tocan la bóveda de la app normal instalada en el mismo teléfono.
+        // Con -PkeypingUso se genera la app normal (dev.zula.keyping, «KeyPing») firmada con la clave de depuración,
+        // para uso personal antes de publicarla.
         debug {
-            applicationIdSuffix ".pruebas"
-            resValue "string", "app_name", "KeyPing pruebas"
-            resValue "string", "title_activity_main", "KeyPing pruebas"
+            if (!project.hasProperty('keypingUso')) {
+                applicationIdSuffix ".pruebas"
+                resValue "string", "app_name", "KeyPing pruebas"
+                resValue "string", "title_activity_main", "KeyPing pruebas"
+            }
         }
         release {
             minifyEnabled false
