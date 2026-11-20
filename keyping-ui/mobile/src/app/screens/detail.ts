@@ -102,7 +102,6 @@ export class DetailScreen implements OnDestroy {
   readonly plain = signal<string | null>(null);
   readonly previous = signal<Entry[]>([]);
   private hideTimer?: ReturnType<typeof setTimeout>;
-  private historyOpen = false;
 
   constructor() {
     // Si la entrada cambia (nueva versión, otra entrada) se oculta la contraseña mostrada.
@@ -110,7 +109,7 @@ export class DetailScreen implements OnDestroy {
       this.id();
       untracked(() => {
         this.hide();
-        if (this.historyOpen) void this.loadHistory();
+        void this.loadHistory();
       });
     });
     this.store.onLock(() => this.hide());
@@ -153,7 +152,6 @@ export class DetailScreen implements OnDestroy {
   }
 
   onHistory(open: boolean): void {
-    this.historyOpen = open;
     if (open) void this.loadHistory();
   }
 

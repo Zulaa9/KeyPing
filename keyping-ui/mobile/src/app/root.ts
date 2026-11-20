@@ -74,6 +74,7 @@ export class Root implements OnInit {
   ];
 
   async ngOnInit(): Promise<void> {
+    watchKeyboard();
     // Al bloquear se vuelve a la lista y se cierran avisos y confirmaciones abiertos.
     this.store.onLock(() => {
       this.nav.reset();
@@ -82,4 +83,20 @@ export class Root implements OnInit {
     });
     await this.store.init();
   }
+}
+
+/** Con el teclado abierto la vista se encoge: se ocultan la barra de pestañas y el botón + para dejar sitio. */
+function watchKeyboard(): void {
+  let width = window.innerWidth;
+  let full = window.innerHeight;
+  const check = () => {
+    if (window.innerWidth !== width) {
+      width = window.innerWidth;
+      full = window.innerHeight;
+    }
+    full = Math.max(full, window.innerHeight);
+    document.documentElement.classList.toggle('kb-open', window.innerHeight < full - 150);
+  };
+  window.addEventListener('resize', check);
+  window.visualViewport?.addEventListener('resize', check);
 }
