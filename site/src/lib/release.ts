@@ -10,6 +10,8 @@ export type Release = {
   sumsUrl: string | null;
   windows: Asset;
   linux: Asset;
+  /** APK de Android firmado; null si la release no lo incluye. */
+  android: Asset | null;
   /** 'api' = datos de la API en este build; 'fallback' = última release conocida guardada en el repo. */
   source: 'api' | 'fallback';
 };
@@ -21,7 +23,7 @@ let cached: Promise<Release> | null = null;
 async function load(): Promise<Release> {
   if (process.env.KEYPING_RELEASE_OFFLINE === '1') {
     console.info('[release] KEYPING_RELEASE_OFFLINE=1: se usa la release de respaldo', fallback.version);
-    return { ...(fallback as Omit<Release, 'source'>), source: 'fallback' };
+    return { android: null, ...(fallback as Omit<Release, 'source' | 'android'>), source: 'fallback' };
   }
   try {
     const data = await fetchLatestRelease({ token: process.env.GITHUB_TOKEN });
@@ -29,7 +31,7 @@ async function load(): Promise<Release> {
     return { ...data, source: 'api' };
   } catch (err) {
     console.info(`[release] no se pudo consultar la API (${(err as Error).message}); se usa la release de respaldo ${fallback.version}`);
-    return { ...(fallback as Omit<Release, 'source'>), source: 'fallback' };
+    return { android: null, ...(fallback as Omit<Release, 'source' | 'android'>), source: 'fallback' };
   }
 }
 

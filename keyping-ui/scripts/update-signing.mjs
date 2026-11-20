@@ -22,8 +22,8 @@ import readline from 'node:readline';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const KEYS_SOURCE = join(ROOT, 'electron', 'updates', 'update-public-keys.ts');
-const COMPILED_SIGNATURE = join(ROOT, 'dist-electron', 'updates', 'update-signature.js');
-const COMPILED_KEYS = join(ROOT, 'dist-electron', 'updates', 'update-public-keys.js');
+const COMPILED_SIGNATURE = join(ROOT, 'dist-electron', 'electron', 'updates', 'update-signature.js');
+const COMPILED_KEYS = join(ROOT, 'dist-electron', 'electron', 'updates', 'update-public-keys.js');
 const KEY_PATH = resolve(process.env.KEYPING_UPDATE_KEY || join(homedir(), '.keyping-signing', 'update-ed25519.pem'));
 const SIGNED_LINE = /^(keypingSignature|keypingKeyId):.*(\r?\n|$)/gm;
 

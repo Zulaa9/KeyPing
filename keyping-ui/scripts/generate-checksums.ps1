@@ -15,7 +15,7 @@ $gpgCandidatePaths = @(
 )
 
 # Release artifacts to hash.
-$allowedExtensions = @('.exe', '.AppImage', '.dmg')
+$allowedExtensions = @('.exe', '.AppImage', '.dmg', '.apk')
 $ignoredFileNames = @(
   'latest.yml',
   $checksumsFileName,

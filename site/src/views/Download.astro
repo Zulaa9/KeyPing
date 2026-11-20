@@ -10,14 +10,18 @@ const rel = await getRelease();
 const r = ROUTES[lang];
 const fmtSize = (b: number) => new Intl.NumberFormat(es ? 'es-ES' : 'en-GB', { maximumFractionDigits: 0 }).format(b / 1_000_000) + ' MB';
 const fmtDate = (iso: string) => new Intl.DateTimeFormat(es ? 'es-ES' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' }).format(new Date(iso));
-const title = es ? `Descargar KeyPing ${rel.version} para Windows y Linux` : `Download KeyPing ${rel.version} for Windows and Linux`;
+const android = rel.android;
+const title = es
+  ? `Descargar KeyPing ${rel.version} para Windows, Linux${android ? ' y Android' : ''}`
+  : `Download KeyPing ${rel.version} for Windows, Linux${android ? ' and Android' : ''}`;
 const description = es
-  ? `Descarga KeyPing ${rel.version}: instalador para Windows y AppImage para Linux, con su SHA-256 y cómo comprobarlo.`
-  : `Download KeyPing ${rel.version}: Windows installer and Linux AppImage, with their SHA-256 and how to check them.`;
+  ? `Descarga KeyPing ${rel.version}: instalador para Windows, AppImage para Linux${android ? ' y APK para Android' : ''}, con su SHA-256 y cómo comprobarlo.`
+  : `Download KeyPing ${rel.version}: Windows installer, Linux AppImage${android ? ' and Android APK' : ''}, with their SHA-256 and how to check them.`;
 const platforms = [
   { key: 'windows', name: 'Windows', kind: es ? 'Instalador (.exe), Windows 10 y 11 de 64 bits' : 'Installer (.exe), 64-bit Windows 10 and 11', a: rel.windows },
   { key: 'linux', name: 'Linux', kind: es ? 'AppImage de 64 bits (x86_64)' : '64-bit AppImage (x86_64)', a: rel.linux },
-] as const;
+  ...(android ? [{ key: 'android', name: 'Android', kind: es ? 'APK para Android 7 o superior' : 'APK for Android 7 or later', a: android }] : []),
+];
 ---
 <Base lang={lang} page="download" title={title} description={description}>
   <section class="page-head">
@@ -52,7 +56,12 @@ const platforms = [
         <a href={rel.url}>{es ? `Notas de la versión ${rel.version}` : `Release notes for ${rel.version}`}</a>{' · '}
         <a href={RELEASES_URL}>{es ? 'Versiones anteriores' : 'Previous versions'}</a>
       </p>
-      <p class="small muted">{es ? 'macOS: no hay versión publicada para macOS por ahora.' : 'macOS: there is no published macOS build at the moment.'}</p>
+      {!android && (
+        <p class="small muted" data-android-soon>{es
+          ? 'Android: la app móvil está en desarrollo y se publicará aquí como APK. Usará el mismo archivo .kpenc para pasar las contraseñas entre ordenador y móvil.'
+          : 'Android: the mobile app is in development and will be published here as an APK. It will use the same .kpenc file to move passwords between computer and phone.'}</p>
+      )}
+      <p class="small muted">{es ? 'macOS y iPhone: no hay versión publicada por ahora.' : 'macOS and iPhone: there is no published build at the moment.'}</p>
     </div>
   </section>
 
@@ -69,6 +78,10 @@ const platforms = [
       <p>{es ? 'Descarga SHA256SUMS.txt en la misma carpeta que el AppImage y ejecuta:' : 'Download SHA256SUMS.txt to the same folder as the AppImage and run:'}</p>
       <pre><code>sha256sum -c --ignore-missing SHA256SUMS.txt</code></pre>
       <p>{es ? <>Debe responder <code>{rel.linux.name}: OK</code>.</> : <>It must print <code>{rel.linux.name}: OK</code>.</>}</p>
+      {android && (<>
+        <h3>Android</h3>
+        <p>{es ? 'En el ordenador, con el APK y SHA256SUMS.txt en la misma carpeta, usa los mismos comandos de arriba. En el móvil, compara el SHA-256 con una app de sumas de comprobación antes de instalar.' : 'On a computer, with the APK and SHA256SUMS.txt in the same folder, use the same commands as above. On the phone, compare the SHA-256 with a checksum app before installing.'}</p>
+      </>)}
       <p>{es ? 'Las actualizaciones posteriores las verifica la propia app con una firma Ed25519. ' : 'Later updates are verified by the app itself with an Ed25519 signature. '}<a href={r.security + (es ? '#actualizaciones' : '#updates')}>{es ? 'Más detalles' : 'More details'}</a>.</p>
     </div>
   </section>
@@ -87,6 +100,13 @@ const platforms = [
       <p>{es
         ? 'También puedes marcar «Permitir ejecutar el archivo como un programa» en sus propiedades desde el gestor de archivos. Si no arranca, puede que tu distribución necesite la biblioteca FUSE 2 (en Ubuntu, el paquete libfuse2 o libfuse2t64), que usan los AppImage.'
         : 'You can also tick “Allow executing file as program” in its properties from your file manager. If it does not start, your distribution may need the FUSE 2 library (on Ubuntu, the libfuse2 or libfuse2t64 package), which AppImages use.'}</p>
+      {android && (<>
+        <h3>Android</h3>
+        <p>{es
+          ? 'Abre el APK descargado en el móvil. Android pedirá permitir instalar apps de esa fuente (el navegador o el gestor de archivos): concédelo solo para esta instalación. La app no tiene permiso de internet y guarda la bóveda cifrada solo en el teléfono. Para traer tus contraseñas, exporta un .kpenc en el ordenador y elige «Restaurar desde un archivo .kpenc» al abrir la app.'
+          : 'Open the downloaded APK on your phone. Android will ask you to allow installing apps from that source (the browser or file manager): allow it just for this install. The app has no internet permission and keeps the encrypted vault on the phone only. To bring your passwords over, export a .kpenc on your computer and choose “Restore from a .kpenc file” when you open the app.'}</p>
+        <p>{es ? 'La app de Android no se actualiza sola: descarga e instala el APK nuevo encima del anterior (tus datos se conservan).' : 'The Android app does not update itself: download and install the new APK over the old one (your data is kept).'}</p>
+      </>)}
       <h3>{es ? 'Actualizaciones' : 'Updates'}</h3>
       <p>{es
         ? 'KeyPing avisa cuando hay una versión nueva y la instala al cerrarse si tú la descargas. También puedes descargarla siempre desde '

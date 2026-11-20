@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- app_name y title_activity_main se definen en app/build.gradle (resValue) según el tipo de build. -->
+    <string name="package_name">dev.zula.keyping</string>
+    <string name="custom_url_scheme">dev.zula.keyping</string>
+</resources>

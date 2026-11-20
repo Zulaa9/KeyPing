@@ -1,0 +1,90 @@
+import groovy.json.JsonSlurper
+
+apply plugin: 'com.android.application'
+
+// La versión sale de package.json (la misma que el escritorio). versionCode = mayor*10000 + menor*100 + parche.
+def kpVersion = new JsonSlurper().parse(file('../../package.json')).version as String
+def kpParts = kpVersion.tokenize('.-')
+def kpVersionCode = (kpParts[0] as int) * 10000 + (kpParts[1] as int) * 100 + (kpParts[2] as int)
+
+// Firma de publicación: solo si están las variables de entorno. La clave nunca va al repositorio.
+def kpKeystore = System.getenv('KEYPING_ANDROID_KEYSTORE')
+def kpCanSign = kpKeystore && System.getenv('KEYPING_ANDROID_STORE_PASSWORD') &&
+    System.getenv('KEYPING_ANDROID_KEY_ALIAS') && System.getenv('KEYPING_ANDROID_KEY_PASSWORD')
+
+android {
+    namespace = "dev.zula.keyping"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "dev.zula.keyping"
+        resValue "string", "app_name", "KeyPing"
+        resValue "string", "title_activity_main", "KeyPing"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode kpVersionCode
+        versionName kpVersion
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (kpCanSign) {
+            release {
+                storeFile file(kpKeystore)
+                storePassword System.getenv('KEYPING_ANDROID_STORE_PASSWORD')
+                keyAlias System.getenv('KEYPING_ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('KEYPING_ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        // La build de depuración es otra app (dev.zula.keyping.pruebas, «KeyPing pruebas») con sus propios datos:
+        // las pruebas nunca tocan la bóveda de la app normal instalada en el mismo teléfono.
+        // Con -PkeypingUso se genera la app normal (dev.zula.keyping, «KeyPing») firmada con la clave de depuración,
+        // para uso personal antes de publicarla.
+        debug {
+            if (!project.hasProperty('keypingUso')) {
+                applicationIdSuffix ".pruebas"
+                resValue "string", "app_name", "KeyPing pruebas"
+                resValue "string", "title_activity_main", "KeyPing pruebas"
+            }
+        }
+        release {
+            if (kpCanSign) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

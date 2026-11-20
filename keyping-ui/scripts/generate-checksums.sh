@@ -15,7 +15,7 @@ fi
 cd "$BUILD_DIR"
 
 # Collect release binaries and generate SHA256 checksums.
-find . -maxdepth 1 -type f \( -name "*.AppImage" -o -name "*.exe" -o -name "*.dmg" \) \
+find . -maxdepth 1 -type f \( -name "*.AppImage" -o -name "*.exe" -o -name "*.dmg" -o -name "*.apk" \) \
   ! -name "*.blockmap" \
   ! -name "$CHECKSUMS_FILE" \
   ! -name "$SIGNATURE_FILE" \

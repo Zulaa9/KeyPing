@@ -7,7 +7,7 @@ Website: **[keyping.zula.dev](https://keyping.zula.dev)**
 **KeyPing is a privacy-first desktop password manager focused on detecting weak, reused, and risky passwords while keeping all data fully local and offline.**
 
 [![Release](https://img.shields.io/github/v/release/Zulaa9/KeyPing?label=release)](https://github.com/Zulaa9/KeyPing/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-0f172a)](https://github.com/Zulaa9/KeyPing/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Android%20%28dev%29-0f172a)](https://github.com/Zulaa9/KeyPing/releases)
 [![Stack](https://img.shields.io/badge/stack-Angular%20%2B%20Electron-2563eb)](./keyping-ui)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -99,6 +99,12 @@ There is no macOS build at the moment.
 
 Website with download links and verification steps: https://keyping.zula.dev
 
+## Mobile app (Android, in development)
+
+A mobile app designed for the phone lives in `keyping-ui/mobile` (Angular + Capacitor). It shares the vault and export logic with the desktop app (`keyping-ui/core`), so the same `.kpenc` file moves your passwords between computer and phone in both directions. It has no internet permission, blocks screenshots and locks itself when it goes to the background.
+
+It is not published yet. When a release includes `KeyPing-<version>.apk`, it will appear on the website and in `SHA256SUMS.txt`. Details: [keyping-ui/docs/MOVIL.md](keyping-ui/docs/MOVIL.md) (Spanish).
+
 ## Release Integrity
 
 Each release includes `SHA256SUMS.txt` with the SHA-256 of every installer. Check your download before installing:
@@ -156,6 +162,10 @@ Useful commands:
 - `npm run build:linux` -> production build + AppImage packaging (Linux)
 - `npm run test` -> Angular tests
 - `npm run test:electron` -> Electron unit tests
+- `npm run test:core` -> shared core and `.kpenc` compatibility tests
+- `npm run test:mobile-e2e` -> mobile app end-to-end tests (browser simulator)
+- `npm run android:apk` -> Android debug APK (installs as the separate test app "KeyPing pruebas"; requires Android SDK and JDK 21)
+- `npm run android:release` -> signed Android APK in `dist/build/` (needs your own upload key in `KEYPING_ANDROID_*` environment variables)
 
 ## Roadmap
 

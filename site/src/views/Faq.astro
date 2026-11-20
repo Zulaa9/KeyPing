@@ -7,7 +7,8 @@ import { getRelease, versionAtLeast, LINUX_SPELLCHECK_FIX } from '../lib/release
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 const es = lang === 'es';
-const linuxFixed = versionAtLeast((await getRelease()).version, LINUX_SPELLCHECK_FIX);
+const rel = await getRelease();
+const linuxFixed = versionAtLeast(rel.version, LINUX_SPELLCHECK_FIX);
 const r = ROUTES[lang];
 const title = es ? 'Preguntas frecuentes · KeyPing' : 'FAQ · KeyPing';
 const description = es
@@ -34,7 +35,9 @@ const description = es
             : 'En Linux, además, el motor de Electron intenta descargar un diccionario ortográfico al arrancar; está pendiente de corregir.'} Los enlaces de tus cuentas solo se abren en tu navegador cuando los pulsas. <a href={r.security + '#conexiones'}>Más detalles</a>.</p></details>
           <details><summary>¿Rellena las contraseñas en el navegador?</summary><p>No. No tiene extensión de navegador: copias la contraseña y el portapapeles se limpia solo a los 20 segundos.</p></details>
           <details><summary>¿Puedo importar desde otro gestor de contraseñas?</summary><p>KeyPing importa sus propias copias exportadas y archivos JSON con su formato. No tiene importadores específicos para otros gestores.</p></details>
-          <details><summary>¿Hay versión para macOS, Android o iPhone?</summary><p>No. Solo hay versiones publicadas para Windows y Linux.</p></details>
+          <details><summary>¿Hay versión para macOS, Android o iPhone?</summary><p>{rel.android
+            ? <>Hay versión para Android (APK en la <a href={r.download}>página de descargas</a>); usa el mismo archivo .kpenc que el escritorio para pasar las contraseñas. No hay versión para macOS ni iPhone.</>
+            : 'Android está en desarrollo: usará el mismo archivo .kpenc que el escritorio para pasar las contraseñas. Por ahora solo hay versiones publicadas para Windows y Linux; no hay versión para macOS ni iPhone.'}</p></details>
           <details><summary>¿Por qué Windows avisa al instalarlo?</summary><p>Porque el instalador no lleva firma de código de Windows. Comprueba el SHA-256 antes de instalar. <a href={r.download + '#verificar'}>Cómo hacerlo</a>.</p></details>
           <details><summary>¿Cómo se actualiza?</summary><p>La app avisa cuando hay una versión nueva. Solo instala actualizaciones cuyos metadatos lleven una firma Ed25519 válida.</p></details>
           <details><summary>¿Quién lo hace?</summary><p>Unax Zulaika Fuente, desarrollador. El código está en <a href={REPO_URL}>GitHub</a>, donde también puedes informar de errores.</p></details>
@@ -50,7 +53,9 @@ const description = es
             : 'On Linux, the Electron engine also tries to download a spell-check dictionary at start-up; a fix is pending.'} Your accounts’ links only open in your browser when you click them. <a href={r.security + '#connections'}>More details</a>.</p></details>
           <details><summary>Does it autofill passwords in the browser?</summary><p>No. There is no browser extension: you copy the password and the clipboard clears itself after 20 seconds.</p></details>
           <details><summary>Can I import from another password manager?</summary><p>KeyPing imports its own exported backups and JSON files in its format. It has no dedicated importers for other managers.</p></details>
-          <details><summary>Is there a macOS, Android or iPhone version?</summary><p>No. Only Windows and Linux builds are published.</p></details>
+          <details><summary>Is there a macOS, Android or iPhone version?</summary><p>{rel.android
+            ? <>There is an Android version (APK on the <a href={r.download}>downloads page</a>); it uses the same .kpenc file as the desktop app to move your passwords. There is no macOS or iPhone version.</>
+            : 'Android is in development: it will use the same .kpenc file as the desktop app to move your passwords. For now only Windows and Linux builds are published; there is no macOS or iPhone version.'}</p></details>
           <details><summary>Why does Windows warn me during installation?</summary><p>Because the installer is not code-signed for Windows. Check the SHA-256 before installing. <a href={r.download + '#verify'}>How to do it</a>.</p></details>
           <details><summary>How does it update?</summary><p>The app tells you when a new version is out. It only installs updates whose metadata carries a valid Ed25519 signature.</p></details>
           <details><summary>Who makes it?</summary><p>Unax Zulaika Fuente, a developer. The code is on <a href={REPO_URL}>GitHub</a>, where you can also report bugs.</p></details>

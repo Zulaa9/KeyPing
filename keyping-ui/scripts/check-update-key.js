@@ -6,7 +6,7 @@ const { existsSync } = require('node:fs');
 const { join } = require('node:path');
 
 exports.default = async function checkUpdateKey() {
-  const compiled = join(__dirname, '..', 'dist-electron', 'updates', 'update-public-keys.js');
+  const compiled = join(__dirname, '..', 'dist-electron', 'electron', 'updates', 'update-public-keys.js');
   if (!existsSync(compiled)) throw new Error('Falta dist-electron: ejecuta npm run electron:build antes de empaquetar.');
   delete require.cache[require.resolve(compiled)];
   const { UPDATE_PUBLIC_KEYS } = require(compiled);

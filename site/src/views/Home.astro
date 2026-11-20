@@ -9,13 +9,17 @@ import { getRelease, versionAtLeast, LINUX_SPELLCHECK_FIX } from '../lib/release
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 const r = ROUTES[lang];
-const linuxFixed = versionAtLeast((await getRelease()).version, LINUX_SPELLCHECK_FIX);
+const rel = await getRelease();
+const linuxFixed = versionAtLeast(rel.version, LINUX_SPELLCHECK_FIX);
+// Android solo aparece cuando la última release incluye el APK.
+const platEs = rel.android ? 'Windows, Linux y Android' : 'Windows y Linux';
+const platEn = rel.android ? 'Windows, Linux and Android' : 'Windows and Linux';
 
 const c = {
   es: {
     title: 'KeyPing · Gestor de contraseñas local con enlace directo para cambiarlas',
-    description: 'Gestor de contraseñas gratuito y de código abierto para Windows y Linux. Todo en tu equipo, sin cuenta ni nube, y con el enlace para cambiar cada contraseña a un clic.',
-    eyebrow: 'Gestor de contraseñas local · Windows y Linux',
+    description: `Gestor de contraseñas gratuito y de código abierto para ${platEs}. Todo en tu equipo, sin cuenta ni nube, y con el enlace para cambiar cada contraseña a un clic.`,
+    eyebrow: `Gestor de contraseñas local · ${platEs}`,
     h1: 'Te roban una cuenta. Cambias la contraseña en segundos.',
     lead: 'KeyPing guarda cada contraseña junto al enlace donde usas la cuenta y el enlace directo para cambiarla. Cuando algo va mal no tienes que buscar: lo abres, pulsas y cambias.',
     points: ['Sin cuenta ni nube', 'Cifrado AES-256-GCM en tu equipo', 'Gratis y de código abierto (MIT)'],
@@ -79,8 +83,8 @@ const c = {
   },
   en: {
     title: 'KeyPing · Local password manager with a direct link to change each password',
-    description: 'Free, open-source password manager for Windows and Linux. Everything stays on your computer, no account or cloud, and the link to change each password is one click away.',
-    eyebrow: 'Local password manager · Windows and Linux',
+    description: `Free, open-source password manager for ${platEn}. Everything stays on your computer, no account or cloud, and the link to change each password is one click away.`,
+    eyebrow: `Local password manager · ${platEn}`,
     h1: 'An account gets hijacked. You change the password in seconds.',
     lead: 'KeyPing stores each password together with the link where you use the account and the direct link to change it. When something goes wrong there is nothing to search for: open it, click, change.',
     points: ['No account, no cloud', 'AES-256-GCM encryption on your device', 'Free and open source (MIT)'],

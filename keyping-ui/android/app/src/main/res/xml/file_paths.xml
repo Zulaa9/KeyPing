@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo la carpeta temporal de exportaciones compartidas; nunca los datos de la bóveda. -->
+<paths>
+    <cache-path name="exports" path="exports/" />
+</paths>
