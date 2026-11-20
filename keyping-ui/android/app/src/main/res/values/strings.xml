@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">KeyPing</string>
+    <string name="title_activity_main">KeyPing</string>
+    <string name="package_name">dev.zula.keyping</string>
+    <string name="custom_url_scheme">dev.zula.keyping</string>
+</resources>
