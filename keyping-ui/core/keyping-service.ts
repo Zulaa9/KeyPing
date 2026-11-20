@@ -124,6 +124,8 @@ function computeStatus(issues: VaultIntegrityIssue[]): VaultIntegrityStatus {
 
 export class KeypingService {
   private sessionKey: Uint8Array | null = null;
+  /** Sube en cada bloqueo: una derivación que termina después de un bloqueo no debe abrir la sesión. */
+  private lockGeneration = 0;
   private hmacKey: Uint8Array | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private pendingImport: { entries: ImportEntry[]; source: 'encrypted' | 'plain' | 'master'; at: number } | null = null;
@@ -284,10 +286,13 @@ export class KeypingService {
     if (pending === null) return;
     try {
       parseVaultJson(await this.decryptBytes(fromBase64(pending), key), () => this.crypto.randomUUID());
-      await this.store.write(VAULT_FILE, pending);
     } catch {
-      /* el auth nuevo nunca se guardó: el pendiente no sirve */
+      // El auth nuevo nunca se guardó: el pendiente no sirve.
+      await this.store.remove(PENDING_VAULT_FILE);
+      return;
     }
+    // Es la única copia cifrada con la clave actual: solo se borra si la promoción se ha escrito.
+    await this.store.write(VAULT_FILE, pending);
     await this.store.remove(PENDING_VAULT_FILE);
   }
 
@@ -310,6 +315,7 @@ export class KeypingService {
   /** Bloquea: borra la clave, la importación pendiente y el portapapeles si sigue siendo nuestro. */
   lockNow(notify = true): void {
     const was = this.isUnlocked();
+    this.lockGeneration++;
     wipe(this.sessionKey);
     this.sessionKey = null;
     this.pendingImport = null;
@@ -340,6 +346,7 @@ export class KeypingService {
   };
 
   authUnlock = async (password: unknown): Promise<AuthResult> => {
+    const generation = this.lockGeneration;
     await this.ready;
     if (!validPassword(password)) return { ok: false, reason: 'invalid' };
     if (this.attempts.isCoolingDown()) return { ok: false, reason: 'cooldown', remainingMs: this.attempts.remainingMs() };
@@ -350,6 +357,11 @@ export class KeypingService {
       const key = await this.verifyAndDerive(password);
       if (!key) return this.failAttempt();
       await this.withLock(() => this.recoverPending(key)).catch(() => undefined);
+      if (generation !== this.lockGeneration) {
+        // Se bloqueó (segundo plano, inactividad) mientras se derivaba la clave: no se abre la sesión.
+        wipe(key);
+        return { ok: false, reason: 'error' };
+      }
       this.setSessionKey(key);
       wipe(key);
     } catch {
@@ -359,6 +371,7 @@ export class KeypingService {
   };
 
   authChange = async (current: unknown, next: unknown): Promise<AuthResult> => {
+    const generation = this.lockGeneration;
     await this.ready;
     if (!validPassword(current) || !validPassword(next, 8)) return { ok: false, reason: 'invalid' };
     if (this.attempts.isCoolingDown()) return { ok: false, reason: 'cooldown', remainingMs: this.attempts.remainingMs() };
@@ -374,7 +387,8 @@ export class KeypingService {
         // Dos fases: bóveda pendiente con la clave nueva -> kp-auth.json -> promoción.
         if (vault) await this.store.write(PENDING_VAULT_FILE, await this.encrypt(JSON.stringify(vault), key));
         await this.store.write(AUTH_FILE, JSON.stringify(auth));
-        this.setSessionKey(key);
+        // Si se bloqueó durante el cambio, el cambio se completa pero la sesión sigue cerrada.
+        if (generation === this.lockGeneration) this.setSessionKey(key);
         wipe(key);
         if (vault) {
           await this.store.write(VAULT_FILE, (await this.store.read(PENDING_VAULT_FILE))!);

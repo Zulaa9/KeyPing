@@ -1,7 +1,7 @@
 // Comportamiento del servicio móvil (mismo contrato que el preload del escritorio).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { KeypingService, AUTH_FILE, VAULT_FILE } from '../keyping-service';
+import { KeypingService, AUTH_FILE, VAULT_FILE, PENDING_VAULT_FILE } from '../keyping-service';
 import { webCrypto } from '../web-crypto';
 import { FakeNative, MemoryStore } from './helpers';
 
@@ -116,4 +116,41 @@ test('merge import with selection keeps the selected history chain', async () =>
   const r = await svc.importVault('merge', [{ idx, label: 'Copia' }]);
   assert.equal(r.imported, 1);
   assert.equal((await svc.listPasswords()).length, 2);
+});
+
+test('a lock during unlock derivation keeps the session closed', async () => {
+  const { svc } = service();
+  await svc.authSetup('Maestra-Movil-123');
+  await svc.savePassword('Secreto-Uno-1', 'Uno');
+  await svc.sessionLock();
+  const pending = svc.authUnlock('Maestra-Movil-123');
+  svc.lockNow(true);
+  assert.deepEqual(await pending, { ok: false, reason: 'error' });
+  assert.deepEqual(await svc.listPasswords(), []);
+  assert.deepEqual(await svc.authUnlock('Maestra-Movil-123'), { ok: true });
+  assert.equal((await svc.listPasswords()).length, 1);
+});
+
+test('a failed promotion keeps the pending vault for the next unlock', async () => {
+  const { svc, store } = service();
+  await svc.authSetup('Maestra-Movil-123');
+  await svc.savePassword('Secreto-Uno-1', 'Uno');
+  // La promoción de la bóveda pendiente falla (almacenamiento lleno) tras guardar el auth nuevo.
+  let failVault = false;
+  const write = store.write.bind(store);
+  store.write = async (name: string, data: string) => {
+    if (failVault && name === VAULT_FILE) throw new Error('ENOSPC');
+    await write(name, data);
+  };
+  failVault = true;
+  assert.equal((await svc.authChange('Maestra-Movil-123', 'Nueva-Maestra-456')).ok, false);
+  await svc.sessionLock();
+  await svc.authUnlock('Nueva-Maestra-456');
+  assert.ok((await store.read(PENDING_VAULT_FILE)) !== null, 'el pendiente debe conservarse');
+  failVault = false;
+  await svc.sessionLock();
+  assert.deepEqual(await svc.authUnlock('Nueva-Maestra-456'), { ok: true });
+  assert.equal(await store.read(PENDING_VAULT_FILE), null);
+  const [e] = await svc.listPasswords();
+  assert.equal(await svc.getPassword(e.id), 'Secreto-Uno-1');
 });
