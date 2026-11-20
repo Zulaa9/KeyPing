@@ -28,6 +28,7 @@
     "build:mobile": "ng build keyping-mobile && cap sync",
     "build:mobile-sim": "ng build keyping-mobile --configuration sim",
     "android:apk": "npm run build:mobile && cd android && ./gradlew assembleDebug",
+    "android:release": "node scripts/android-release.mjs",
     "test:mobile-e2e": "npm run build:mobile-sim && node e2e/mobile/mobile-flow.cjs",
     "test:core": "npm run electron:build && tsc -p core/tsconfig.json && node --test \"dist-core-tests/core/tests/**/*.test.js\"",
     "watch": "ng build --watch --configuration development",

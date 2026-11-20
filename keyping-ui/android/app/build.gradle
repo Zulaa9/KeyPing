@@ -1,4 +1,16 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
+
+// La versión sale de package.json (la misma que el escritorio). versionCode = mayor*10000 + menor*100 + parche.
+def kpVersion = new JsonSlurper().parse(file('../../package.json')).version as String
+def kpParts = kpVersion.tokenize('.-')
+def kpVersionCode = (kpParts[0] as int) * 10000 + (kpParts[1] as int) * 100 + (kpParts[2] as int)
+
+// Firma de publicación: solo si están las variables de entorno. La clave nunca va al repositorio.
+def kpKeystore = System.getenv('KEYPING_ANDROID_KEYSTORE')
+def kpCanSign = kpKeystore && System.getenv('KEYPING_ANDROID_STORE_PASSWORD') &&
+    System.getenv('KEYPING_ANDROID_KEY_ALIAS') && System.getenv('KEYPING_ANDROID_KEY_PASSWORD')
 
 android {
     namespace = "dev.zula.keyping"
@@ -9,13 +21,23 @@ android {
         resValue "string", "title_activity_main", "KeyPing"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.3.1"
+        versionCode kpVersionCode
+        versionName kpVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (kpCanSign) {
+            release {
+                storeFile file(kpKeystore)
+                storePassword System.getenv('KEYPING_ANDROID_STORE_PASSWORD')
+                keyAlias System.getenv('KEYPING_ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('KEYPING_ANDROID_KEY_PASSWORD')
+            }
         }
     }
     buildTypes {
@@ -31,6 +53,7 @@ android {
             }
         }
         release {
+            if (kpCanSign) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
