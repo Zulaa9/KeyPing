@@ -18,6 +18,12 @@
     return 'other';
   }
 
+  // Enlace de descarga del propio dominio con «download»: el navegador descarga sin cambiar de página.
+  function setFile(a, href) {
+    a.setAttribute('href', href);
+    a.setAttribute('download', href.split('/').pop());
+  }
+
   function setupDownloads() {
     var os = detectOS();
     document.documentElement.setAttribute('data-os', os);
@@ -31,14 +37,14 @@
       if (os === 'windows' || os === 'linux') {
         var me = os === 'windows' ? 'win' : 'linux';
         var them = os === 'windows' ? 'linux' : 'win';
-        primary.setAttribute('href', b.getAttribute('data-' + me + '-href'));
+        setFile(primary, b.getAttribute('data-' + me + '-href'));
         primary.setAttribute('data-os-target', os);
         label.textContent = b.getAttribute('data-' + me + '-label');
-        other.setAttribute('href', b.getAttribute('data-' + them + '-href'));
+        setFile(other, b.getAttribute('data-' + them + '-href'));
         other.textContent = b.getAttribute('data-' + them + '-other');
         other.hidden = false;
       } else if (os === 'android' && b.getAttribute('data-android-href')) {
-        primary.setAttribute('href', b.getAttribute('data-android-href'));
+        setFile(primary, b.getAttribute('data-android-href'));
         primary.setAttribute('data-os-target', os);
         label.textContent = b.getAttribute('data-android-label');
       } else if (unsupported) {

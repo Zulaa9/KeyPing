@@ -1,6 +1,6 @@
-# KeyPing móvil (rama `movil`)
+# KeyPing móvil
 
-Estado: implementado; probado con tests, Playwright y en un Nothing Phone 3 (APK de depuración). Nada publicado, firmado con claves de publicación ni subido a tiendas.
+Estado: publicado el 2026-11-20 como `KeyPing-1.3.1.apk` en la release v1.3.1 de GitHub y en keyping.zula.dev (firmado con la clave de subida del autor; certificado SHA-256 `814e1a57…2994175`). Probado con tests, Playwright y en un Nothing Phone 3. No está en Google Play ni en otras tiendas.
 
 ## 1. Enfoque y estructura
 

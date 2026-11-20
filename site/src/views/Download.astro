@@ -47,12 +47,12 @@ const platforms = [
               <dt>{es ? 'Tamaño' : 'Size'}</dt><dd>{fmtSize(p.a.size)}</dd>
               {p.a.sha256 && (<><dt>SHA-256</dt><dd class="hash">{p.a.sha256}</dd></>)}
             </dl>
-            <p><a class="btn btn-primary" href={p.a.url}>{es ? `Descargar para ${p.name}` : `Download for ${p.name}`}</a></p>
+            <p><a class="btn btn-primary" href={p.a.url} download={p.a.name}>{es ? `Descargar para ${p.name}` : `Download for ${p.name}`}</a></p>
           </article>
         ))}
       </div>
       <p class="small muted">
-        {rel.sumsUrl && (<><a href={rel.sumsUrl}>SHA256SUMS.txt</a> · </>)}
+        {rel.sumsUrl && (<><a href={rel.sumsUrl} download="SHA256SUMS.txt">SHA256SUMS.txt</a> · </>)}
         <a href={rel.url}>{es ? `Notas de la versión ${rel.version}` : `Release notes for ${rel.version}`}</a>{' · '}
         <a href={RELEASES_URL}>{es ? 'Versiones anteriores' : 'Previous versions'}</a>
       </p>
