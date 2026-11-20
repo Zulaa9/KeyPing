@@ -141,6 +141,24 @@ async function run(browser, base, vp) {
   assert.equal(await rows.count(), active.length + 1);
   step('entrada nueva guardada y copiada');
 
+  // Copiar desde la lista sin abrir la entrada.
+  await page.evaluate(() => { window.__kpSim.clipboard = null; });
+  await page.locator('.row-copy').first().tap();
+  await page.waitForFunction(() => !!window.__kpSim.clipboard);
+
+  // Salud: puntuación y entradas a revisar (la japonesa y la sin nombre del fixture son cortas).
+  await page.locator('.tabbar button', { hasText: 'Salud' }).tap();
+  await screen('health').waitFor();
+  await page.locator('.score-ring').waitFor();
+  assert.ok(await page.locator('.rows .row').count() >= 1);
+  await shot(page, `${tag}-14-health`);
+  await noOverflow(page, 'salud');
+  await page.locator('.rows .row').first().tap();
+  await screen('detail').waitFor();
+  await page.goBack();
+  await screen('health').waitFor();
+  step('copiar desde la lista y pestaña Salud');
+
   // 5. Generador y ajustes.
   await page.locator('.tabbar button', { hasText: 'Generador' }).tap();
   await screen('gen').waitFor();
