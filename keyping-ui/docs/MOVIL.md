@@ -22,7 +22,8 @@ Estado: implementado; probado con tests, Playwright y en un Nothing Phone 3 (APK
 ## 2. Pantallas e inventario de funciones
 
 Pestañas inferiores: **Contraseñas** (buscador fijo, carpetas en chips, orden por nombre o recientes, filas grandes con
-botón de copiar, botón +), **Salud**, **Generador** y **Ajustes**. Al crear la bóveda se puede **restaurar desde un
+botón de copiar, botón +), **Salud** (puntuación, débiles, repetidas y sin 2FA, como el escritorio), **Generador** y
+**Ajustes**. Al crear la bóveda se puede **restaurar desde un
 `.kpenc`** (misma contraseña maestra que el ordenador); al importar con la bóveda creada se puede adoptar la del archivo. Pantallas apiladas con el botón Atrás del sistema: detalle, añadir/editar, contraseña nueva, exportar,
 importar y contraseña maestra.
 
@@ -45,6 +46,24 @@ pierda si el sistema cierra o bloquea la app mientras se está en el navegador.
 | Bloqueo por inactividad | Portado (1, 5 o 15 min) + bloqueo al pasar a segundo plano |
 | Autoactualización, ventana, bandeja, atajos, comprobación de integridad | No aplicable (la tienda actualiza; sin ventanas) |
 | Exportación nativa v1 `.keyping` | No aplicable: depende de la clave del equipo; al importarla se explica el error |
+
+## 2 bis. Apps en el teléfono, firma y descarga
+
+- `npm run android:apk` (depuración) instala **otra app**, `dev.zula.keyping.pruebas` («KeyPing pruebas»), con sus
+  propios datos: las pruebas nunca tocan la bóveda de la app normal. Con `-PkeypingUso` se genera `dev.zula.keyping`
+  firmada con la clave de depuración (uso personal; una versión de Play o firmada con otra clave no se instala encima:
+  exportar `.kpenc`, desinstalar, instalar y restaurar).
+- `versionName`/`versionCode` salen de `package.json` (`mayor*10000 + menor*100 + parche`; 1.3.1 → 10301).
+- `npm run android:release` → `dist/build/KeyPing-<versión>.apk`, solo si están `KEYPING_ANDROID_KEYSTORE`,
+  `KEYPING_ANDROID_STORE_PASSWORD`, `KEYPING_ANDROID_KEY_ALIAS` y `KEYPING_ANDROID_KEY_PASSWORD`. Los scripts
+  `generate-checksums.(sh|ps1)` incluyen el `.apk` en `SHA256SUMS.txt`.
+- **Web** (`site/`): si la última release de GitHub tiene `KeyPing-x.y.z.apk`, la página de descarga muestra Android
+  (tarjeta, SHA-256, instalación, «no se actualiza sola») y el botón principal da el APK en móviles Android; si no, dice
+  que la app está en desarrollo. Se publica al fusionar en `main` y publicar la release.
+- Pasos del usuario para el primer APK público: crear la clave de subida
+  (`keytool -genkeypair -v -keystore keyping-upload.jks -alias keyping -keyalg RSA -keysize 4096 -validity 10000`),
+  guardarla con copia fuera del equipo (si se pierde, no se pueden publicar actualizaciones que se instalen encima),
+  definir las variables, `npm run android:release`, regenerar `SHA256SUMS.txt` y subir el APK a la release.
 
 ## 3. Formato de exportación (portabilidad)
 
@@ -114,6 +133,8 @@ excluidos de iCloud, `UIPasteboard` local con caducidad, ocultar en el selector 
 compartir), y probarlo en un iPhone real.
 
 ## 9. Decisiones pendientes del usuario
+
+- Cuándo publicar el primer APK en GitHub Releases (y con qué versión) y fusionar `movil` en `main` para que la web lo muestre.
 
 - `appId` **`dev.zula.keyping`**: es permanente en Google Play una vez publicado.
 - Numeración de versiones del móvil (hoy versionName 1.3.1, versionCode 1).
