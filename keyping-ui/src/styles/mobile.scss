@@ -1,0 +1,241 @@
+// Diseño táctil para las builds móviles. Todo va bajo html.kp-mobile (lo pone la capa de
+// plataforma móvil), así que el escritorio no cambia aunque la ventana sea estrecha.
+
+html.kp-mobile {
+  --kp-titlebar-height: 0px;
+  --kp-topbar-h: 52px;
+  --kp-bottombar-h: 60px;
+  --kp-safe-top: env(safe-area-inset-top, 0px);
+  --kp-safe-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+
+  body { overscroll-behavior: none; }
+
+  .kp-titlebar { display: none; }
+
+  // ---- Estructura: barra superior + contenido + barra de navegación inferior ----
+  .layout-shell {
+    height: 100dvh;
+    padding-top: 0;
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    // Por encima de la hoja de detalle (45): el generador se abre dentro de esta barra.
+    z-index: 50;
+    height: calc(var(--kp-bottombar-h) + var(--kp-safe-bottom));
+    padding: 4px 4px calc(4px + var(--kp-safe-bottom));
+    flex-direction: row;
+    gap: 0;
+    border-right: 0;
+    border-top: 1px solid rgba(31, 41, 55, 0.9);
+    background: #020617;
+  }
+
+  .sidebar-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 41;
+    height: calc(var(--kp-topbar-h) + var(--kp-safe-top));
+    margin: 0;
+    padding: var(--kp-safe-top) 120px 0 14px;
+    background: #020617;
+    .app-logo { width: 30px; height: 30px; }
+    .app-name { font-size: 17px; }
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .sidebar-nav .nav-item,
+  .sidebar-nav .generator-wrapper > .nav-item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px;
+    min-width: 0;
+    font-size: 10.5px;
+    line-height: 1.15;
+    text-align: center;
+    .nav-icon { font-size: 19px; line-height: 1; }
+    span:last-child { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  }
+  .sidebar-nav > .nav-item,
+  .sidebar-nav > kp-password-generator { flex: 1 1 0; min-width: 0; display: flex; position: relative; }
+  kp-password-generator .generator-wrapper { flex: 1; display: flex; }
+  kp-password-generator .generator-wrapper > .nav-item { flex: 1; }
+  .sidebar-nav .nav-main { flex-direction: column; gap: 2px; position: relative; }
+  .sidebar-nav .nav-badge {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    margin-left: 8px;
+    min-width: 18px;
+    padding: 0 5px;
+    font-size: 10px;
+  }
+
+  // Tour y bloqueo pasan a la barra superior.
+  .sidebar-nav .tour-nav {
+    position: fixed;
+    top: calc(var(--kp-safe-top) + 6px);
+    right: 64px;
+    z-index: 42;
+    width: 44px;
+    height: 40px;
+    flex: none;
+    span:last-child { display: none; }
+  }
+  .sidebar-footer {
+    position: fixed;
+    top: calc(var(--kp-safe-top) + 6px);
+    right: 10px;
+    z-index: 42;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    .lock-button {
+      width: 48px;
+      height: 40px;
+      justify-content: center;
+      padding: 0;
+      span:last-child { display: none; }
+    }
+  }
+
+  .main {
+    flex: 1;
+    padding: calc(var(--kp-topbar-h) + var(--kp-safe-top)) 12px calc(var(--kp-bottombar-h) + var(--kp-safe-bottom) + 12px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  // ---- Generador: hoja inferior en lugar de panel flotante junto al menú ----
+  .generator-panel {
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: auto !important;
+    bottom: calc(var(--kp-bottombar-h) + var(--kp-safe-bottom) + 8px) !important;
+    width: auto !important;
+    max-height: 70dvh;
+    overflow-y: auto;
+    z-index: 60;
+    .drag-handle { display: none; }
+  }
+
+  // ---- Objetivos táctiles cómodos (>= 44 px) ----
+  button, .btn, input, select, textarea { font-size: 16px; }
+  .btn { min-height: 44px; }
+  .btn.small { min-height: 40px; }
+  input[type='checkbox'] { width: 22px; height: 22px; }
+
+  // ---- Pantalla de bloqueo y tour ----
+  .lock-screen { padding: 16px; align-items: flex-start; padding-top: calc(12dvh + var(--kp-safe-top)); }
+  .lock-card { width: 100%; max-width: 440px; }
+  .onboarding-card.anchored {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: calc(var(--kp-bottombar-h) + var(--kp-safe-bottom) + 12px) !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+  .onboarding-card.anchored::before, .onboarding-card.anchored::after { display: none; }
+
+  .unlock-notice {
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--kp-bottombar-h) + var(--kp-safe-bottom) + 12px);
+  }
+}
+
+// ---- Páginas ----
+html.kp-mobile {
+  .passwords-page,
+  .add-page,
+  .page {
+    height: auto;
+    overflow: visible;
+  }
+  // Sin animación con transform: crearía un bloque contenedor y la hoja de detalle (fixed)
+  // dejaría de colocarse respecto a la pantalla.
+  .passwords-page { padding-top: 12px; animation: none; }
+  .add-page { padding: 12px 0; }
+
+  // Contraseñas: lista a pantalla completa (sin columna de detalle ni scroll interno).
+  .layout,
+  .layout.layout-collapsed {
+    display: block;
+    max-height: none;
+  }
+  .list-panel,
+  .list-panel.list-collapsed {
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+  }
+  .list { overflow: visible; padding-right: 0; }
+  .collapse-btn { display: none; }
+  .list-panel.list-collapsed .item-text,
+  .list-panel.list-collapsed .item-arrow,
+  .list-panel.list-collapsed .folder-name,
+  .list-panel.list-collapsed .folder-count,
+  .list-panel.list-collapsed .panel-header .panel-title { display: revert; }
+  .list-panel.list-collapsed .item { justify-content: space-between; }
+  .item { min-height: 56px; }
+  // Acceso de emergencia al enlace de cambio: objetivo táctil grande.
+  .item-quick { min-width: 44px; min-height: 44px; }
+  .folder-header { min-height: 48px; }
+  .folder-handle { display: none; }
+
+  // Detalle: hoja a pantalla completa entre la barra superior y la inferior.
+  .detail {
+    position: fixed;
+    top: calc(var(--kp-topbar-h) + var(--kp-safe-top));
+    bottom: calc(var(--kp-bottombar-h) + var(--kp-safe-bottom));
+    left: 0;
+    right: 0;
+    z-index: 45;
+    // align-self: start (escritorio) también alinea las cajas fixed y anularía top/bottom.
+    align-self: stretch;
+    justify-self: stretch;
+    margin: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    max-height: none;
+  }
+  .detail-scroll { max-height: 100%; padding: 14px 14px 24px; }
+
+  .history-modal-overlay { padding: 8px; }
+  .history-modal { max-height: 92dvh; }
+  .history-row { grid-template-columns: minmax(0, 1fr); }
+
+  // Formularios: una columna y sin desbordes.
+  .form-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "service" "folder" "password" "user" "email" "login" "change"; }
+  .form-grid input, .form-grid select { min-width: 0; max-width: 100%; }
+  .card-surface { padding: 14px; }
+  .password-input-row { flex-wrap: wrap; }
+  .password-input-row input { flex: 1 1 100%; }
+
+  .confirm-backdrop { padding: 12px; }
+  .confirm-modal { width: 100%; max-width: none; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .folder-context-menu { max-width: calc(100vw - 24px); }
+}

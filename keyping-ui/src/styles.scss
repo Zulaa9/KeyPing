@@ -37,3 +37,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
   p { margin: 0; flex: 1 1 320px; line-height: 1.45; }
   .unlock-notice-actions { display: flex; gap: 8px; }
 }
+
+/* Diseño táctil de las builds móviles (solo con html.kp-mobile) */
+@import 'styles/mobile';

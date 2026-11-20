@@ -368,7 +368,7 @@
         <p class="muted tiny">{{ 'settings.export.subtitle' | t }}</p>
       </div>
       <div class="block-actions">
-        <span class="muted tiny">{{ 'settings.export.hint' | t }}</span>
+        <span class="muted tiny">{{ (isMobile ? 'settings.export.mobileHint' : 'settings.export.hint') | t }}</span>
         <button type="button" class="btn primary" (click)="openExportModal()" [disabled]="exporting">{{ 'settings.export.action' | t }}</button>
       </div>
       <div class="export-extra">
@@ -410,7 +410,7 @@
 
         <div class="file-row">
           <label class="btn ghost file-btn">
-            <input type="file" accept=".kpenc,.json,.keyping" (change)="onImportFile($event)" />
+            <input type="file" [attr.accept]="importAccept || null" (change)="onImportFile($event)" />
             <span>{{ 'settings.import.chooseFile' | t }}</span>
           </label>
           <div class="muted tiny" *ngIf="importFilename; else noFile">
@@ -528,7 +528,8 @@
     </div>
     <div class="modal-actions">
       <button type="button" class="btn ghost" (click)="closeExportModal()">{{ 'settings.actions.cancel' | t }}</button>
-      <button type="button" class="btn primary" (click)="confirmExport()" [disabled]="exporting">{{ 'settings.export.modal.confirm' | t }}</button>
+      <button type="button" class="btn primary" (click)="confirmExport()" [disabled]="exporting">{{ (isMobile ? 'settings.export.modal.saveMobile' : 'settings.export.modal.confirm') | t }}</button>
+      <button type="button" class="btn" *ngIf="isMobile" (click)="confirmExport('share')" [disabled]="exporting">{{ 'settings.export.modal.share' | t }}</button>
     </div>
   </div>
 </div>
