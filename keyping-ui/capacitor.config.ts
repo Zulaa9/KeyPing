@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// KeyPing móvil (Capacitor). La app web es la misma de escritorio compilada con
-// `ng build --configuration mobile` (capa de plataforma móvil en src/app/platform).
+// KeyPing móvil (Capacitor). Interfaz propia para el móvil (proyecto Angular `keyping-mobile`, carpeta
+// mobile/) sobre el mismo núcleo que el escritorio (core/): misma bóveda cifrada y mismo formato .kpenc.
 const config: CapacitorConfig = {
   // Identificador de la app en Google Play: definitivo una vez publicado (ver docs/MOVIL.md).
   appId: 'dev.zula.keyping',
@@ -15,7 +15,9 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: false
+    webContentsDebuggingEnabled: false,
+    // Capacitor no escribe en logcat las llamadas a plugins (llevan contraseñas copiadas).
+    loggingBehavior: 'none'
   },
   ios: {
     contentInset: 'never',

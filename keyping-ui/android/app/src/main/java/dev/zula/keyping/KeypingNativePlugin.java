@@ -253,6 +253,68 @@ public class KeypingNativePlugin extends Plugin {
         }
     }
 
+    // ---------------- Importación: abrir un archivo con el selector del sistema ----------------
+
+    private static final int MAX_IMPORT_BYTES = 25 * 1024 * 1024;
+
+    /** Lee el archivo elegido en Java y devuelve su texto: la WebView no pierde el resultado aunque
+     * la actividad pase por segundo plano mientras el selector está abierto. */
+    @PluginMethod
+    public void pickFile(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        // .kpenc no tiene tipo MIME registrado: se acepta cualquiera y se valida el contenido.
+        intent.setType("*/*");
+        startActivityForResult(call, intent, "onPickResult");
+    }
+
+    @ActivityCallback
+    private void onPickResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        JSObject ret = new JSObject();
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            ret.put("ok", false);
+            call.resolve(ret);
+            return;
+        }
+        Uri uri = result.getData().getData();
+        try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new IOException("no-stream");
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] chunk = new byte[16384];
+            int n;
+            while ((n = in.read(chunk)) != -1) {
+                buf.write(chunk, 0, n);
+                if (buf.size() > MAX_IMPORT_BYTES) {
+                    ret.put("ok", false);
+                    ret.put("error", "too-large");
+                    call.resolve(ret);
+                    return;
+                }
+            }
+            ret.put("ok", true);
+            ret.put("name", displayName(uri));
+            ret.put("data", new String(buf.toByteArray(), StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            ret.put("ok", false);
+            ret.put("error", "read-error");
+        }
+        call.resolve(ret);
+    }
+
+    private String displayName(Uri uri) {
+        try (android.database.Cursor c = getContext().getContentResolver().query(uri,
+                new String[] { android.provider.OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                String name = c.getString(0);
+                if (name != null) return name.length() > 128 ? name.substring(0, 128) : name;
+            }
+        } catch (Exception ignored) {
+            // Sin nombre visible: no es necesario para importar.
+        }
+        return "";
+    }
+
     // ---------------- Ciclo de vida ----------------
 
     @Override
