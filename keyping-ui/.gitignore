@@ -58,3 +58,6 @@ testem.log
 # --- System files ---
 .DS_Store
 Thumbs.db
+
+# Capturas de las pruebas móviles
+/e2e/mobile/output
