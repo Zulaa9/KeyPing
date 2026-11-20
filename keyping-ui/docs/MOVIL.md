@@ -21,8 +21,9 @@ Estado: implementado; probado con tests, Playwright y en un Nothing Phone 3 (APK
 
 ## 2. Pantallas e inventario de funciones
 
-Pestañas inferiores: **Contraseñas** (buscador fijo, carpetas en chips, filas grandes, botón +), **Generador** y
-**Ajustes**. Pantallas apiladas con el botón Atrás del sistema: detalle, añadir/editar, contraseña nueva, exportar,
+Pestañas inferiores: **Contraseñas** (buscador fijo, carpetas en chips, orden por nombre o recientes, filas grandes con
+botón de copiar, botón +), **Salud**, **Generador** y **Ajustes**. Al crear la bóveda se puede **restaurar desde un
+`.kpenc`** (misma contraseña maestra que el ordenador); al importar con la bóveda creada se puede adoptar la del archivo. Pantallas apiladas con el botón Atrás del sistema: detalle, añadir/editar, contraseña nueva, exportar,
 importar y contraseña maestra.
 
 Flujo de urgencia: buscar (sin tildes) → Intro abre el primer resultado → «Cambiar contraseña en la web» → «Guardar,
@@ -34,9 +35,10 @@ pierda si el sistema cierra o bloquea la app mientras se está en el navegador.
 | Crear/desbloquear bóveda, contraseña maestra, política de intentos (3 libres, 5 s ×2, máx. 1 h) | Portada |
 | Lista, búsqueda, detalle, editar, borrar, historial (recuperar/borrar versiones), carpetas | Adaptada al tacto (carpeta como campo y chips; sin arrastrar y soltar) |
 | Análisis de contraseña (patrones, similitud con la bóveda) | Portada, bajo el campo de contraseña |
+| Salud de contraseñas (puntuación, débiles, repetidas, sin 2FA) | Portada con el mismo cálculo, como pestaña |
 | Generador | Adaptado: dentro del campo de contraseña y como pestaña |
 | Enlace de cambio de contraseña | Adaptado: guarda, copia y abre la web en un toque |
-| Copiar con limpieza a los 20 s | Portapapeles marcado como sensible (Android 13+) y limpieza automática |
+| Copiar con limpieza a los 20 s | Portapapeles marcado como sensible (Android 13+) y limpieza a los 20 s; no se vacía al bloquear (en el móvil se bloquea al salir, justo cuando se va a pegar) |
 | Exportar / importar `.kpenc` | Flujo guiado; selector del sistema y hoja de compartir (el nombre del archivo usa la hora UTC, igual que el escritorio) |
 | Versiones guardadas por entrada | Portada (5, 10 o 20) |
 | Idiomas es/en | Portada (textos propios del móvil, mismas reglas del analizador) |
