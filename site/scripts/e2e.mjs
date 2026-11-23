@@ -115,8 +115,8 @@ for (const [os, ua] of Object.entries(UA)) {
       };
     });
     checks += 2;
-    if (os === 'windows') { check(/KeyPing-Setup-.*\.exe$/.test(d.href), `UA windows ${path}: href ${d.href}`); check(/AppImage$/.test(d.other || ''), `UA windows ${path}: otra ${d.other}`); }
-    if (os === 'linux') { check(/KeyPing-.*\.AppImage$/.test(d.href), `UA linux ${path}: href ${d.href}`); check(/\.exe$/.test(d.other || ''), `UA linux ${path}: otra ${d.other}`); }
+    if (os === 'windows') { check(/^https:\/\/apps\.microsoft\.com\/detail\/9N168Z5TZT05$/.test(d.href), `UA windows ${path}: href ${d.href}`); check(/KeyPing-Setup-.*\.exe$/.test(d.other || ''), `UA windows ${path}: otra ${d.other}`); }
+    if (os === 'linux') { check(/KeyPing-.*\.AppImage$/.test(d.href), `UA linux ${path}: href ${d.href}`); check(/apps\.microsoft\.com/.test(d.other || ''), `UA linux ${path}: otra ${d.other}`); }
     if (os === 'mac') { check(/\/(descargar|en\/download)\/$/.test(d.href), `UA mac ${path}: href ${d.href}`); check(d.unsupported, `UA mac ${path}: sin aviso de plataforma`); }
     console.log(`UA ${os} ${path}: ${d.label} -> ${d.href}${d.other ? ' | otra: ' + d.other : ''}`);
     if (path === '/') await page.screenshot({ path: `${OUT}/ua-${os}.png` });

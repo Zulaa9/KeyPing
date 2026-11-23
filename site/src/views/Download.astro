@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { getRelease, LATEST_URL, RELEASES_URL } from '../lib/release';
-import { ROUTES, type Lang } from '../i18n/routes';
+import { ROUTES, STORE_URL, type Lang } from '../i18n/routes';
 
 interface Props { lang: Lang }
 const { lang } = Astro.props;
@@ -18,7 +18,7 @@ const description = es
   ? `Descarga KeyPing ${rel.version}: instalador para Windows, AppImage para Linux${android ? ' y APK para Android' : ''}, con su SHA-256 y cómo comprobarlo.`
   : `Download KeyPing ${rel.version}: Windows installer, Linux AppImage${android ? ' and Android APK' : ''}, with their SHA-256 and how to check them.`;
 const platforms = [
-  { key: 'windows', name: 'Windows', kind: es ? 'Instalador (.exe), Windows 10 y 11 de 64 bits' : 'Installer (.exe), 64-bit Windows 10 and 11', a: rel.windows },
+  { key: 'windows', name: 'Windows', kind: es ? 'Microsoft Store o instalador (.exe), Windows 10 y 11 de 64 bits' : 'Microsoft Store or installer (.exe), 64-bit Windows 10 and 11', a: rel.windows },
   { key: 'linux', name: 'Linux', kind: es ? 'AppImage de 64 bits (x86_64)' : '64-bit AppImage (x86_64)', a: rel.linux },
   ...(android ? [{ key: 'android', name: 'Android', kind: es ? 'APK para Android 7 o superior' : 'APK for Android 7 or later', a: android }] : []),
 ];
@@ -47,7 +47,14 @@ const platforms = [
               <dt>{es ? 'Tamaño' : 'Size'}</dt><dd>{fmtSize(p.a.size)}</dd>
               {p.a.sha256 && (<><dt>SHA-256</dt><dd class="hash">{p.a.sha256}</dd></>)}
             </dl>
-            <p><a class="btn btn-primary" href={p.a.url} download={p.a.name}>{es ? `Descargar para ${p.name}` : `Download for ${p.name}`}</a></p>
+            {p.key === 'windows' ? (
+              <p class="platform-actions">
+                <a class="btn btn-primary" href={STORE_URL}>{es ? 'Obtener en Microsoft Store' : 'Get it from Microsoft Store'}</a>
+                <a class="btn" href={p.a.url} download={p.a.name}>{es ? 'Descargar el instalador .exe' : 'Download the .exe installer'}</a>
+              </p>
+            ) : (
+              <p><a class="btn btn-primary" href={p.a.url} download={p.a.name}>{es ? `Descargar para ${p.name}` : `Download for ${p.name}`}</a></p>
+            )}
           </article>
         ))}
       </div>
@@ -91,8 +98,11 @@ const platforms = [
       <h2 id="install-h">{es ? 'Instalación' : 'Installation'}</h2>
       <h3>Windows</h3>
       <p>{es
-        ? 'Ejecuta el instalador y sigue los pasos. Como el instalador no lleva firma de código, Windows puede mostrar «Windows protegió su PC» (SmartScreen). Si has comprobado el SHA-256, pulsa «Más información» y después «Ejecutar de todas formas».'
-        : 'Run the installer and follow the steps. Because the installer is not code-signed, Windows may show “Windows protected your PC” (SmartScreen). If you have checked the SHA-256, click “More info” and then “Run anyway”.'}</p>
+        ? <>La forma recomendada es <a href={STORE_URL}>Microsoft Store</a>: el paquete lo firma Microsoft, Windows no muestra avisos al instalarlo y las actualizaciones llegan a través de la Store. Esa versión no se conecta a internet. Guarda sus datos aparte de la versión .exe y los elimina al desinstalarla, así que exporta antes una copia cifrada (.kpenc) si vas a desinstalarla o a cambiar de versión.</>
+        : <>The recommended way is <a href={STORE_URL}>Microsoft Store</a>: Microsoft signs the package, Windows shows no warnings when installing it and updates arrive through the Store. That version does not connect to the internet. It keeps its data separate from the .exe version and removes it when uninstalled, so export an encrypted backup (.kpenc) first if you are going to uninstall it or switch versions.</>}</p>
+      <p>{es
+        ? 'Si prefieres el instalador .exe, ejecútalo y sigue los pasos. Como no lleva firma de código, Windows puede mostrar «Windows protegió su PC» (SmartScreen). Si has comprobado el SHA-256, pulsa «Más información» y después «Ejecutar de todas formas».'
+        : 'If you prefer the .exe installer, run it and follow the steps. Because it is not code-signed, Windows may show “Windows protected your PC” (SmartScreen). If you have checked the SHA-256, click “More info” and then “Run anyway”.'}</p>
       <h3>Linux</h3>
       <p>{es ? 'El AppImage no necesita instalación. Dale permiso de ejecución y ábrelo:' : 'The AppImage needs no installation. Make it executable and open it:'}</p>
       <pre><code>chmod +x {rel.linux.name}
@@ -109,8 +119,8 @@ const platforms = [
       </>)}
       <h3>{es ? 'Actualizaciones' : 'Updates'}</h3>
       <p>{es
-        ? 'KeyPing avisa cuando hay una versión nueva y la instala al cerrarse si tú la descargas. También puedes descargarla siempre desde '
-        : 'KeyPing tells you when a new version is out and installs it on exit once you download it. You can also always get it from '}<a href={LATEST_URL}>{es ? 'la última release en GitHub' : 'the latest release on GitHub'}</a>.</p>
+        ? 'Las versiones .exe y AppImage avisan cuando hay una versión nueva y la instalan al cerrarse si tú la descargas. También puedes descargarla siempre desde '
+        : 'The .exe and AppImage versions tell you when a new version is out and install it on exit once you download it. You can also always get it from '}<a href={LATEST_URL}>{es ? 'la última release en GitHub' : 'the latest release on GitHub'}</a>{es ? '. La versión de Microsoft Store se actualiza desde la propia Store.' : '. The Microsoft Store version is updated by the Store itself.'}</p>
     </div>
   </section>
 </Base>

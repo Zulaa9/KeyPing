@@ -1,8 +1,8 @@
 ---
 // Botón de descarga. Sin JavaScript enlaza a la página de descargas; /js/site.js lo convierte en
-// la descarga directa para Windows o Linux según el navegador y muestra la otra plataforma.
+// Microsoft Store (Windows, con el .exe como alternativa) o la descarga directa (Linux/Android).
 import { getRelease } from '../lib/release';
-import { ROUTES, type Lang } from '../i18n/routes';
+import { ROUTES, STORE_URL, type Lang } from '../i18n/routes';
 
 interface Props { lang: Lang; size?: 'lg' | 'md' }
 const { lang, size = 'lg' } = Astro.props;
@@ -10,9 +10,10 @@ const rel = await getRelease();
 const t = {
   es: {
     generic: 'Descargar KeyPing',
-    win: 'Descargar para Windows',
+    win: 'Obtener en Microsoft Store',
     linux: 'Descargar para Linux',
-    otherWin: 'También para Windows (.exe)',
+    otherWin: 'También para Windows (Microsoft Store)',
+    winExe: 'O descarga el instalador .exe',
     otherLinux: 'También para Linux (AppImage)',
     all: 'Todas las descargas y cómo verificarlas',
     android: 'Descargar para Android (APK)',
@@ -21,9 +22,10 @@ const t = {
   },
   en: {
     generic: 'Download KeyPing',
-    win: 'Download for Windows',
+    win: 'Get it from Microsoft Store',
     linux: 'Download for Linux',
-    otherWin: 'Also for Windows (.exe)',
+    otherWin: 'Also for Windows (Microsoft Store)',
+    winExe: 'Or download the .exe installer',
     otherLinux: 'Also for Linux (AppImage)',
     all: 'All downloads and how to verify them',
     android: 'Download for Android (APK)',
@@ -33,7 +35,8 @@ const t = {
 }[lang];
 ---
 <div class={`download-cta size-${size}`} data-download
-  data-win-href={rel.windows.url} data-win-label={t.win} data-win-other={t.otherWin}
+  data-win-href={STORE_URL} data-win-store data-win-label={t.win} data-win-other={t.otherWin}
+  data-win-exe-href={rel.windows.url} data-win-exe-label={t.winExe}
   data-linux-href={rel.linux.url} data-linux-label={t.linux} data-linux-other={t.otherLinux}
   data-android-href={rel.android?.url} data-android-label={t.android}>
   <a class="btn btn-primary" href={ROUTES[lang].download} data-primary>

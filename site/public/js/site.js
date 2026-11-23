@@ -1,5 +1,5 @@
 // KeyPing web: mejora progresiva sin dependencias ni peticiones de red.
-// 1) Botón de descarga según el sistema (Windows, Linux o Android si la release trae APK).
+// 1) Botón de descarga según el sistema (Windows → Microsoft Store, Linux, o Android si la release trae APK).
 // 2) Sugerencia de idioma (nunca redirige).
 (function () {
   'use strict';
@@ -24,6 +24,12 @@
     a.setAttribute('download', href.split('/').pop());
   }
 
+  // Enlace a una página externa (Microsoft Store): sin «download».
+  function setLink(a, href) {
+    a.setAttribute('href', href);
+    a.removeAttribute('download');
+  }
+
   function setupDownloads() {
     var os = detectOS();
     document.documentElement.setAttribute('data-os', os);
@@ -34,14 +40,20 @@
       var label = b.querySelector('[data-label]');
       var other = b.querySelector('[data-other]');
       var unsupported = b.querySelector('[data-unsupported]');
-      if (os === 'windows' || os === 'linux') {
-        var me = os === 'windows' ? 'win' : 'linux';
-        var them = os === 'windows' ? 'linux' : 'win';
-        setFile(primary, b.getAttribute('data-' + me + '-href'));
+      if (os === 'windows') {
+        // Windows: Microsoft Store como opción principal y el .exe de GitHub como alternativa.
+        setLink(primary, b.getAttribute('data-win-href'));
         primary.setAttribute('data-os-target', os);
-        label.textContent = b.getAttribute('data-' + me + '-label');
-        setFile(other, b.getAttribute('data-' + them + '-href'));
-        other.textContent = b.getAttribute('data-' + them + '-other');
+        label.textContent = b.getAttribute('data-win-label');
+        setFile(other, b.getAttribute('data-win-exe-href'));
+        other.textContent = b.getAttribute('data-win-exe-label');
+        other.hidden = false;
+      } else if (os === 'linux') {
+        setFile(primary, b.getAttribute('data-linux-href'));
+        primary.setAttribute('data-os-target', os);
+        label.textContent = b.getAttribute('data-linux-label');
+        setLink(other, b.getAttribute('data-win-href'));
+        other.textContent = b.getAttribute('data-win-other');
         other.hidden = false;
       } else if (os === 'android' && b.getAttribute('data-android-href')) {
         setFile(primary, b.getAttribute('data-android-href'));

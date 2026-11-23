@@ -64,8 +64,8 @@ const description = es
 
       <h2 id={es ? 'conexiones' : 'connections'}>{es ? 'Qué conexiones hace la app' : 'Which connections the app makes'}</h2>
       <p>{es
-        ? 'Por diseño, una sola: comprobar en GitHub Releases si hay una versión nueva, unos segundos después de arrancar y cuando la pides en Ajustes. Puedes desactivar la comprobación automática. La descarga automática viene desactivada: tú decides cuándo descargar.'
-        : 'By design, only one: checking GitHub Releases for a new version, a few seconds after start-up and when you ask in Settings. You can turn the automatic check off. Automatic download is off by default: you decide when to download.'}</p>
+        ? 'Por diseño, una sola: comprobar en GitHub Releases si hay una versión nueva, unos segundos después de arrancar y cuando la pides en Ajustes. Puedes desactivar la comprobación automática. La descarga automática viene desactivada: tú decides cuándo descargar. La versión de Microsoft Store no hace ni esa conexión: las actualizaciones las gestiona la Store.'
+        : 'By design, only one: checking GitHub Releases for a new version, a few seconds after start-up and when you ask in Settings. You can turn the automatic check off. Automatic download is off by default: you decide when to download. The Microsoft Store version does not even make that connection: updates are handled by the Store.'}</p>
       <div class="note">
         <p><strong>{linuxFixed
           ? (es ? `Corregido en la ${LINUX_SPELLCHECK_FIX} (Linux).` : `Fixed in ${LINUX_SPELLCHECK_FIX} (Linux).`)
@@ -98,7 +98,7 @@ const description = es
         <li>{es ? 'KeyPing protege los datos guardados en disco. No puede protegerte de un programa malicioso que ya controle tu equipo mientras la bóveda está abierta.' : 'KeyPing protects data at rest. It cannot protect you from malware that already controls your computer while the vault is open.'}</li>
         <li>{es ? 'En Linux, el historial del portapapeles de tu escritorio puede conservar lo copiado; KeyPing solo puede borrar el portapapeles actual.' : 'On Linux, your desktop’s clipboard history may keep copied secrets; KeyPing can only clear the current clipboard.'}</li>
         <li>{es ? 'No tiene extensión de navegador ni autocompletado: copias y pegas.' : 'There is no browser extension or autofill: you copy and paste.'}</li>
-        <li>{es ? 'Los instaladores no llevan firma de código de Windows, por eso SmartScreen puede avisar al instalar.' : 'Installers are not code-signed for Windows, so SmartScreen may warn during installation.'}</li>
+        <li>{es ? 'El instalador .exe no lleva firma de código de Windows, por eso SmartScreen puede avisar al instalarlo. La versión de Microsoft Store sí va firmada (por Microsoft).' : 'The .exe installer is not code-signed for Windows, so SmartScreen may warn when installing it. The Microsoft Store version is signed (by Microsoft).'}</li>
         <li>{es ? 'El código no ha pasado una auditoría de seguridad externa. Es abierto para que cualquiera pueda revisarlo.' : 'The code has not had an external security audit. It is open so anyone can review it.'}</li>
       </ul>
       <p>{es ? '¿Has encontrado un problema de seguridad? Escribe al autor a través de ' : 'Found a security problem? Contact the author through '}<a href={REPO_URL}>GitHub</a>.</p>

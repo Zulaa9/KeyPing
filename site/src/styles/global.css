@@ -114,6 +114,8 @@ pre code { background: none; border: 0; padding: 0; }
 /* Botones y descarga */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem; padding: 0.85rem 1.3rem; border-radius: 12px; font-weight: 700; text-decoration: none; border: 1px solid transparent; min-height: 3rem; text-align: center; }
 .btn-primary { background: var(--btn-bg); color: var(--btn-text); box-shadow: 0 10px 30px -12px rgba(37, 99, 235, 0.7); }
+.platform-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.platform-actions .btn:not(.btn-primary) { border-color: var(--border, currentColor); color: inherit; }
 .btn-primary:hover { background: var(--btn-bg-hover); color: var(--btn-text); }
 .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
 .btn-secondary:hover { background: var(--surface-2); color: var(--text); }
