@@ -102,7 +102,7 @@ Website with download links and verification steps: https://keyping.zula.dev
 
 ## Mobile app (Android)
 
-A mobile app designed for the phone lives in `keyping-ui/mobile` (Angular + Capacitor). It shares the vault and export logic with the desktop app (`keyping-ui/core`), so the same `.kpenc` file moves your passwords between computer and phone in both directions. It has no internet permission, blocks screenshots and locks itself when it goes to the background.
+A mobile app designed for the phone lives in `keyping-ui/mobile` (Angular + Capacitor). It shares the vault and export logic with the desktop app (`keyping-ui/core`), so the same `.kpenc` file moves your passwords between computer and phone in both directions. On a new computer, the first screen offers **Import an existing vault**: choose the `.kpenc` file and its master password, and the desktop vault is created with that same password and every entry. It has no internet permission, blocks screenshots and locks itself when it goes to the background.
 
 Available since 1.3.1 as a signed APK (`KeyPing-<version>.apk`) in GitHub Releases and on https://keyping.zula.dev, with its line in `SHA256SUMS.txt`. It does not update itself: install the new APK over the old one. It is not on Google Play yet. Details: [keyping-ui/docs/MOVIL.md](keyping-ui/docs/MOVIL.md) (Spanish).
 
