@@ -40,6 +40,7 @@ export function installFakeKeyping(entries: FakeEntry[] = [], overrides: Record<
     getPassword: jasmine.createSpy('getPassword').and.resolveTo(null),
     authUnlock: jasmine.createSpy('authUnlock').and.resolveTo({ ok: true }),
     authSetup: jasmine.createSpy('authSetup').and.resolveTo({ ok: true }),
+    authSetupFromImport: jasmine.createSpy('authSetupFromImport').and.resolveTo({ ok: true, imported: 3 }),
     authChange: jasmine.createSpy('authChange').and.resolveTo({ ok: true }),
     authVerify: jasmine.createSpy('authVerify').and.resolveTo(true),
     sessionLock: jasmine.createSpy('sessionLock').and.resolveTo(undefined),

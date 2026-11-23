@@ -32,6 +32,10 @@ declare global {
     | { ok: true; warning?: 'vault-unreadable' | 'legacy-unverified' }
     | { ok: false; reason: 'invalid' | 'cooldown' | 'auth-missing' | 'vault-unreadable' | 'error'; remainingMs?: number; dataDir?: string };
 
+  type KeypingSetupImportResult =
+    | { ok: true; imported: number; warning?: 'vault-unreadable' | 'import-failed' }
+    | { ok: false; reason: 'invalid' | 'invalid-file' | 'not-portable' | 'wrong-password' | 'too-large' | 'too-short' | 'error' };
+
   interface Window {
     keyping?: {
       checkCandidate(pwd: string): Promise<{ level: 'ok' | 'warn' | 'danger'; reasons: string[]; codes?: { code: string; params?: Record<string, string | number> }[] }>;
@@ -86,6 +90,7 @@ declare global {
       hasVault?(): Promise<boolean>;
       authUnlock?(password: string, legacyCheck?: { salt: string; check: string; iterations: number } | null): Promise<KeypingAuthResult | boolean>;
       authSetup?(password: string): Promise<KeypingAuthResult | boolean>;
+      authSetupFromImport?(raw: string, password: string): Promise<KeypingSetupImportResult>;
       authChange?(current: string, next: string): Promise<KeypingAuthResult>;
       setAttemptPolicy?(policy: { freeAttempts: number; baseDelayMs: number; growthFactor: number }): Promise<unknown>;
       onSessionLocked?(listener: () => void): () => void;

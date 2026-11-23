@@ -469,3 +469,76 @@
   transition: box-shadow 0.15s ease;
   z-index: 20050;
 }
+
+/* Primera ejecución: opción de importar una bóveda existente (.kpenc) */
+.lock-card {
+  .setup-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0;
+    color: #94a3b8;
+    font-size: 12px;
+
+    &::before,
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(148, 163, 184, 0.25);
+    }
+  }
+
+  .intro-import-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .setup-hint {
+    margin: 8px 0 0;
+    text-align: center;
+    font-size: 12px;
+  }
+
+  .restore-lead {
+    margin: 6px 0 0;
+    font-size: 13px;
+  }
+
+  .restore-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .file-btn {
+    position: relative;
+    overflow: hidden;
+    flex-direction: row;
+    font-size: 13px;
+    padding: 8px 12px;
+    color: var(--text);
+
+    input[type='file'] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    &.disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  }
+
+  .restore-file-name {
+    font-size: 12px;
+    word-break: break-all;
+  }
+
+  .restore-hint {
+    font-size: 11px;
+  }
+}

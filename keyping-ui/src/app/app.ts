@@ -30,7 +30,13 @@ export class AppComponent implements OnInit, OnDestroy {
   // Estado de bloqueo maestro y mensajes de UI asociados
   lockState: MasterState = 'locked';
   /** Aviso tras desbloquear (bóveda ilegible o migración 1.0.x sin verificador). */
-  unlockNotice: 'vault-unreadable' | 'legacy-unverified' | null = null;
+  unlockNotice: 'vault-unreadable' | 'legacy-unverified' | 'imported' | 'import-failed' | null = null;
+  private importedCount = 0;
+  /** Primera ejecución: crear una bóveda vacía o importar un archivo .kpenc existente. */
+  setupMode: 'new' | 'import' = 'new';
+  setupImportFileName = '';
+  setupImportRaw = '';
+  setupBusy = false;
   masterError: { key: string; params?: Record<string, string | number> } | null = null;
   masterCooldownLabel: { key: string; params?: Record<string, string | number> } | null = null;
   private cooldownTimer?: any;
@@ -208,7 +214,101 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   startMasterSetup(): void {
+    this.setSetupMode('new');
     this.showIntro = false;
+  }
+
+  startImportSetup(): void {
+    this.setSetupMode('import');
+    this.showIntro = false;
+  }
+
+  setSetupMode(mode: 'new' | 'import'): void {
+    this.setupMode = mode;
+    this.masterError = null;
+    this.masterPassword = '';
+    this.masterPasswordConfirm = '';
+    this.setupImportFileName = '';
+    this.setupImportRaw = '';
+  }
+
+  async onSetupImportFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    this.masterError = null;
+    this.setupImportFileName = '';
+    this.setupImportRaw = '';
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      this.masterError = { key: 'app.restore.err.tooLarge' };
+      if (input) input.value = '';
+      return;
+    }
+    try {
+      const text = await file.text();
+      // Comprobación previa (sin descifrar): solo sirve la exportación portable .kpenc.
+      const parsed = JSON.parse(text);
+      if (parsed?.format !== 'keyping-export-v2' || parsed?.enc !== 'master') {
+        this.masterError = { key: 'app.restore.err.notPortable' };
+        if (input) input.value = '';
+        return;
+      }
+      this.setupImportRaw = text;
+      this.setupImportFileName = file.name;
+    } catch {
+      this.masterError = { key: 'app.restore.err.invalidFile' };
+      if (input) input.value = '';
+    }
+  }
+
+  async onImportSetup(): Promise<void> {
+    if (this.setupBusy || !this.setupImportRaw || !this.masterPassword) return;
+    this.masterError = null;
+    this.setupBusy = true;
+    try {
+      const res = await this.master.setupFromImport(this.setupImportRaw, this.masterPassword);
+      if (!res.ok) {
+        this.masterError = { key: `app.restore.err.${this.restoreErrorKey(res.reason)}` };
+        return;
+      }
+      this.masterPassword = '';
+      this.setupImportRaw = '';
+      this.setupImportFileName = '';
+      this.setupMode = 'new';
+      this.importedCount = res.imported;
+      this.unlockNotice = res.warning === 'vault-unreadable'
+        ? 'vault-unreadable'
+        : res.warning === 'import-failed' ? 'import-failed' : 'imported';
+    } finally {
+      this.setupBusy = false;
+    }
+  }
+
+  private restoreErrorKey(reason: string): string {
+    switch (reason) {
+      case 'wrong-password':
+      case 'invalid': return 'wrongPassword';
+      case 'not-portable': return 'notPortable';
+      case 'too-large': return 'tooLarge';
+      case 'too-short': return 'tooShort';
+      case 'invalid-file': return 'invalidFile';
+      default: return 'failed';
+    }
+  }
+
+  get noticeMessage(): { key: string; params?: Record<string, string | number> } | null {
+    switch (this.unlockNotice) {
+      case 'vault-unreadable': return { key: 'app.notice.vaultUnreadable' };
+      case 'legacy-unverified': return { key: 'app.notice.legacyUnverified' };
+      case 'imported': return { key: 'app.notice.imported', params: { count: this.importedCount } };
+      case 'import-failed': return { key: 'app.notice.importFailed' };
+      default: return null;
+    }
+  }
+
+  openImportSettings(): void {
+    this.unlockNotice = null;
+    void this.router.navigate(['/settings'], { fragment: 'import' });
   }
 
   async onUnlock(): Promise<void> {

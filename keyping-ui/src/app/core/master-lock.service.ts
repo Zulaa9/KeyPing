@@ -119,6 +119,29 @@ export class MasterLockService {
     this.touch();
   }
 
+  /**
+   * Primera ejecución importando una bóveda (.kpenc de otro equipo o del móvil): el proceso principal
+   * comprueba el archivo, crea la bóveda con la contraseña con la que se exportó y lo importa entero.
+   */
+  async setupFromImport(raw: string, password: string): Promise<KeypingSetupImportResult> {
+    let res: KeypingSetupImportResult;
+    try {
+      res = (await window.keyping?.authSetupFromImport?.(raw, password)) ?? { ok: false, reason: 'error' };
+    } catch {
+      res = { ok: false, reason: 'error' };
+    }
+    if (!res.ok) return res;
+
+    this.lastAuthError = null;
+    this.lastUnlockWarning = res.warning === 'vault-unreadable' ? 'vault-unreadable' : null;
+    localStorage.removeItem(this.masterStorageKey);
+    localStorage.removeItem('keyping.vault.enc.v1');
+    this.state$.next('unlocked');
+    this.clearAttemptState();
+    this.touch();
+    return res;
+  }
+
   async unlock(password: string): Promise<boolean> {
     const now = Date.now();
     this.expireCooldownIfElapsed(now);
