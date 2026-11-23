@@ -105,6 +105,9 @@ contextBridge.exposeInMainWorld('keyping', {
   authUnlock: (password: string, legacyCheck?: { salt: string; check: string; iterations: number } | null) =>
     ipcRenderer.invoke('keyping:auth:unlock', password, legacyCheck ?? null),
   authSetup: (password: string) => ipcRenderer.invoke('keyping:auth:setup', password),
+  // Primera ejecución: crea la bóveda con la contraseña de un archivo .kpenc y lo importa entero.
+  authSetupFromImport: (raw: string, password: string) =>
+    ipcRenderer.invoke('keyping:auth:setupFromImport', raw, password),
   authChange: (current: string, next: string) => ipcRenderer.invoke('keyping:auth:change', current, next),
   setAttemptPolicy: (policy: { freeAttempts: number; baseDelayMs: number; growthFactor: number }) =>
     ipcRenderer.invoke('keyping:auth:setPolicy', policy),

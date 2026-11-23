@@ -24,6 +24,7 @@ import {
   exportEncryptedVault,
   exportVaultWithPassword,
   parseImportPayload,
+  classifyImport,
   overwriteVaultWithEntries,
   mergeVaultEntries,
   checkVaultIntegrity,
@@ -508,6 +509,68 @@ handle('keyping:auth:setup', async (password: unknown): Promise<AuthResult> => {
 
   await setupMasterPassword(password);
   return finishUnlock();
+});
+
+type SetupImportResult =
+  | { ok: true; imported: number; warning?: 'vault-unreadable' | 'import-failed' }
+  | { ok: false; reason: 'invalid' | 'invalid-file' | 'not-portable' | 'wrong-password' | 'too-large' | 'too-short' | 'error' };
+
+/**
+ * Primera ejecución con una bóveda que ya existe en otro equipo o en el móvil: se crea la bóveda
+ * con la contraseña con la que se exportó el archivo .kpenc (la maestra de origen) y se importa
+ * entero, historial incluido. Mismas condiciones que keyping:auth:setup: solo sin datos previos.
+ * El archivo se descifra antes de crear nada; si la contraseña no es la del archivo, no cambia nada.
+ */
+handle('keyping:auth:setupFromImport', async (raw: unknown, password: unknown): Promise<SetupImportResult> => {
+  if (typeof raw !== 'string' || !raw || raw.length > MAX_IMPORT_TEXT) return { ok: false, reason: 'invalid-file' };
+  if (!validPassword(password)) return { ok: false, reason: 'invalid' };
+  if (isUnlocked() || await hasAuthFile() || await hasLegacyKeyFile() || await vaultFileExists()) {
+    throw new Error('Unauthorized');
+  }
+
+  let kind: ReturnType<typeof classifyImport>['kind'];
+  try {
+    kind = classifyImport(raw).kind;
+  } catch {
+    return { ok: false, reason: 'invalid-file' };
+  }
+  // Solo el formato portable: la copia nativa (.keyping) depende de la clave del equipo que la
+  // creó y el texto plano no trae contraseña maestra; ambos se importan después desde Ajustes.
+  if (kind !== 'master') return { ok: false, reason: 'not-portable' };
+
+  let entries: ImportEntry[];
+  try {
+    entries = (await parseImportPayload(raw, password)).entries;
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg === 'import-wrong-password') return { ok: false, reason: 'wrong-password' };
+    if (msg === 'import-too-large') return { ok: false, reason: 'too-large' };
+    return { ok: false, reason: 'invalid-file' };
+  }
+  // La maestra de KeyPing exige 8 caracteres; una exportación con una más corta no sirve como maestra.
+  if (password.length < 8) return { ok: false, reason: 'too-short' };
+
+  try {
+    await setupMasterPassword(password);
+  } catch (err: any) {
+    console.error('[main] setup from import failed', err?.message);
+    clearSessionKey();
+    return { ok: false, reason: 'error' };
+  }
+
+  let imported = 0;
+  let importFailed = false;
+  try {
+    imported = await overwriteVaultWithEntries(entries);
+  } catch (err: any) {
+    // La bóveda ya existe (vacía) con la contraseña del archivo: se puede importar desde Ajustes.
+    console.error('[main] import after setup failed', err?.message);
+    importFailed = true;
+  }
+  const done = await finishUnlock();
+  if (!done.ok) return { ok: false, reason: 'error' };
+  if (done.warning === 'vault-unreadable') return { ok: true, imported, warning: 'vault-unreadable' };
+  return importFailed ? { ok: true, imported, warning: 'import-failed' } : { ok: true, imported };
 });
 
 /**
