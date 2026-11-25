@@ -102,7 +102,7 @@ Web con enlaces de descarga y cómo verificarlos: https://keyping.zula.dev
 
 ## App móvil (Android)
 
-En `keyping-ui/mobile` está la app móvil, diseñada para el teléfono (Angular + Capacitor). Comparte la bóveda y la exportación con el escritorio (`keyping-ui/core`), así que el mismo archivo `.kpenc` pasa las contraseñas del ordenador al móvil y al revés. No tiene permiso de internet, bloquea las capturas de pantalla y se bloquea al pasar a segundo plano.
+En `keyping-ui/mobile` está la app móvil, diseñada para el teléfono (Angular + Capacitor). Comparte la bóveda y la exportación con el escritorio (`keyping-ui/core`), así que el mismo archivo `.kpenc` pasa las contraseñas del ordenador al móvil y al revés. En un ordenador nuevo, la primera pantalla ofrece **Importar una bóveda existente**: eliges el `.kpenc` y su contraseña maestra, y la bóveda del escritorio se crea con esa misma contraseña y todas las entradas. No tiene permiso de internet, bloquea las capturas de pantalla y se bloquea al pasar a segundo plano.
 
 Disponible desde la 1.3.1 como APK firmado (`KeyPing-<versión>.apk`) en GitHub Releases y en https://keyping.zula.dev, con su línea en `SHA256SUMS.txt`. No se actualiza sola: instala el APK nuevo encima del anterior. Todavía no está en Google Play. Detalles: [keyping-ui/docs/MOVIL.md](keyping-ui/docs/MOVIL.md).
 

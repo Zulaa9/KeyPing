@@ -24,6 +24,7 @@ import { nodeCrypto } from './node-crypto';
 export { MAX_SECRET_LENGTH, validateSecret, sanitizeMeta } from '../../core/vault-model';
 export type { EntryMetaInput, ImportEntry } from '../../core/vault-model';
 export type { MasterExportPayload } from '../../core/export-format';
+export { classifyImport } from '../../core/export-format';
 
 let cachedHmacKey: Buffer | null = null;
 

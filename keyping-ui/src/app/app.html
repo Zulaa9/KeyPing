@@ -10,9 +10,17 @@
 <kp-update-banner *ngIf="lockState === 'unlocked'"></kp-update-banner>
 
 <div class="unlock-notice" role="alert" *ngIf="lockState === 'unlocked' && unlockNotice">
-  <p>{{ (unlockNotice === 'vault-unreadable' ? 'app.notice.vaultUnreadable' : 'app.notice.legacyUnverified') | t }}</p>
+  <p>{{ render(noticeMessage) }}</p>
   <div class="unlock-notice-actions">
-    <button type="button" class="btn ghost" (click)="openIntegrityCheck()">{{ 'app.notice.checkIntegrity' | t }}</button>
+    <button
+      type="button"
+      class="btn ghost"
+      *ngIf="unlockNotice === 'vault-unreadable' || unlockNotice === 'legacy-unverified'"
+      (click)="openIntegrityCheck()"
+    >{{ 'app.notice.checkIntegrity' | t }}</button>
+    <button type="button" class="btn ghost" *ngIf="unlockNotice === 'import-failed'" (click)="openImportSettings()">
+      {{ 'app.notice.openImport' | t }}
+    </button>
     <button type="button" class="btn ghost" (click)="dismissNotice()">{{ 'app.notice.dismiss' | t }}</button>
   </div>
 </div>
@@ -158,9 +166,72 @@
           <button type="button" class="btn primary full-width" (click)="startMasterSetup()">
             {{ 'intro.ctaFirst' | t }}
           </button>
+          <div class="setup-divider"><span>{{ 'app.restore.or' | t }}</span></div>
+          <button type="button" class="btn ghost full-width intro-import-btn" (click)="startImportSetup()">
+            {{ 'app.restore.cta' | t }}
+          </button>
+          <p class="muted small setup-hint">{{ 'app.restore.ctaHint' | t }}</p>
         </div>
 
         <ng-template #masterForm>
+          <ng-container *ngIf="setupMode === 'import'; else createForm">
+            <div class="first-time-heading">
+              <p class="muted tiny-eyebrow">{{ 'intro.subtitle' | t }}</p>
+              <h2>{{ 'app.restore.title' | t }}</h2>
+            </div>
+            <p class="muted small restore-lead">{{ 'app.restore.lead' | t }}</p>
+
+            <form (ngSubmit)="onImportSetup()" class="lock-form first-time-form restore-form">
+              <div class="restore-file-row">
+                <label class="btn ghost file-btn" [class.disabled]="setupBusy">
+                  <input
+                    type="file"
+                    accept=".kpenc"
+                    name="restoreFile"
+                    (change)="onSetupImportFile($event)"
+                    [disabled]="setupBusy"
+                  />
+                  <span>{{ 'app.restore.chooseFile' | t }}</span>
+                </label>
+                <span class="muted small restore-file-name">
+                  {{ setupImportFileName || ('app.restore.noFile' | t) }}
+                </span>
+              </div>
+
+              <label class="password-field">
+                <span>{{ 'app.restore.password' | t }}</span>
+                <input
+                  type="password"
+                  [(ngModel)]="masterPassword"
+                  name="restorePassword"
+                  autocomplete="off"
+                  required
+                  [disabled]="setupBusy"
+                />
+                <span class="muted small restore-hint">{{ 'app.restore.passwordHint' | t }}</span>
+              </label>
+
+              <div class="lock-actions actions-stacked">
+                <div class="lock-feedback" *ngIf="masterError">
+                  <div class="chip danger">{{ render(masterError) }}</div>
+                </div>
+
+                <button
+                  type="submit"
+                  class="btn primary full-width"
+                  [disabled]="setupBusy || !setupImportRaw || !masterPassword"
+                >
+                  {{ (setupBusy ? 'app.restore.busy' : 'app.restore.submit') | t }}
+                </button>
+                <button type="button" class="btn ghost full-width" (click)="setSetupMode('new')" [disabled]="setupBusy">
+                  {{ 'app.restore.back' | t }}
+                </button>
+              </div>
+            </form>
+          </ng-container>
+        </ng-template>
+
+        <ng-template #createForm>
           <div class="first-time-heading">
             <p class="muted tiny-eyebrow">{{ 'intro.subtitle' | t }}</p>
             <h2>{{ 'app.lock.titleUnset' | t }}</h2>
@@ -203,6 +274,9 @@
 
               <button type="submit" class="btn primary full-width">
                 {{ 'app.lock.btnCreate' | t }}
+              </button>
+              <button type="button" class="btn ghost full-width" (click)="setSetupMode('import')">
+                {{ 'app.restore.cta' | t }}
               </button>
             </div>
           </form>

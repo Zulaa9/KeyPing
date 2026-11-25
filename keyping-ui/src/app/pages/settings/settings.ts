@@ -151,8 +151,9 @@ export class SettingsComponent implements OnInit, OnDestroy {
     });
     void this.loadHistorySettings();
     void this.runIntegrityCheck();
-    if (this.route.snapshot.fragment === 'integrity') {
-      setTimeout(() => document.getElementById('integrity')?.scrollIntoView({ block: 'start' }), 0);
+    const fragment = this.route.snapshot.fragment;
+    if (fragment === 'integrity' || fragment === 'import') {
+      setTimeout(() => document.getElementById(fragment)?.scrollIntoView({ block: 'start' }), 0);
     }
     void this.updates.initialize();
   }

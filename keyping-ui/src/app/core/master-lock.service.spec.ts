@@ -46,6 +46,27 @@ describe('MasterLockService', () => {
     expect(localStorage.getItem('keyping.master.v1')).toBeNull();
   });
 
+  it('crea la bóveda importando un .kpenc y queda desbloqueada', async () => {
+    const res = await service.setupFromImport('{"format":"keyping-export-v2"}', 'file-master-pass');
+    expect(api['authSetupFromImport']).toHaveBeenCalledWith('{"format":"keyping-export-v2"}', 'file-master-pass');
+    expect(res).toEqual({ ok: true, imported: 3 });
+    expect(service.state$.value).toBe('unlocked');
+    expect(localStorage.getItem('keyping.master.v1')).toBeNull();
+  });
+
+  it('no desbloquea si la contraseña no es la del archivo', async () => {
+    api['authSetupFromImport'].and.resolveTo({ ok: false, reason: 'wrong-password' });
+    const res = await service.setupFromImport('{}', 'wrong');
+    expect(res).toEqual({ ok: false, reason: 'wrong-password' });
+    expect(service.state$.value).not.toBe('unlocked');
+  });
+
+  it('trata un error de IPC al importar como fallo sin desbloquear', async () => {
+    api['authSetupFromImport'].and.rejectWith(new Error('Unauthorized'));
+    expect(await service.setupFromImport('{}', 'pw-123456')).toEqual({ ok: false, reason: 'error' });
+    expect(service.state$.value).not.toBe('unlocked');
+  });
+
   it('cambia la contraseña verificándola en el proceso principal y bloquea', async () => {
     await service.setMaster('new-master-pass');
     expect(await service.rotateMaster('new-master-pass', 'another-pass-1')).toBeTrue();
