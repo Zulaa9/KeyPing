@@ -41,7 +41,7 @@ const jsonLd = page === 'home'
       downloadUrl: [STORE_URL, release.url],
       license: LICENSE_URL,
       sameAs: [REPO_URL, STORE_URL],
-      author: { '@type': 'Person', name: 'Unax Zulaika Fuente', url: 'https://zula.dev/' },
+      author: { '@type': 'Person', '@id': 'https://zula.dev/#person', name: 'Unax Zulaika Fuente', alternateName: 'Zula', url: 'https://zula.dev/' },
     })
   : null;
 
@@ -106,6 +106,7 @@ const current = (k: PageKey) => (k === page ? 'page' : undefined);
     <meta name="theme-color" content="#f6f8fc" media="(prefers-color-scheme: light)" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="author" content="Unax Zulaika Fuente" />
     {isNotFound ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     {!isNotFound && (
       <>
