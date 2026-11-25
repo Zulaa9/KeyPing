@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css';
-import { ROUTES, REPO_URL, PORTFOLIO_URL, LICENSE_URL, type Lang, type PageKey } from '../i18n/routes';
+import { ROUTES, REPO_URL, PORTFOLIO_URL, LICENSE_URL, STORE_URL, type Lang, type PageKey } from '../i18n/routes';
 import { getRelease } from '../lib/release';
 
 interface Props {
@@ -19,6 +19,31 @@ const canonical = new URL(selfPath, site).href;
 const ogImage = new URL(`/img/og-${lang}.png`, site).href;
 const release = await getRelease();
 const r = ROUTES[lang];
+
+// Datos estructurados (schema.org) solo en la portada: app gratuita, plataformas, tiendas y autor.
+// Solo hechos comprobables: sin valoraciones ni cifras de descargas.
+const jsonLd = page === 'home'
+  ? JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      '@id': new URL('/#app', site).href,
+      name: 'KeyPing',
+      description,
+      url: canonical,
+      image: new URL('/img/logo-128.png', site).href,
+      screenshot: ogImage,
+      inLanguage: lang,
+      applicationCategory: 'SecurityApplication',
+      operatingSystem: release.android ? 'Windows, Linux, Android' : 'Windows, Linux',
+      softwareVersion: release.version,
+      isAccessibleForFree: true,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+      downloadUrl: [STORE_URL, release.url],
+      license: LICENSE_URL,
+      sameAs: [REPO_URL, STORE_URL],
+      author: { '@type': 'Person', name: 'Unax Zulaika Fuente', url: 'https://zula.dev/' },
+    })
+  : null;
 
 const t = {
   es: {
@@ -105,6 +130,7 @@ const current = (k: PageKey) => (k === page ? 'page' : undefined);
     <meta property="og:locale" content={lang === 'es' ? 'es_ES' : 'en_US'} />
     <meta property="og:locale:alternate" content={lang === 'es' ? 'en_US' : 'es_ES'} />
     <meta name="twitter:card" content="summary_large_image" />
+    {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
     <script src="/js/site.js" defer></script>
   </head>
   <body>
